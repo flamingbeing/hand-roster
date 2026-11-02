@@ -23,3 +23,30 @@ export function sectionScreen(id, fill = () => {}) {
     hide() { section.hidden = true; },
   };
 }
+
+// A small element builder for the screens: h('button', { class: 'x', onclick: fn }, 'text', child). Properties set classes,
+// data-*, ARIA and events; a false or null value leaves the attribute out. Never an inline style (the page's CSP forbids
+// it): a look is a class in app.css.
+
+/**
+ * @param {string} tag
+ * @param {Record<string, any>} [props]  class, dataset ({ id: 'x' }), on<event> handlers, anything else as an attribute
+ * @param {...any} kids  nodes, texts, or arrays of them (null, false and undefined are skipped)
+ * @returns {HTMLElement}
+ */
+export function h(tag, props = {}, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v;
+    else if (k === 'dataset') Object.assign(el.dataset, v);
+    else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
+    else if (k === 'value' || k === 'checked' || k === 'disabled' || k === 'hidden') /** @type {any} */ (el)[k] = v;
+    else el.setAttribute(k, v === true ? '' : String(v));
+  }
+  el.append(...kids.flat(2).filter(x => x != null && x !== false));
+  return el;
+}
+
+/** @param {HTMLElement} node @returns {HTMLElement} the same node, emptied and refilled @param {...any} kids */
+export function fill(node, ...kids) { node.replaceChildren(...kids.flat(2).filter(x => x != null && x !== false)); return node; }

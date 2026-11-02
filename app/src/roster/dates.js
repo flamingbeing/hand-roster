@@ -35,3 +35,7 @@ export const mondayOf = day => addDays(day, -((weekday(day) + 6) % 7));
 export const rangeDays = (from, to) => { const out = []; for (let d = from; d <= to; d = addDays(d, 1)) out.push(d); return out; };
 /** @param {string} day @returns {string} '12 Oct' */
 export const shortDay = day => { const [, m, d] = day.split('-').map(Number); return `${d} ${MONTHS[m - 1]}`; };
+
+// The device's calendar day (local time), as YYYY-MM-DD. The only place the roster code reads the clock; the engine's
+// functions are given days. (The other functions here are UTC, so a day never shifts with the device's zone.)
+export const todayKey = (/** @type {Date} */ d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

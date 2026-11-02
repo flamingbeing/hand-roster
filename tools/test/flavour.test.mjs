@@ -123,7 +123,7 @@ test('a static app takes the template\'s changes to its render only; add.mjs clo
   const read = rel => fs.readFileSync(path.join(app, rel), 'utf8');
   const edit = (dir, rel, fn) => fs.writeFileSync(path.join(dir, rel), fn(fs.readFileSync(path.join(dir, rel), 'utf8')));
   // the app's own changes: one to a file both apps have, one to a static app's own file
-  edit(app, 'app/src/screens/tasks.js', t => `${t}// the app's own line\n`);
+  edit(app, 'app/src/screens/week.js', t => `${t}// the app's own line\n`);
   edit(app, 'app/src/local.js', t => `${t}// the app's own local line\n`);
   assert.throws(() => add({ source: path.join(tpl, 'recipes/files.json'), dir: app, log: () => {} }), /needs the cloud/);
 
@@ -152,7 +152,7 @@ test('a static app takes the template\'s changes to its render only; add.mjs clo
   assert.match(read('app/index.html'), /cloud\{[\s\S]*a cloud-only change/);
   assert.ok(!fs.existsSync(path.join(app, 'app/src/local-store.js')), 'a static file the app never changed goes');
   assert.ok(c.changes.some(x => x.action === 'kept' && x.path === 'app/src/local.js'), 'one it changed stays, listed');
-  assert.match(read('app/src/screens/tasks.js'), /the app's own line/);
+  assert.match(read('app/src/screens/week.js'), /the app's own line/);
   assert.match(read('app/src/config.js'), /"projectId": "trial-notes-app"/);
   assert.match(read('wrangler.jsonc'), /"FIREBASE_PROJECT": "trial-notes-app"/);
   assert.match(read('app/index.html'), /"@core\/sync"/);

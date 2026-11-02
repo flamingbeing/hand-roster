@@ -65,45 +65,107 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // A task. due is a day (YYYY-MM-DD) and dueTime a time (HH:MM), both local; optional fields are absent or null (null
-    // clears one). done tasks keep doneAt (ms).
-    match /spaces/{g}/tasks/{id} {
+    // Checks every roster record shares. d is the incoming record: a text is required, or optional (absent or null); a day is
+    // YYYY-MM-DD. createdAt is a number set once and never changed; _edits says who changed each field (app-sync).
+    function str(d, f, max) { return f in d && d[f] is string && d[f].size() > 0 && d[f].size() <= max; }
+    function optStr(d, f, max) { return !(f in d) || d[f] == null || (d[f] is string && d[f].size() <= max); }
+    function oneOfStr(d, f, allowed) { return f in d && d[f] is string && d[f] in allowed; }
+    function optOneOf(d, f, allowed) { return !(f in d) || d[f] == null || (d[f] is string && d[f] in allowed); }
+    function intIn(d, f, lo, hi) { return f in d && d[f] is int && d[f] >= lo && d[f] <= hi; }
+    function optIntIn(d, f, lo, hi) { return !(f in d) || d[f] == null || (d[f] is int && d[f] >= lo && d[f] <= hi); }
+    function optBool(d, f) { return !(f in d) || d[f] is bool; }
+    function isDay(v) { return v is string && v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'); }
+    function dayIn(d, f) { return f in d && isDay(d[f]); }
+    function optList(d, f, max) { return !(f in d) || (d[f] is list && d[f].size() <= max); }
+    function recordOk(d) {
+      return (!('_edits' in d) || d._edits is map)
+        && d.updatedAt is number
+        && (!('createdAt' in d) || d.createdAt is number)
+        && (resource == null || !('createdAt' in resource.data) || !('createdAt' in d) || d.createdAt == resource.data.createdAt);
+    }
+
+    // The doctors the roster places. A name is the key leave, requests and calls use. grade: con (consultant), reg (registrar or
+    // fellow), mo (medical officer); active false takes someone off without losing the old rosters.
+    match /spaces/{g}/people/{id} {
       allow read: if can(g, ['admin', 'member', 'viewer']);
       allow create, update: if can(g, ['admin', 'member']) && stamped()
-        && request.resource.data.keys().hasOnly(['text', 'notes', 'listId', 'due', 'dueTime', 'done', 'doneAt', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
-        && (!('_edits' in request.resource.data) || request.resource.data._edits is map)
-        && request.resource.data.text is string && request.resource.data.text.size() > 0
-        && request.resource.data.text.size() <= 500
-        && (!('notes' in request.resource.data) || request.resource.data.notes == null
-          || (request.resource.data.notes is string && request.resource.data.notes.size() <= 5000))
-        && (!('listId' in request.resource.data) || request.resource.data.listId == null
-          || (request.resource.data.listId is string && request.resource.data.listId.size() > 0 && request.resource.data.listId.size() <= 64))
-        && (!('due' in request.resource.data) || request.resource.data.due == null
-          || (request.resource.data.due is string && request.resource.data.due.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')))
-        && (!('dueTime' in request.resource.data) || request.resource.data.dueTime == null
-          || (request.resource.data.dueTime is string && request.resource.data.dueTime.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')
-            && 'due' in request.resource.data && request.resource.data.due != null))
-        && request.resource.data.done is bool
-        && (!('doneAt' in request.resource.data) || request.resource.data.doneAt == null || request.resource.data.doneAt is number)
-        && request.resource.data.updatedAt is number
-        && (!('createdAt' in request.resource.data) || request.resource.data.createdAt is number)
-        && (resource == null || !('createdAt' in resource.data) || !('createdAt' in request.resource.data) || request.resource.data.createdAt == resource.data.createdAt);
+        && request.resource.data.keys().hasOnly(['name', 'grade', 'rank', 'site', 'active', 'noCall', 'extra', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
+        && str(request.resource.data, 'name', 60)
+        && oneOfStr(request.resource.data, 'grade', ['con', 'reg', 'mo'])
+        && optStr(request.resource.data, 'rank', 20)
+        && optOneOf(request.resource.data, 'site', ['NUH', 'NTFGH'])
+        && optBool(request.resource.data, 'active') && optBool(request.resource.data, 'noCall') && optBool(request.resource.data, 'extra')
+        && recordOk(request.resource.data);
       allow delete: if can(g, ['admin', 'member']);
     }
 
-    // A list of tasks (Inbox is not stored: it is every task with no list, or one whose list is gone). A list's tasks keep
-    // their listId when it is deleted and show under Inbox.
+    // The weekly template of OT lists and clinics: one row per list per session of a weekday (wd 1 Monday to 5 Friday).
     match /spaces/{g}/lists/{id} {
       allow read: if can(g, ['admin', 'member', 'viewer']);
       allow create, update: if can(g, ['admin', 'member']) && stamped()
-        && request.resource.data.keys().hasOnly(['name', 'order', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
-        && (!('_edits' in request.resource.data) || request.resource.data._edits is map)
-        && request.resource.data.name is string && request.resource.data.name.size() > 0
-        && request.resource.data.name.size() <= 60
-        && request.resource.data.order is number
-        && request.resource.data.updatedAt is number
-        && (!('createdAt' in request.resource.data) || request.resource.data.createdAt is number)
-        && (resource == null || !('createdAt' in resource.data) || !('createdAt' in request.resource.data) || request.resource.data.createdAt == resource.data.createdAt);
+        && request.resource.data.keys().hasOnly(['site', 'kind', 'name', 'wd', 'session', 'consultant', 'rooms', 'patients', 'need', 'status', 'external', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
+        && str(request.resource.data, 'site', 20)
+        && oneOfStr(request.resource.data, 'kind', ['ot', 'msp', 'clinic', 'hot'])
+        && str(request.resource.data, 'name', 40)
+        && intIn(request.resource.data, 'wd', 1, 5)
+        && oneOfStr(request.resource.data, 'session', ['AM', 'PM'])
+        && optStr(request.resource.data, 'consultant', 60) && optStr(request.resource.data, 'rooms', 40)
+        && optIntIn(request.resource.data, 'patients', 0, 200)
+        && intIn(request.resource.data, 'need', 0, 10)
+        && oneOfStr(request.resource.data, 'status', ['open', 'closed', 'template', 'empty', 'consultant-only'])
+        && optBool(request.resource.data, 'external')
+        && recordOk(request.resource.data);
+      allow delete: if can(g, ['admin', 'member']);
+    }
+
+    // Leave: a person away from a day to a day (inclusive), all day or one session.
+    match /spaces/{g}/leave/{id} {
+      allow read: if can(g, ['admin', 'member', 'viewer']);
+      allow create, update: if can(g, ['admin', 'member']) && stamped()
+        && request.resource.data.keys().hasOnly(['name', 'from', 'to', 'session', 'note', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
+        && str(request.resource.data, 'name', 60)
+        && dayIn(request.resource.data, 'from') && dayIn(request.resource.data, 'to') && request.resource.data.from <= request.resource.data.to
+        && optOneOf(request.resource.data, 'session', ['AM', 'PM', 'both'])
+        && optStr(request.resource.data, 'note', 200)
+        && recordOk(request.resource.data);
+      allow delete: if can(g, ['admin', 'member']);
+    }
+
+    // Call requests: a day a person cannot do or would like, for one tier or any.
+    match /spaces/{g}/requests/{id} {
+      allow read: if can(g, ['admin', 'member', 'viewer']);
+      allow create, update: if can(g, ['admin', 'member']) && stamped()
+        && request.resource.data.keys().hasOnly(['name', 'date', 'type', 'tier', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
+        && str(request.resource.data, 'name', 60)
+        && dayIn(request.resource.data, 'date')
+        && oneOfStr(request.resource.data, 'type', ['cannot', 'want'])
+        && optOneOf(request.resource.data, 'tier', ['con', 'reg', 'moNuh', 'moNtf'])
+        && recordOk(request.resource.data);
+      allow delete: if can(g, ['admin', 'member']);
+    }
+
+    // A month's on-call roster, named YYYY-MM: calls (a row per day), locked (entries set by hand), holidays, problems.
+    match /spaces/{g}/rosters/{id} {
+      allow read: if can(g, ['admin', 'member', 'viewer']);
+      allow create, update: if can(g, ['admin', 'member']) && stamped() && id.matches('^[0-9]{4}-(0[1-9]|1[0-2])$')
+        && request.resource.data.keys().hasOnly(['calls', 'locked', 'holidays', 'problems', 'minGap', 'seed', 'built', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
+        && optList(request.resource.data, 'calls', 62) && optList(request.resource.data, 'locked', 200)
+        && optList(request.resource.data, 'holidays', 31) && optList(request.resource.data, 'problems', 60)
+        && optIntIn(request.resource.data, 'minGap', 0, 7) && optIntIn(request.resource.data, 'seed', 0, 1000000)
+        && (!('built' in request.resource.data) || request.resource.data.built is number)
+        && recordOk(request.resource.data);
+      allow delete: if can(g, ['admin', 'member']);
+    }
+
+    // A week's daily roster, named by its Monday (YYYY-MM-DD): the grid, a snapshot of the lists as built, and this week's changes.
+    match /spaces/{g}/weeks/{id} {
+      allow read: if can(g, ['admin', 'member', 'viewer']);
+      allow create, update: if can(g, ['admin', 'member']) && stamped() && isDay(id)
+        && request.resource.data.keys().hasOnly(['grid', 'lists', 'overrides', 'built', 'seed', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
+        && optList(request.resource.data, 'grid', 800) && optList(request.resource.data, 'lists', 400) && optList(request.resource.data, 'overrides', 200)
+        && optIntIn(request.resource.data, 'seed', 0, 1000000)
+        && (!('built' in request.resource.data) || request.resource.data.built is number)
+        && recordOk(request.resource.data);
       allow delete: if can(g, ['admin', 'member']);
     }
 
@@ -112,16 +174,13 @@ service cloud.firestore {
 
     // Each person's account options (@core/settings): one doc named by their uid, writable by them alone. The group can read the
     // docs because a list listen cannot be proven to ask for only one (rules are not filters); keep secrets out of options.
-    // One field per option (src/options.js); null forgets a saved value.
+    // One field per account option (src/options.js: none yet, every option is this device's); null forgets a saved value.
     match /spaces/{g}/settings/{id} {
       allow read: if can(g, ['admin', 'member', 'viewer']);
       allow create, update: if can(g, ['admin', 'member', 'viewer']) && request.auth.uid == id && stamped()
-        && request.resource.data.keys().hasOnly(['profile', 'showCounts', 'defaultList', 'updatedAt', 'serverAt', '_edits'])
+        && request.resource.data.keys().hasOnly(['profile', 'updatedAt', 'serverAt', '_edits'])
         && (!('_edits' in request.resource.data) || request.resource.data._edits is map)
         && (!('profile' in request.resource.data) || request.resource.data.profile == null || request.resource.data.profile is string)
-        && (!('showCounts' in request.resource.data) || request.resource.data.showCounts == null || request.resource.data.showCounts is bool)
-        && (!('defaultList' in request.resource.data) || request.resource.data.defaultList == null
-          || (request.resource.data.defaultList is string && request.resource.data.defaultList.size() <= 64))
         && request.resource.data.updatedAt is number;
       allow delete: if false;
     }

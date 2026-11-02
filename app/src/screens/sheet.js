@@ -1,0 +1,109 @@
+// The edit sheet (#edit-sheet in index.html): one sheet for every form in the app. A screen says what to ask (fields), what
+// is there now (values) and what to do with the answer; the sheet draws the fields, checks them (the browser's own form
+// checks: required, min, max) and calls back once on Save or Delete. A `warn` function can show problems under the form as
+// the person changes it (a hand edit may still go ahead).
+import { $, dialog, h, fill } from '../dom.js';
+
+/**
+ * @typedef {object} Field
+ * @property {string} key
+ * @property {string} label
+ * @property {'text' | 'number' | 'date' | 'select' | 'check' | 'area'} [type]  default text
+ * @property {[string, string][] | ((values: Record<string, any>) => [string, string][])} [options]  for a select (a function: the options follow the other fields)
+ * @property {boolean} [required]
+ * @property {number} [max]  text length, or the largest number
+ * @property {number} [min]
+ * @property {string} [hint]  a line under the field
+ * @property {string} [list]  suggestions for a text field
+ *
+ * @typedef {object} Spec
+ * @property {string} title
+ * @property {Field[]} fields
+ * @property {Record<string, any>} [values]
+ * @property {string} [note]  a line above the fields
+ * @property {string} [saveLabel]
+ * @property {string} [deleteLabel]  shows a Delete button when onDelete is given
+ * @property {(values: Record<string, any>) => string[]} [warn]
+ * @property {(values: Record<string, any>) => unknown} [onSave]
+ * @property {() => unknown} [onDelete]
+ */
+
+/** @type {ReturnType<typeof make> | null} */
+let shared = null;
+/** the one sheet of the page, made on first use (every screen asks for it) */
+export const editSheet = () => (shared ??= make());
+
+function make() {
+  const sheet = dialog('edit-sheet');
+  /** @type {{ read: () => Record<string, any>, spec: Spec } | null} */
+  let current = null;
+
+  sheet.addEventListener('close', async () => {
+    const c = current; current = null;
+    if (!c) return;
+    if (sheet.returnValue === 'save') await c.spec.onSave?.(c.read());
+    else if (sheet.returnValue === 'delete') await c.spec.onDelete?.();
+  });
+  $('edit-delete').addEventListener('click', () => sheet.close('delete'));
+
+  /** @param {Spec} spec */
+  function open(spec) {
+    /** @type {Record<string, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>} */
+    const controls = {};
+    const values = { ...(spec.values ?? {}) };
+    const warnBox = h('p', { class: 'small warn', role: 'status' });
+    const read = () => {
+      /** @type {Record<string, any>} */
+      const out = {};
+      for (const f of spec.fields) {
+        const c = controls[f.key];
+        out[f.key] = f.type === 'check' ? /** @type {HTMLInputElement} */ (c).checked
+          : f.type === 'number' ? (c.value === '' ? null : Number(c.value)) : c.value.trim();
+      }
+      return out;
+    };
+    const redrawOptions = () => {
+      const now = read();
+      for (const f of spec.fields) if (f.type === 'select' && typeof f.options === 'function') {
+        const c = /** @type {HTMLSelectElement} */ (controls[f.key]), keep = c.value;
+        fill(c, f.options(now).map(([v, l]) => h('option', { value: v }, l)));
+        c.value = [...c.options].some(o => o.value === keep) ? keep : c.options[0]?.value ?? '';
+      }
+      const w = spec.warn?.(read()) ?? [];
+      warnBox.textContent = w.join(' ');
+    };
+    const rows = spec.fields.map(f => {
+      const type = f.type ?? 'text';
+      let control;
+      if (type === 'select') {
+        const opts = typeof f.options === 'function' ? f.options(values) : f.options ?? [];
+        control = h('select', { id: `ef-${f.key}` }, opts.map(([v, l]) => h('option', { value: v }, l)));
+        const want = values[f.key] ?? '';
+        if ([...control.querySelectorAll('option')].some(o => o.value === String(want))) /** @type {HTMLSelectElement} */ (control).value = String(want);
+      } else if (type === 'area') {
+        control = h('textarea', { id: `ef-${f.key}`, rows: 3, maxlength: f.max, value: values[f.key] ?? '' });
+      } else if (type === 'check') {
+        control = h('input', { id: `ef-${f.key}`, type: 'checkbox', checked: !!values[f.key] });
+      } else {
+        control = h('input', { id: `ef-${f.key}`, type, value: values[f.key] ?? '', required: f.required, maxlength: type === 'text' ? f.max : null,
+          min: type === 'number' ? f.min : null, max: type === 'number' ? f.max : null, autocomplete: 'off', list: f.list || null, inputmode: type === 'number' ? 'numeric' : null });
+      }
+      controls[f.key] = /** @type {any} */ (control);
+      control.addEventListener(type === 'select' || type === 'check' || type === 'date' ? 'change' : 'input', redrawOptions);
+      return h('label', { class: type === 'check' ? 'field field-check' : 'field', for: `ef-${f.key}` },
+        type === 'check' ? [control, h('span', {}, f.label)] : [h('span', {}, f.label), control],
+        f.hint && h('span', { class: 'small' }, f.hint));
+    });
+    $('edit-title').textContent = spec.title;
+    fill($('edit-body'), spec.note && h('p', { class: 'small' }, spec.note), rows, warnBox);
+    $('edit-save').textContent = spec.saveLabel ?? 'Save';
+    $('edit-delete').hidden = !spec.onDelete;
+    $('edit-delete').textContent = spec.deleteLabel ?? 'Delete';
+    current = { read, spec };
+    redrawOptions();
+    sheet.showModal();
+    const first = Object.values(controls)[0];
+    if (first && first.type !== 'date') first.focus();
+  }
+  return { open, close: () => { current = null; sheet.close(); } };
+}

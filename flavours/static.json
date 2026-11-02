@@ -8,7 +8,7 @@
     "app/test/rules.test.mjs", "app/test/cloud.unit.test.mjs",
     "app/public/vendor/firebase", "tools/vendor-firebase.mjs", "tools/firebase.lock.json", "tools/test/vendor-firebase.test.mjs",
     "worker/claims.js", "worker/custom-token.js", "worker/admin.js", "worker/members.js", "worker/test/members.test.mjs", "worker/test/devkit-copy.test.mjs",
-    "e2e/global-setup.mjs", "e2e/back-sign-in.spec.mjs", "e2e/list.spec.mjs", "e2e/tasks.spec.mjs", "e2e/modules.spec.mjs", "e2e/offline.spec.mjs", "e2e/settings.spec.mjs", "e2e/sync.spec.mjs",
+    "e2e/global-setup.mjs", "e2e/back-sign-in.spec.mjs", "e2e/list.spec.mjs", "e2e/roster.spec.mjs", "e2e/modules.spec.mjs", "e2e/offline.spec.mjs", "e2e/settings.spec.mjs", "e2e/sync.spec.mjs",
     "e2e-live", ".github/workflows/deploy-rules.yml", ".github/workflows/live-smoke.yml",
     "recipes/files.json", "recipes/files"
   ],

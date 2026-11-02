@@ -1,9 +1,15 @@
 # Hand roster
 
 Instructions for every AI assistant working here (Claude Code reads this through `CLAUDE.md`).
-Replace the placeholders in angle brackets once the app is filled, then delete this line.
 
-<One or two lines: what this app is and who uses it.>
+A roster app for a hand surgery department: the week's OT lists and clinics with the juniors on each, the monthly calls,
+the people, leave and requests. Admins and members edit; viewers read. Tabs: Week (first), Calls, People, Lists, Leave.
+
+How it is laid out: `app/src/roster/` is the pure engine (no DOM, no Firebase; covered by `app/test/roster.unit.test.mjs`);
+`app/src/data/` is one module per kind (people, lists, leave and requests, rosters and weeks) that cleans a record and
+saves it through the write queue under `spaces/_/<kind>`; `app/src/store.js` holds the live rows; `app/src/screens/` is one
+file per tab, Week loaded first and the rest lazily (`lazyModules` in `app/src/app.js`). Leave, post-call, on-call and free
+are worked out when shown, never stored. All names in code, tests and docs are made up ("Dr Ann Test").
 
 ## Public here, private elsewhere
 

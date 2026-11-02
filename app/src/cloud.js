@@ -4,9 +4,14 @@
 // Firestore layout (rules in firestore.app.rules):
 //   members/{uid}              { role: admin | member | viewer, v }   the role doc (source of truth; admins change it
 //                              through the Worker's /api/members/, which revokes a removed person's access)
-//   spaces/_/tasks/{id}        { text, notes?, listId?, due?, dueTime?, done, doneAt?, createdAt, updatedAt, serverAt, _edits }  the tasks
-//                              (_edits: who changed each field, and when) ('_' is the single group)
-//   spaces/_/lists/{id}        { name, order, createdAt, updatedAt, serverAt, _edits }  the lists (Inbox is not stored)
+//   spaces/_/people/{id}      { name, grade, rank?, site?, active?, noCall?, extra?, createdAt, updatedAt, serverAt, _edits }  the doctors
+//   spaces/_/lists/{id}       { site, kind, name, wd, session, consultant?, rooms?, patients?, need, status, ... }  the weekly template of OT lists and clinics
+//   spaces/_/leave/{id}       { name, from, to, session?, note?, ... }  leave, all day or AM or PM
+//   spaces/_/requests/{id}    { name, date, type: cannot | want, tier?, ... }  call requests
+//   spaces/_/rosters/{YYYY-MM} { calls: [{ date, con, reg, moNuh, moNtf }], locked, holidays, problems, ... }  a month's on-call roster
+//   spaces/_/weeks/{Monday}   { grid: [{ day, session, list, juniors }], lists, overrides, ... }  a week's daily roster
+//                              (every record: createdAt, updatedAt, serverAt, _edits: who changed each field, and when;
+//                              '_' is the single group)
 //   spaces/_/bin/{coll:id}     { id, kind, data, deletedAt, … }       a deleted item's last version (delete to bin)
 //
 // Roles reach the rules as custom claims ({ g: { _: role }, v }), a cache of the role doc: the Worker's /api/claims
@@ -29,17 +34,20 @@ import { emulator, configured, roleOf, needsClaims } from './roles.js';
 import { setHint } from './hint.js';
 import { OPTIONS, SETTINGS_COLL } from './options.js';
 import { dataModules } from './data-modules.js';
-import { COLL, LISTS } from './items.js';
-import { taskOps } from './task-ops.js';
+import { kindOps } from './data/ops.js';
+import * as people from './data/people.js';
+import * as lists from './data/lists.js';
+import * as leaveData from './data/leave.js';
+import { rosters, weeks } from './data/plans.js';
 
 export { usingEmulator } from './roles.js';
-export { lastSignedIn, keepList, keptList } from './hint.js';
+export { lastSignedIn } from './hint.js';
 const SPACE = '_';
-// (the list's shared bits live in items.js, the same in a static app; named here too for the files recipe)
-export { COLL, itemText, REFUSED } from './items.js';
+export { REFUSED } from './items.js';
 
-/** @typedef {import('./items.js').Item} Item */
-/** @typedef {import('./items.js').TaskList} TaskList */
+/** the roster's kinds of record: each one a collection under spaces/_/ and a data module (src/data/) saying what it allows */
+export const KINDS = /** @type {const} */ ({ people, lists, leave: leaveData, requests: leaveData.requests, rosters, weeks });
+/** @typedef {keyof typeof KINDS} Kind */
 /** @typedef {import('./items.js').User} User */
 /** @typedef {import('./items.js').Phase} Phase */
 /** @typedef {import('./items.js').State} State */
@@ -94,11 +102,8 @@ const binCopy = ({ serverAt, ...rest }) => JSON.parse(JSON.stringify(rest));
 /**
  * @typedef {object} Hooks
  * @property {(s: State) => void} onState
- * @property {(items: Item[], changed: Set<string>) => void} onList  the tasks as this device has them, with unsent saves
- *   laid over; changed: the ids whose copy changed since the last call (none the first time)
- * @property {(lists: TaskList[]) => void} onLists  the lists, the same way
- * @property {(byItem: Map<string, unknown[]>) => void} [onFiles]  every item's attached files (item id -> them), whenever
- *   one changes (the files recipe)
+ * @property {(kind: Kind, rows: import('./data/ops.js').Row[], changed: Set<string>) => void} onData  one kind's records as this
+ *   device has them, with unsent saves laid over; changed: the ids whose copy changed since the last call (none the first time)
  */
 /** @typedef {NonNullable<Awaited<ReturnType<typeof start>>>} Started */
 
@@ -123,7 +128,7 @@ export async function start({ canReload = null }) {
       },
     }),
     sync({
-      colls: [COLL, LISTS, SETTINGS_COLL, ...(dataModules.files ? [dataModules.files.coll] : [])], path: (/** @type {string} */ space, /** @type {string} */ coll) => ['spaces', space, coll],
+      colls: [...Object.keys(KINDS), SETTINGS_COLL, ...(dataModules.files ? [dataModules.files.coll] : [])], path: (/** @type {string} */ space, /** @type {string} */ coll) => ['spaces', space, coll],
       scope: () => SPACE, device: deviceName(), wake: true,
       // a delete writes the item's last version to the bin in the same transaction ({ id, kind, data, deletedAt }:
       // the other devices drop the item from it, and data keeps the deleted version)
@@ -132,7 +137,7 @@ export async function start({ canReload = null }) {
       // commitRetry: a send refused with permission-denied just after sign-in (the role check still catching up) is tried
       // once more after 500 ms, as app-sync advises for rules that read a document another write is creating
       backend: { stampMode: 'server', writeId: false, held: true, edits: '_edits', commitRetry: { codes: ['permission-denied'], delay: 500 },
-        onCommit: (/** @type {any} */ { scope, coll, before, after, at, fields }) => (coll === COLL || coll === LISTS) && !after && before && binOn()
+        onCommit: (/** @type {any} */ { scope, coll, before, after, at, fields }) => coll in KINDS && !after && before && binOn()
           ? [{ path: ['spaces', scope, 'bin', `${coll}:${before.id}`], data: { ...leaveEntry(coll, before, at), data: binCopy(before), ...fields } }] : [] },
       hub: { bin: 'bin' }, stores: { metaOnly: ['bin'] },
       // a save the server refused is set aside (kept, with its code) until the person retries or discards it
@@ -155,14 +160,8 @@ export async function start({ canReload = null }) {
 
   app.status$((/** @type {{ unsent: number }} */ st) => { unsent = st.unsent; });
 
-  /** @type {(() => void) | null} */
-  let offList = null;
-  /** @type {(() => void) | null} */
-  let offLists = null;
-  /** @type {(() => void) | null} */
-  let offFiles = null;
-  /** @type {Item[]} the tasks as last heard (items()) */
-  let latest = [];
+  /** @type {Map<string, () => void>} the live listens, by collection */
+  const offs = new Map();
   let seq = 0;
   // the token Firestore has been told about: its own token listener (added when the SDK started, so before this one)
   // runs in the same notification and restarts its connection with the new token. A list listen sent before that goes
@@ -179,11 +178,11 @@ export async function start({ canReload = null }) {
     try { claims = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); } catch { /* none */ }
     return { token, claims, stale: true };
   };
-  const stopList = () => { latest = []; offList?.(); offList = null; offLists?.(); offLists = null; offFiles?.(); offFiles = null; offSettings?.(); offSettings = null; };
+  const stopList = () => { for (const off of offs.values()) off(); offs.clear(); offSettings?.(); offSettings = null; };
   // the token as it is now decides what the page shows (after sign-in, and after every claims ask); the newest call wins
   show = async () => {
     if (!hooks) return;
-    const { onState, onList, onLists, onFiles } = hooks;
+    const { onState, onData } = hooks;
     const n = ++seq;
     await settled;
     if (n !== seq) return;
@@ -201,14 +200,14 @@ export async function start({ canReload = null }) {
     setHint(true);
     onState({ phase: 'ready', user, role });
     offSettings ??= app.settings.follow();   // the account's options, heard from other devices (listening needs the role)
-    let first = true;
-    offList ??= app.sync.watch(SPACE, COLL, (/** @type {Item[]} */ list, /** @type {{ changed?: string[] }} */ meta) => {
-      latest = list.filter(x => !x._deleted);
-      onList(latest, new Set(first ? [] : meta?.changed || []));
-      first = false;
-    });
-    offLists ??= app.sync.watch(SPACE, LISTS, (/** @type {TaskList[]} */ list) => { onLists(list.filter(x => !x._deleted)); });
-    if (onFiles && dataModules.files) offFiles ??= dataModules.files.watch(app, SPACE, onFiles);
+    for (const coll of /** @type {Kind[]} */ (Object.keys(KINDS))) {
+      if (offs.has(coll)) continue;
+      let first = true;
+      offs.set(coll, app.sync.watch(SPACE, coll, (/** @type {import('./data/ops.js').Row[]} */ list, /** @type {{ changed?: string[] }} */ meta) => {
+        onData(coll, list.filter(x => !x._deleted), new Set(first ? [] : meta?.changed || []));
+        first = false;
+      }));
+    }
   };
   app.auth.onUser(() => { claimsStatus = 0; void show(); });
 
@@ -223,7 +222,13 @@ export async function start({ canReload = null }) {
     } catch { return 'Offline: try again.'; }
   };
   const id = () => (crypto.randomUUID?.() || String(Date.now()) + Math.random().toString(36).slice(2)).replace(/-/g, '');
-  const ops = taskOps({ save: (coll, record, base) => app.sync.save(coll, SPACE, record, base), id });
+  const save = (/** @type {string} */ coll, /** @type {Record<string, unknown>} */ record, /** @type {unknown} */ base) => app.sync.save(coll, SPACE, record, base);
+  // the writes of each kind: add, edit, upsert (a month or a week, named by its key), put, remove; every one resolves to ''
+  // when the save is stored or queued, or to the reason when the server refused it at once
+  const data = /** @type {{ [K in Kind]: ReturnType<typeof kindOps> }} */ (Object.fromEntries(Object.entries(KINDS).map(([coll, m]) => {
+    const ops = kindOps({ save, id }, coll, m.clean);
+    return [coll, { ...ops, remove: (/** @type {import('./data/ops.js').Row} */ row) => { void app.sync.hub.drop(SPACE, coll, [row.id]); return ops.remove(row); } }];
+  })));
   return {
     // the modules' apis, for the UI kit's parts (update: with a service worker only, else null)
     auth: app.auth, sync: app.sync, settings: app.settings, update: app.update || null, files: app.files,
@@ -232,32 +237,10 @@ export async function start({ canReload = null }) {
     // the whole app's status (sync and the modules): { state, count, unsent }
     /** @param {(st: { state: string, count: number, unsent: number }) => void} fn */
     status$: fn => app.status$(fn),
-    // from now on: onState with what the page shows, onList and onLists with the tasks and lists once they are shown
+    // from now on: onState with what the page shows, onData with each kind's records once they are shown
     /** @param {Hooks} h */
     follow(h) { hooks = h; void show(); },
-    // the writes resolve to '' when the save is stored or queued, or to the reason when the server refused it at once
-    // (task-ops.js); base: the copy the change started from
-    add: ops.add, edit: ops.edit, tick: ops.tick,
-    addList: ops.addList, renameList: ops.renameList,
-    // a delete takes the task's attached files with it (the files recipe)
-    /** @param {Item} item @param {unknown[]} [attached] */
-    remove: async (item, attached = []) => {
-      void app.sync.hub.drop(SPACE, COLL, [item.id]);
-      await ops.removeTask(item);
-      await dataModules.files?.removeAll(app, attached);
-    },
-    /** @param {TaskList} list */
-    removeList: async list => { void app.sync.hub.drop(SPACE, LISTS, [list.id]); await ops.removeList(list); },
-    // one item, live from the server: cb(item) when its copy changes, cb(null) once the server says it is gone -> stop()
-    /** @param {string} itemId @param {(item: Item | null) => void} cb @returns {() => void} */
-    watchItem: (itemId, cb) => app.sync.watchDoc(['spaces', SPACE, COLL, itemId], cb),
-    // the tasks as last heard, a whole task saved under its own id, and whether the server's copy has arrived (a
-    // restore: the backup recipe)
-    items: () => latest,
-    put: ops.put,
-    serverCopyIn: () => !!app.sync.facts().confirmed,
-    // the deleted items: list, restore, purge (the bin recipe)
-    bin: dataModules.bin?.api({ sdk, space: SPACE, items: () => latest, put: ops.put }),
+    data,
     // admins: set someone's role, or remove them (they lose access at once; their sessions end). -> '' or the reason
     members: {
       /** @param {string} uid @param {'admin' | 'member' | 'viewer'} role */

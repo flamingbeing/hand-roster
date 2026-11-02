@@ -43,6 +43,8 @@ import { weekday } from './dates.js';
  * @property {string | null} [consultant]
  * @property {'open' | 'closed' | 'template' | 'empty' | 'consultant-only'} status  only 'open' lists take juniors
  * @property {number} need  juniors wanted
+ * @property {string} [rooms]
+ * @property {number} [patients]
  * @property {boolean} [external]  run by another hospital's team, never staffed from here
  * @property {boolean} [consultantOnLeave]
  */

@@ -55,34 +55,35 @@
        tab and a side link for each. -->
   <div class="ui-shell">
     <header class="ui-bar">
-      <span class="ui-bar-side" data-bar-lead><button type="button" class="ui-bar-menu" aria-label="Menu" aria-controls="side">☰</button></span>
+      <span class="ui-bar-side" data-bar-lead><button type="button" class="ui-bar-menu" aria-label="Menu" aria-controls="side"><span data-icon="menu" aria-hidden="true"></span></button></span>
       <h2 class="ui-bar-title" aria-hidden="true">Hand roster</h2>
       <span class="ui-bar-side ui-bar-end">
         <!-- cloud{ the sync button (app-ui's syncButton): the state as a cloud icon, a tap syncs now -->
         <button type="button" id="sync-btn" aria-label="Connecting…" title="Connecting…"></button>
         <!-- }cloud -->
-        <button type="button" class="ui-primary" id="new-task" hidden>New</button>
       </span>
     </header>
 
     <nav class="ui-sidebar" id="side" aria-label="Sections">
       <p class="ui-sidebar-name"><img class="app-mark" src="icons/icon.svg" alt="" width="28" height="28">Hand roster</p>
-      <a class="ui-side-link" href="./" data-tab-page="#today-page" aria-current="page">Today</a>
-      <a class="ui-side-link" href="./" data-tab-page="#upcoming-page">Upcoming</a>
-      <a class="ui-side-link" href="./" data-tab-page="#done-page">Done</a>
+      <a class="ui-side-link" href="./" data-tab-page="#week-page" aria-current="page">Week</a>
+      <a class="ui-side-link" href="./" data-tab-page="#calls-page">Calls</a>
+      <a class="ui-side-link" href="./" data-tab-page="#people-page">People</a>
+      <a class="ui-side-link" href="./" data-tab-page="#lists-page">Lists</a>
+      <a class="ui-side-link" href="./" data-tab-page="#leave-page">Leave and requests</a>
       <a class="ui-side-link" href="./" data-tab-page="#settings-page" id="side-settings">Settings</a>
     </nav>
 
     <main class="ui-screens">
-      <section class="ui-screen" id="today-page" aria-labelledby="today-title">
-        <h1 class="ui-large-title" id="today-title">Today</h1>
-        <!-- cloud{ the sync chip: a static app's list is never unsent -->
+      <section class="ui-screen" id="week-page" aria-labelledby="week-heading">
+        <h1 class="ui-large-title" id="week-heading">Week</h1>
+        <!-- cloud{ the sync chip: a static app's data is never unsent -->
         <p class="status-line"><span id="sync-chip"></span></p>
         <!-- }cloud -->
         <!-- cloud{ sign-in, access and set-up: a static app has none (tools/flavour.mjs) -->
         <div id="signed-out" hidden>
           <img class="app-mark app-mark-big" src="icons/icon.svg" alt="" width="72" height="72">
-          <p>Sign in to see your tasks.</p>
+          <p>Sign in to see the roster.</p>
           <div id="sign-in-sheet" class="sheet"></div>
         </div>
         <div id="no-access" hidden>
@@ -93,38 +94,47 @@
           <p>This app isn't connected to its Firebase project yet (see README, "Fill").</p>
         </div>
         <!-- }cloud -->
-        <div id="list-view" hidden>
+        <div id="week-view" hidden>
           <div id="conflict-sheet"></div>
           <div id="refused-list"></div>
-          <p id="edit-msg" class="small" role="status"></p>
-          <div id="list-tools"></div>
-          <div class="list-picker" role="group" aria-label="Lists"></div>
-          <form id="add" autocomplete="off">
-            <label for="new-text">New task</label>
-            <div class="row">
-              <input id="new-text" name="text" maxlength="500" required>
-              <button type="submit">Add</button>
-            </div>
-          </form>
-          <div id="today-state"></div>
-          <ul id="today" class="ui-list" aria-label="Today"></ul>
-          <div id="today-empty"></div>
+          <div class="wk-bar">
+            <button type="button" id="week-prev" aria-label="Previous week"></button>
+            <h2 class="wk-title" id="week-title"></h2>
+            <button type="button" id="week-next" aria-label="Next week"></button>
+            <button type="button" id="week-today">This week</button>
+            <label class="wk-site-pick"><span class="small">Site</span> <select id="week-site"></select></label>
+            <span class="wk-bar-end">
+              <button type="button" id="week-print"></button>
+              <button type="button" class="ui-primary" id="week-build" hidden></button>
+            </span>
+          </div>
+          <p id="week-state-note" class="small" role="status"></p>
+          <p id="week-print-title" class="print-only"></p>
+          <div id="week-state"></div>
+          <div id="week-empty"></div>
+          <div id="week-chips" class="wk-chips" role="group" aria-label="Day"></div>
+          <div id="week-grid" class="wk-grid"></div>
         </div>
       </section>
 
-      <section class="ui-screen ui-tab-page" id="upcoming-page" aria-labelledby="upcoming-title" hidden>
-        <h1 class="ui-large-title" id="upcoming-title">Upcoming</h1>
-        <div class="list-picker" role="group" aria-label="Lists"></div>
-        <div id="upcoming" class="task-groups"></div>
-        <div id="upcoming-empty"></div>
+      <section class="ui-screen ui-tab-page" id="calls-page" aria-labelledby="calls-heading" hidden>
+        <h1 class="ui-large-title" id="calls-heading">Calls</h1>
+        <div id="calls-host"></div>
       </section>
 
-      <section class="ui-screen ui-tab-page" id="done-page" aria-labelledby="done-title" hidden>
-        <h1 class="ui-large-title" id="done-title">Done</h1>
-        <div class="list-picker" role="group" aria-label="Lists"></div>
-        <p class="done-tools"><button type="button" id="clear-done" hidden>Clear done tasks</button></p>
-        <ul id="done" class="ui-list" aria-label="Done"></ul>
-        <div id="done-empty"></div>
+      <section class="ui-screen ui-tab-page" id="people-page" aria-labelledby="people-heading" hidden>
+        <h1 class="ui-large-title" id="people-heading">People</h1>
+        <div id="people-host"></div>
+      </section>
+
+      <section class="ui-screen ui-tab-page" id="lists-page" aria-labelledby="lists-heading" hidden>
+        <h1 class="ui-large-title" id="lists-heading">Lists</h1>
+        <div id="lists-host"></div>
+      </section>
+
+      <section class="ui-screen ui-tab-page" id="leave-page" aria-labelledby="leave-heading" hidden>
+        <h1 class="ui-large-title" id="leave-heading">Leave and requests</h1>
+        <div id="leave-host"></div>
       </section>
 
       <section class="ui-screen ui-tab-page" id="settings-page" aria-labelledby="settings-title" hidden>
@@ -141,53 +151,33 @@
     </main>
 
     <nav class="ui-tabbar" data-minimise aria-label="Sections">
-      <button type="button" class="ui-tab" data-tab-page="#today-page" data-tab-id="today" aria-current="page"><span class="ui-tab-icon" aria-hidden="true">✓</span>Today</button>
-      <button type="button" class="ui-tab" data-tab-page="#upcoming-page" data-tab-id="upcoming"><span class="ui-tab-icon" aria-hidden="true">▤</span>Upcoming</button>
-      <button type="button" class="ui-tab" data-tab-page="#done-page" data-tab-id="done"><span class="ui-tab-icon" aria-hidden="true">●</span>Done</button>
-      <button type="button" class="ui-tab" data-tab-page="#settings-page" data-tab-id="settings" id="tab-settings"><span class="ui-tab-icon" aria-hidden="true">≡</span>Settings</button>
+      <button type="button" class="ui-tab" data-tab-page="#week-page" data-tab-id="week" aria-current="page"><span class="ui-tab-icon" data-icon="calendar" aria-hidden="true"></span>Week</button>
+      <button type="button" class="ui-tab" data-tab-page="#calls-page" data-tab-id="calls"><span class="ui-tab-icon" data-icon="phone" aria-hidden="true"></span>Calls</button>
+      <button type="button" class="ui-tab" data-tab-page="#people-page" data-tab-id="people"><span class="ui-tab-icon" data-icon="users" aria-hidden="true"></span>People</button>
+      <button type="button" class="ui-tab" data-tab-page="#lists-page" data-tab-id="lists"><span class="ui-tab-icon" data-icon="clipboardList" aria-hidden="true"></span>Lists</button>
+      <button type="button" class="ui-tab" data-tab-page="#leave-page" data-tab-id="leave"><span class="ui-tab-icon" data-icon="calendarX" aria-hidden="true"></span>Leave</button>
+      <button type="button" class="ui-tab" data-tab-page="#settings-page" data-tab-id="settings" id="tab-settings"><span class="ui-tab-icon" data-icon="menu" aria-hidden="true"></span>Settings</button>
     </nav>
   </div>
 
   <div id="toasts"></div>
 
-  <dialog class="ui-sheet" id="task-sheet" data-detents="medium large" data-wide="panel" aria-labelledby="task-title">
+  <!-- one sheet for every form (src/screens/sheet.js fills it): the kit starts its sheets with the page, so a sheet made later would not drag -->
+  <dialog class="ui-sheet" id="edit-sheet" data-detents="medium large" data-wide="panel" aria-labelledby="edit-title">
     <div class="ui-sheet-grabber" aria-label="Expand or collapse"></div>
-    <form method="dialog" id="task-form">
+    <form method="dialog" id="edit-form">
       <div class="ui-sheet-head">
-        <h2 id="task-title">New task</h2>
+        <h2 id="edit-title">Edit</h2>
         <button type="button" data-close>Cancel</button>
       </div>
       <div class="ui-sheet-body">
-        <label class="kit-field">Task <input id="task-text" maxlength="500" required autocomplete="off"></label>
-        <label class="kit-field">Notes <textarea id="task-notes" maxlength="2000" rows="3"></textarea></label>
-        <div class="task-when">
-          <label class="kit-field">Due day <input id="task-due" type="date"></label>
-          <label class="kit-field">Time <input id="task-time" type="time"></label>
-        </div>
-        <label class="kit-field">List <select id="task-list"></select></label>
-        <p id="task-live" class="small" role="status"></p>
-        <div id="edit-extras"></div>
+        <div id="edit-body"></div>
         <div class="row">
-          <button id="task-save" value="save" class="ui-primary">Save</button>
-          <button id="task-delete" value="delete" type="button" class="danger">Delete</button>
+          <button id="edit-save" value="save" class="ui-primary">Save</button>
+          <button id="edit-delete" type="button" class="danger" hidden>Delete</button>
         </div>
       </div>
     </form>
-  </dialog>
-
-  <dialog class="ui-sheet" id="lists-sheet" data-detents="medium large" data-wide="panel" aria-labelledby="lists-title">
-    <div class="ui-sheet-grabber" aria-label="Expand or collapse"></div>
-    <div class="ui-sheet-head">
-      <h2 id="lists-title">Lists</h2>
-      <button type="button" data-close>Done</button>
-    </div>
-    <div class="ui-sheet-body">
-      <p class="small">Inbox always exists. Deleting a list moves its tasks to Inbox.</p>
-      <ul id="lists-manage" class="ui-list" aria-label="Your lists"></ul>
-      <form id="list-add" autocomplete="off">
-        <label class="kit-field">New list <span class="row"><input id="list-name" maxlength="60" required><button type="submit">Add list</button></span></label>
-      </form>
-    </div>
   </dialog>
 </body>
 </html>

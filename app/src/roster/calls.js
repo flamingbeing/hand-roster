@@ -26,6 +26,7 @@ import { DEFAULT_TIER_PLAN, TIERS, canTake, dayType, isOffDay, leaveIndex } from
  * @property {number} [minGap]  days a person must be clear between two calls (default 2: call Mon, next Thu at the earliest)
  * @property {number} [seed]
  * @property {number} [iterations]  annealing budget (default 30000)
+ * @property {boolean} [fill]  false: fill nothing, only judge the locked entries (the calls check; default true)
  * @property {CallMap} [prior]  the weeks before the month, for the gap rule at its start
  * @property {CallMap} [locked]  entries to keep exactly (a hand edit, or a call already given)
  *
@@ -81,7 +82,7 @@ export function solveCalls(o) {
       }
       const lockName = o.locked?.[date]?.[tier];
       const locked = lockName ? (idx.get(lockName) ?? -2) : -1;
-      slots.push({ date, di, tier, off: isOffDay(type), cands, locked });
+      slots.push({ date, di, tier, off: isOffDay(type), cands: o.fill === false && !lockName ? [] : cands, locked });
     }
   });
   const S = slots.length;

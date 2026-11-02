@@ -4,8 +4,8 @@ Lasting decisions and how to test. Shaping decisions have their own records in [
 
 ## How to test
 
-See README, "Tests". The browser tests use one shared list (`spaces/_/tasks`), so each test uses its own made-up
-accounts and task texts and checks only those; they run side by side.
+See README, "Tests". The browser tests share the `spaces/_/` data, so each test uses its own made-up accounts and list or person names
+and checks only those; they run side by side.
 
 ## UI kit gestures and the `/kit/` gallery (app-ui)
 
