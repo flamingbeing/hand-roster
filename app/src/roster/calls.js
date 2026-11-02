@@ -54,7 +54,8 @@ const W = { total: 1, weekend: 1.5, tier: 0.3, spread: 0.4, want: 5, grade: 1.5 
  */
 export function solveCalls(o) {
   const plan = o.tiers ?? DEFAULT_TIER_PLAN;
-  const minGap = o.minGap ?? 2;
+  // at least 1 clear day: the day after a call is post-call (off), so back-to-back calls would clash with it
+  const minGap = Math.max(1, o.minGap ?? 2);
   const rnd = prng(o.seed ?? 1);
   const days = monthDays(o.month);
   const lv = leaveIndex(o.leave ?? []);

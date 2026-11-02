@@ -115,7 +115,7 @@ export function create(ctx) {
       values: { holidays: m.holidays.join('\n'), minGap: m.minGap },
       fields: [
         { key: 'holidays', label: 'Public holidays (one day per line, YYYY-MM-DD)', type: 'area', max: 400 },
-        { key: 'minGap', label: 'Days clear between one person’s calls', type: 'number', min: 0, max: 7, hint: '2 means call on Monday, next on Thursday at the earliest.' },
+        { key: 'minGap', label: 'Days clear between one person’s calls', type: 'number', min: 1, max: 7, hint: '2 means call on Monday, next on Thursday at the earliest.' },
       ],
       onSave: async v => {
         const holidays = String(v.holidays).split(/[\s,;]+/).filter(Boolean);

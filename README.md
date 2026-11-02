@@ -1,7 +1,12 @@
-# Hand roster
+# Hand Roster
 
-Made from [app-starter](https://github.com/flamingbeing/app-starter), a template for small offline-first web apps that
-are safe from day one. Replace this first paragraph with what the app is once it is filled.
+A roster app for a hand and reconstructive microsurgery department. The roster maker enters the people, leave, call
+requests and the weekly OT lists and clinics; the app makes the month's on-call roster (consultant, registrar and the
+medical officers at each site, fairly spread) and builds the week's morning and afternoon grid with leave, post-call and
+free filled in. The week and the calls export to Excel in the department's sheet layout, print as a landscape A4 grid, and
+copy as plain text for a group chat. Juniors read it on a phone. Made from
+[app-starter](https://github.com/flamingbeing/app-starter), a template for small offline-first web apps that are safe
+from day one; the sections below are the template's, and they still describe how this app is built.
 <!-- static{
 > **A static app** ("Pick a starter"): no sign-in and no Firebase; the list stays on this device (IndexedDB,
 > `app/src/local.js`). The parts below on sign-in, roles, rules, the emulators and Firebase are the cloud app's:
@@ -15,11 +20,11 @@ are safe from day one. Replace this first paragraph with what the app is once it
   answers `/api/claims` (app-devkit `claims.js`, roles from `members.js`) and `/api/csp` (CSP reports, one line each
   in the Worker log: `csp-report.js`), and passes Firebase's sign-in helper pages (`/__/auth/`, `/__/firebase/`) on
   to the project, so sign-in stays on the app's address (those pages get only the framing rule, not the app's CSP).
-- **Sample app** (`app/`): a tasks app: Today (with a quick add), Upcoming (grouped by day; tasks with no date sit in a
-  trailing "No date" group) and Done tabs, lists (Inbox plus your own, a chip picker and an "Edit lists" sheet), a task
-  sheet (notes, due day and time, list), tick-off with Undo, delete (to the bin), a conflict sheet, a list of saves the server
-  refused, a status chip, Google sign-in, sign-out that keeps the device copy (forget wipes it, once nothing is
-  unsent), a task sheet that follows its task, "check for updates" and the version line (in Settings). Sync is
+- **The app** (`app/`): Week (the default tab: build the week from the lists, move a junior, print, Excel, copy for chat),
+  Calls (make the month's roster, edit by hand, check the rules), People, Lists (the OT lists and clinics that run each
+  week) and Leave and requests. Admins and members edit; viewers read. The engine is pure code in `app/src/roster/`. The
+  conflict sheet, a list of saves the server refused, a status chip, Google sign-in, sign-out that keeps the device
+  copy (forget wipes it, once nothing is unsent), "check for updates" and the version line (in Settings) are the template's. Sync is
   [app-sync](https://github.com/flamingbeing/app-sync)'s modules (`createApp` with `auth`, `sync` and `update`, in
   `app/src/cloud.js`), each at an exact version from `core.anawj.com/sync/` named once in `app/index.html`'s import
   map; updates wait for `canReload` (no reload while someone types, a sheet is open or saves are sending).

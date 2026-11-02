@@ -144,6 +144,19 @@ test('calls: an impossible month reports what it could not do instead of breakin
 });
 
 // ---- weekly grid ----
+test('calls: a gap of 0 is lifted to 1, so nobody is on call on two days running (the day after a call is post-call)', () => {
+  const r = solve({ minGap: 0, iterations: 3000 });
+  const days = Object.keys(r.assignments).sort();
+  for (let k = 1; k < days.length; k++) {
+    for (const t of ['con', 'reg', 'moNuh', 'moNtf']) {
+      const n = r.assignments[days[k]][t];
+      if (!n) continue;
+      const before = Object.values(r.assignments[days[k - 1]]);
+      assert.equal(before.includes(n), false, `${n} on ${days[k - 1]} and ${days[k]}`);
+    }
+  }
+});
+
 const week = fx.week;
 const days = ['2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-16'];
 // make the lists as a roster maker would enter them: closed clinics of consultants on leave start out open

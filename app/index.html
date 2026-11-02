@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#1c1c1e" media="(prefers-color-scheme: dark)">
   <meta name="robots" content="noindex, nofollow">
-  <title>Hand roster</title>
+  <title>Hand Roster</title>
   <script type="importmap">
 {
   "imports": {
@@ -56,7 +56,7 @@
   <div class="ui-shell">
     <header class="ui-bar">
       <span class="ui-bar-side" data-bar-lead><button type="button" class="ui-bar-menu" aria-label="Menu" aria-controls="side"><span data-icon="menu" aria-hidden="true"></span></button></span>
-      <h2 class="ui-bar-title" aria-hidden="true">Hand roster</h2>
+      <h2 class="ui-bar-title" aria-hidden="true">Hand Roster</h2>
       <span class="ui-bar-side ui-bar-end">
         <!-- cloud{ the sync button (app-ui's syncButton): the state as a cloud icon, a tap syncs now -->
         <button type="button" id="sync-btn" aria-label="Connecting…" title="Connecting…"></button>
@@ -65,7 +65,7 @@
     </header>
 
     <nav class="ui-sidebar" id="side" aria-label="Sections">
-      <p class="ui-sidebar-name"><img class="app-mark" src="icons/icon.svg" alt="" width="28" height="28">Hand roster</p>
+      <p class="ui-sidebar-name"><img class="app-mark" src="icons/icon.svg" alt="" width="28" height="28">Hand Roster</p>
       <a class="ui-side-link" href="./" data-tab-page="#week-page" aria-current="page">Week</a>
       <a class="ui-side-link" href="./" data-tab-page="#calls-page">Calls</a>
       <a class="ui-side-link" href="./" data-tab-page="#people-page">People</a>
@@ -75,6 +75,8 @@
     </nav>
 
     <main class="ui-screens">
+      <!-- the kit's adaptiveShell needs a .ui-list in the shell; this app has no master-detail list, so it is an empty hidden one -->
+      <ul class="ui-list" id="shell-list" hidden aria-hidden="true"></ul>
       <section class="ui-screen" id="week-page" aria-labelledby="week-heading">
         <h1 class="ui-large-title" id="week-heading">Week</h1>
         <!-- cloud{ the sync chip: a static app's data is never unsent -->

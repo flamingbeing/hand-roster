@@ -22,7 +22,7 @@ const cleanRoster = cleaner({
   locked: texts(200, 40),
   holidays: days(31),
   problems: texts(60, 160),
-  minGap: int(0, 7),
+  minGap: int(1, 7),
   seed: int(0, 1_000_000),
   built: int(0, Number.MAX_SAFE_INTEGER),
 });

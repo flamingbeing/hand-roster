@@ -1,4 +1,4 @@
-# Hand roster
+# Hand Roster
 
 Instructions for every AI assistant working here (Claude Code reads this through `CLAUDE.md`).
 
