@@ -1,0 +1,22 @@
+{
+  "module": "feedback",
+  "about": "Send feedback: any member writes a private message (1-2000 characters) to the owner; admins see the inbox, mark messages done and copy one as a to-do line. Plain documents in feedback/{id}, not synced. Cloud app only.",
+  "root": "recipes/feedback",
+  "files": [
+    { "from": "app/src/feedback.js" },
+    { "from": "app/src/feedback-data.js" },
+    { "from": "app/src/screens/feedback-settings.js" },
+    { "from": "app/test/feedback.unit.test.mjs" },
+    { "from": "app/rules/feedback.rules" },
+    { "from": "app/test/rules/feedback.mjs" },
+    { "to": "app/src/modules.js", "after": "// add: imports", "line": "import { feedbackSettings } from './screens/feedback-settings.js';" },
+    { "to": "app/src/modules.js", "after": "// add: settings pages", "line": "    feedback: feedbackSettings," },
+    { "to": "app/src/options.js", "after": "// add: options", "line": "  feedbackOn: { scope: 'device', default: true }," },
+    { "to": "app/src/options.js", "after": "// add: feature rows", "line": "  { key: 'feedbackOn', label: 'Send feedback', sub: 'This device' }," },
+    { "to": "app/src/data-modules.js", "after": "// add: imports", "line": "import { feedbackData } from './feedback-data.js';" },
+    { "to": "app/src/data-modules.js", "after": "// add: slots", "line": "  feedback: feedbackData," }
+  ],
+  "docs": [
+    "feedback: Settings → Send feedback (app/src/screens/feedback-settings.js, the dialog is built there). Messages are feedback/{id}; rules in app/rules/feedback.rules. Cloud app only: a static app has no app.feedback and gets no page."
+  ]
+}

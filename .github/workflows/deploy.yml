@@ -1,0 +1,24 @@
+# Deploys the Worker once the quick Checks pass on a push to main (app-devkit deploy-worker, exact pin). The build
+# bundles the page (app-devkit bundle-page.mjs) and stamps the service worker (tools/stamp-versions.mjs). Needs repo secrets CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID; without them the run
+# says so and skips. Never runs in the template repo itself.
+name: Deploy
+on:
+  workflow_run:
+    workflows: [Checks]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deploy:
+    if: >-
+      github.repository != 'flamingbeing/app-starter' && (github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))
+    uses: flamingbeing/app-devkit/.github/workflows/deploy-worker.yml@v1.16.0
+    with:
+      # join the startup files and the pinned core into a few (README, "Keep the first screen fast"); then the stamp
+      bundle: app/index.html --sw app/public/sw.js
+      devkit-ref: v1.16.0
+      stamp-command: node tools/stamp-versions.mjs app
+    secrets: inherit

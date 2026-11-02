@@ -1,0 +1,10 @@
+node_modules/
+.devkit/
+test-results/
+playwright-report/
+*.log
+dist/
+# the deploy bundle (deploy.yml bundle), never committed
+app/src/**/*.b.js
+app/src/**/*.b.js.map
+app/src/chunk-*

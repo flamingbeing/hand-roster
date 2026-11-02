@@ -1,0 +1,46 @@
+{
+  "module": "backup",
+  "about": "Backup and restore (@core/backup): the records as a .json.gz file, one CSV or an Excel file (SheetJS, loaded only on that tap); a restore only adds what is missing, with a dry-run line first. Local here until a second kind of app wants it.",
+  "root": "recipes/backup",
+  "modules": {
+    "@core/backup": {
+      "url": "./backup/index.js",
+      "types": "./app/public/backup/index.js",
+      "alias": "./app/public/backup/index.js"
+    }
+  },
+  "vendor": [
+    "app/public/vendor/xlsx/0.20.3"
+  ],
+  "files": [
+    {
+      "from": "app/public/backup"
+    },
+    {
+      "from": "app/src/screens/backup-settings.js"
+    },
+    {
+      "from": "app/test/backup.unit.test.mjs"
+    },
+    {
+      "from": "e2e/backup.spec.mjs"
+    },
+    {
+      "to": "app/src/modules.js",
+      "after": "// add: imports",
+      "line": "import { backupSettings } from './screens/backup-settings.js';"
+    },
+    {
+      "to": "app/src/modules.js",
+      "after": "// add: settings pages",
+      "line": "    backup: backupSettings,"
+    }
+  ],
+  "tsconfigInclude": [
+    "app/public/backup/*.js",
+    "app/public/backup/*.d.ts"
+  ],
+  "docs": [
+    "backup: the Settings page is app/src/screens/backup-settings.js (its format, fields, columns and clean are the sample tasks': make them the app's own); the API is in app/public/backup/index.js. It needs the app's items(), put(record) and serverCopyIn() (cloud.js)."
+  ]
+}

@@ -1,0 +1,4 @@
+// The bin's entries (the bin recipe): a delete writes one (create, in the base rules); restoring or purging one removes it.
+match /spaces/{g}/bin/{id} {
+  allow delete: if can(g, ['admin', 'member']);
+}

@@ -1,0 +1,128 @@
+# Checks = the QUICK checks, on every PR and push to main (README, "Tests"; ~1.5-2 min): repo checks, unit tests and
+# the type check, secret scan, the browser tests in Chromium on a phone (the real Worker in Node) split over parallel
+# shards, and the Vite build with a short smoke (the tests tagged @smoke). Jobs run side by side. Deploy waits for green.
+# Everything slower is in full-checks.yml ("Full checks": nightly with the soak, and by hand with a PR number or ref).
+# Repo variable FULL_CHECKS_ON_PRS=true (Settings, Secrets and variables, Actions, Variables) makes PRs run them too.
+# cloud{ (a static app has no rules, emulators or accounts; README, "Pick a starter")
+# The cloud app's: the rules in the Firestore emulator, and the browser tests run against the emulators with made-up
+# accounts. The template's own jobs (fill, static, both recipes added) are in full-checks.yml.
+# }cloud
+# app-devkit blocks are pinned to an exact version; other actions by commit SHA (Dependabot bumps both).
+name: Checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: flamingbeing/app-devkit/setup-node@v1.16.0
+      - uses: flamingbeing/app-devkit/setup-tools@v1.16.0
+      - run: node .devkit/tools/check.mjs
+      - run: node .devkit/tools/proofread.mjs
+      - run: node .devkit/tools/check-links.mjs .
+      - run: node tools/stamp-versions.mjs app --check
+      - name: Everything made from modules.json is up to date (import map, paths, aliases, sw.js list, CSP hash, rules; vendored Firebase is gstatic's)
+        run: |
+          node tools/modules.mjs --check
+          node tools/sw-files.mjs e2e/fixtures/outside-package --check
+          # cloud{
+          node tools/vendor-firebase.mjs --check
+          # }cloud
+      # cloud{
+      - run: node .devkit/tools/build-rules.mjs app/firestore.app.rules --check
+      # What the first screen loads before it can draw, gzipped (template 30 Oct 2026: 266 KiB, Firebase 238 of it; 41
+      # requests). Each app keeps its own numbers here. Over budget: load the new screen or extra on first use
+      # (@core/ui lazyModules), don't raise it.
+      - name: Startup budget
+        run: node .devkit/tools/startup-size.mjs app/index.html --max 290 --max-files 48
+      # }cloud
+      - name: fill values and app/src/config.js are in their canonical form
+        run: node tools/fill.mjs --check
+      - name: Unit tests (Worker, app, tools; claims.js and custom-token.js equal the pinned devkit's)
+        run: node --test 'worker/test/*.test.mjs' 'app/test/*.unit.test.mjs' 'tools/test/*.test.mjs'
+      - name: Type check (app/src under strict, against the pinned app-sync's .d.ts)
+        run: npm run typecheck
+
+  secrets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: gitleaks (pinned release, checksum checked)
+        env:
+          V: 8.28.0
+          SHA: a65b5253807a68ac0cafa4414031fd740aeb55f54fb7e55f386acb52e6a840eb
+        run: |
+          curl -fsSL -o gl.tgz "https://github.com/gitleaks/gitleaks/releases/download/v$V/gitleaks_${V}_linux_x64.tar.gz"
+          echo "$SHA  gl.tgz" | sha256sum -c -
+          tar -xzf gl.tgz gitleaks
+          ./gitleaks git --redact --no-banner --config .gitleaks.toml .
+
+  # cloud{
+  rules:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: flamingbeing/app-devkit/setup-node@v1.16.0
+        with:
+          install: 'false'
+      - uses: flamingbeing/app-devkit/setup-emulators@v1.16.0
+        with:
+          firebase-tools-version: '15.33.0'   # Firestore emulator v1.22 (playwright.config.mjs)
+          emulators: firestore
+          devkit-dir: .devkit
+      - name: Rules in the emulator
+        working-directory: app
+        run: npx -y firebase-tools@15.33.0 emulators:exec --only firestore --project demo-starter-app "node --test test/rules.test.mjs"
+  # }cloud
+
+  e2e:
+    # Chromium phone, split so no shard runs much over a minute (raise `shards` when one does)
+    uses: flamingbeing/app-devkit/.github/workflows/e2e.yml@v1.16.0
+    with:
+      shards: 3
+      # cloud{
+      emulators: firestore,auth
+      # }cloud
+
+  vite:
+    # Vite as a check only (README, "Switch to Vite in one PR"): build app/ into dist/ with core, Firebase and
+    # register.js kept external, then a short smoke on the built page. The whole suite on dist/ is in Full checks.
+    uses: flamingbeing/app-devkit/.github/workflows/e2e.yml@v1.16.0
+    with:
+      name: vite
+      build-command: npm run vite
+      app-dir: dist
+      args: --grep=@smoke
+      # cloud{
+      emulators: firestore,auth
+      # }cloud
+
+  bundle:
+    # the deployed shape (deploy.yml's bundle): a short smoke on the bundled page
+    uses: flamingbeing/app-devkit/.github/workflows/e2e.yml@v1.16.0
+    with:
+      name: bundle
+      bundle: app/index.html --sw app/public/sw.js
+      devkit-ref: v1.16.0
+      args: --grep=@smoke
+      # cloud{
+      emulators: firestore,auth
+      # }cloud
+
+  full:
+    # the repo variable FULL_CHECKS_ON_PRS=true (a vital app) runs Full checks on its PRs as well
+    if: github.event_name == 'pull_request' && vars.FULL_CHECKS_ON_PRS == 'true'
+    uses: ./.github/workflows/full-checks.yml

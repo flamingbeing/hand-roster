@@ -1,0 +1,2 @@
+  "share_target": { "action": "./share-in", "method": "POST", "enctype": "multipart/form-data",
+    "params": { "title": "title", "text": "text", "url": "url", "files": [{ "name": "files", "accept": ["image/*", "text/*", ".md", "application/pdf"] }] } },

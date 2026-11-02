@@ -1,0 +1,22 @@
+{
+  "module": "bin",
+  "about": "Settings > Bin: the items deleted in the last 30 days, with Restore and Delete forever, and the 30-day purge. The delete already writes the item's last version to the bin (cloud.js onCommit); this reads those entries, brings one back and removes the old ones. Cloud app only. Local here until a second kind of app wants it.",
+  "root": "recipes/bin",
+  "files": [
+    { "from": "app/src/bin.js" },
+    { "from": "app/src/bin-data.js" },
+    { "from": "app/src/screens/bin-settings.js" },
+    { "from": "app/test/bin.unit.test.mjs" },
+    { "from": "app/rules/bin.rules" },
+    { "from": "app/test/rules/bin.mjs" },
+    { "to": "app/src/modules.js", "after": "// add: imports", "line": "import { binSettings } from './screens/bin-settings.js';" },
+    { "to": "app/src/modules.js", "after": "// add: settings pages", "line": "    bin: binSettings," },
+    { "to": "app/src/options.js", "after": "// add: options", "line": "  binOn: { scope: 'account', default: true }," },
+    { "to": "app/src/options.js", "after": "// add: feature rows", "line": "  { key: 'binOn', label: 'Bin', sub: 'Keep deleted items for 30 days. Every device; sign in to change it' }," },
+    { "to": "app/src/data-modules.js", "after": "// add: imports", "line": "import { binData } from './bin-data.js';" },
+    { "to": "app/src/data-modules.js", "after": "// add: slots", "line": "  bin: binData," }
+  ],
+  "docs": [
+    "bin: Settings > Bin is app/src/screens/bin-settings.js (its label is the item's text: make it the app's own); entries past 30 days are purged when the page opens. The data side is app/src/bin-data.js (cloud.js app.bin = { list, restore, purge }); the delete-to-bin write is the template's own (cloud.js onCommit). A switch on Settings > Features (option binOn, account, on) hides the page and stops the copy on delete. The rule only adds the delete (app/rules/bin.rules)."
+  ]
+}

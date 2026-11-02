@@ -1,0 +1,21 @@
+{
+  "module": "share-in",
+  "about": "Android share target: text, links and files shared to the installed app arrive in a chooser (a new item, or added to an item's notes). The service worker keeps the share in a cache; the page reads it once. An option (shareIn, off by default) switches it on; while off, a share says so and keeps nothing.",
+  "root": "recipes/share-in",
+  "files": [
+    { "from": "app/src/share/share-in.js" },
+    { "from": "app/src/share/share-sheet.js" },
+    { "from": "app/src/share/share-settings.js" },
+    { "from": "app/test/share-in.unit.test.mjs" },
+    { "to": "app/src/modules.js", "after": "// add: imports", "line": "import { shareInSettings } from './share/share-settings.js';" },
+    { "to": "app/src/modules.js", "after": "// add: settings pages", "line": "    shareIn: shareInSettings," },
+    { "to": "app/src/options.js", "after": "// add: options", "line": "  shareIn: { scope: 'device', default: false }," },
+    { "to": "app/src/options.js", "after": "// add: feature rows", "line": "  { key: 'shareIn', label: 'Receive shares from other apps', sub: 'This device. Android, installed app only' }," },
+    { "to": "app/public/manifest.webmanifest", "after": "\"display\": \"standalone\",", "block": "recipes/share-in/manifest-share-target.txt" },
+    { "to": "app/public/sw.js", "after": "// add: service worker handlers", "block": "recipes/share-in/sw-handler.txt" }
+  ],
+  "docs": [
+    "share-in: works in the installed app on Android only (Chrome's share target; iOS and desktop browsers never offer the app). The switch is Settings > Features (option shareIn, this device, off until turned on); a share that arrives while it is off says so and keeps nothing.",
+    "share-in: the chooser is app/src/share/share-sheet.js (a new item with the share's title as text and its text and link as notes, or added to an item's notes; make the fields the app's own). Files in a share are not kept: hand them to the files recipe's attach there. sw.js's VERSION is stamped at deploy, so no bump by hand."
+  ]
+}
