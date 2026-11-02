@@ -1,0 +1,3761 @@
+{
+ "week": {
+  "from": "2026-10-12",
+  "to": "2026-10-16"
+ },
+ "people": [
+  {
+   "name": "Dr Alpha Pek",
+   "grade": "con",
+   "rank": "Consultant"
+  },
+  {
+   "name": "Dr Bravo Sia",
+   "grade": "con",
+   "rank": "Consultant"
+  },
+  {
+   "name": "Dr Charlie Oh",
+   "grade": "con",
+   "rank": "Consultant"
+  },
+  {
+   "name": "Dr Delta Ng",
+   "grade": "con",
+   "rank": "Consultant"
+  },
+  {
+   "name": "Dr Echo Wong",
+   "grade": "con",
+   "rank": "Consultant"
+  },
+  {
+   "name": "Dr Foxtrot Goh",
+   "grade": "con",
+   "rank": "Consultant"
+  },
+  {
+   "name": "Dr Golf Chua",
+   "grade": "con",
+   "rank": "Consultant"
+  },
+  {
+   "name": "Dr Hotel Ong",
+   "grade": "con",
+   "rank": "Consultant"
+  },
+  {
+   "name": "Dr India Teo",
+   "grade": "con",
+   "rank": "Consultant",
+   "site": "NTFGH"
+  },
+  {
+   "name": "Dr Juliet Koh",
+   "grade": "con",
+   "rank": "Consultant"
+  },
+  {
+   "name": "Dr Kilo Chew",
+   "grade": "con",
+   "rank": "Consultant"
+  },
+  {
+   "name": "Dr Lima Ho",
+   "grade": "con",
+   "rank": "Consultant"
+  },
+  {
+   "name": "Dr Mike Yeo",
+   "grade": "con",
+   "rank": "Consultant"
+  },
+  {
+   "name": "Dr November Sim",
+   "grade": "reg",
+   "rank": "Reg",
+   "team": "Team 1",
+   "site": "NUH"
+  },
+  {
+   "name": "Dr Oscar Toh",
+   "grade": "reg",
+   "rank": "Reg",
+   "team": "Team 1",
+   "site": "NUH"
+  },
+  {
+   "name": "Dr Papa Foo",
+   "grade": "mo",
+   "rank": "MO",
+   "team": "Team 1",
+   "site": "NUH"
+  },
+  {
+   "name": "Dr Quebec Low",
+   "grade": "reg",
+   "rank": "Reg",
+   "team": "Team 2",
+   "site": "NUH"
+  },
+  {
+   "name": "Dr Romeo Tay",
+   "grade": "mo",
+   "rank": "MO",
+   "team": "Team 2",
+   "site": "NUH"
+  },
+  {
+   "name": "Dr Sierra Heng",
+   "grade": "reg",
+   "rank": "AC",
+   "team": "Team 3",
+   "site": "NUH"
+  },
+  {
+   "name": "Dr Tango Quek",
+   "grade": "reg",
+   "rank": "Reg",
+   "team": "Team 3",
+   "site": "NUH"
+  },
+  {
+   "name": "Dr Uniform Seah",
+   "grade": "reg",
+   "rank": "Reg",
+   "team": "Team 3",
+   "site": "NUH"
+  },
+  {
+   "name": "Dr Victor Lau",
+   "grade": "mo",
+   "rank": "MO",
+   "team": "Team 3",
+   "site": "NUH"
+  },
+  {
+   "name": "Dr Whiskey Chin",
+   "grade": "reg",
+   "rank": "Fellow",
+   "team": "Team 3",
+   "site": "NUH"
+  },
+  {
+   "name": "Dr Xray Yap",
+   "grade": "reg",
+   "rank": "Reg",
+   "team": "Team 4 (MSO)",
+   "site": "NUH"
+  },
+  {
+   "name": "Dr Yankee Pang",
+   "grade": "mo",
+   "rank": "MO",
+   "team": "Team 4 (MSO)",
+   "site": "NUH"
+  },
+  {
+   "name": "Dr Zulu Neo",
+   "grade": "reg",
+   "rank": "AC",
+   "team": "Team NTF",
+   "site": "NTFGH"
+  },
+  {
+   "name": "Dr Zeta Soh",
+   "grade": "mo",
+   "rank": "HC",
+   "team": "Team NTF",
+   "site": "NTFGH"
+  },
+  {
+   "name": "Dr Eta Aw",
+   "grade": "reg",
+   "rank": "Fellow",
+   "team": "Team NTF",
+   "site": "NTFGH"
+  },
+  {
+   "name": "Dr Theta Kwek",
+   "grade": "mo",
+   "rank": "MO",
+   "team": "Team NTF",
+   "site": "NTFGH"
+  },
+  {
+   "name": "Dr Iota Loh",
+   "grade": "mo",
+   "rank": "MO",
+   "team": "Team NTF",
+   "site": "NTFGH"
+  },
+  {
+   "name": "Dr Kappa Phua",
+   "grade": "mo",
+   "rank": "Locum"
+  },
+  {
+   "name": "Dr Lambda Ang",
+   "grade": "mo",
+   "rank": "Locum"
+  },
+  {
+   "name": "Dr Omega Ow",
+   "grade": "mo",
+   "rank": "Locum"
+  },
+  {
+   "name": "Dr Sigma Tham",
+   "grade": "mo",
+   "rank": "Locum"
+  },
+  {
+   "name": "Dr Tau Khoo",
+   "grade": "mo",
+   "rank": "Outposter",
+   "extra": true
+  },
+  {
+   "name": "Dr Upsilon Bay",
+   "grade": "mo",
+   "rank": "Outposter",
+   "extra": true
+  }
+ ],
+ "lists": [
+  {
+   "id": "mon-am-nuh-clinic-1",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-12",
+   "session": "AM",
+   "consultant": "Dr Echo Wong",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "rooms": "G03/04/H04",
+   "patients": 21,
+   "color": "green"
+  },
+  {
+   "id": "mon-am-nuh-clinic-2",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-12",
+   "session": "AM",
+   "consultant": "Dr Hotel Ong",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "rooms": "G05/06/11/H03",
+   "patients": 21,
+   "color": "green"
+  },
+  {
+   "id": "mon-am-nuh-clinic-3",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-12",
+   "session": "AM",
+   "consultant": "Dr Sierra Heng",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "patients": 23,
+   "color": "green"
+  },
+  {
+   "id": "mon-am-nuh-hotclinic",
+   "site": "NUH",
+   "kind": "hot",
+   "name": "HOT CLINIC",
+   "day": "2026-10-12",
+   "session": "AM",
+   "consultant": null,
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "color": "green"
+  },
+  {
+   "id": "mon-am-nuh-mcot2",
+   "site": "NUH",
+   "kind": "ot",
+   "name": "MCOT 2",
+   "day": "2026-10-12",
+   "session": "AM",
+   "consultant": "Dr Lima Ho",
+   "status": "open",
+   "need": 2,
+   "src": "both",
+   "color": "blue"
+  },
+  {
+   "id": "mon-am-nuh-krwot7",
+   "site": "NUH",
+   "kind": "ot",
+   "name": "KRWOT 7",
+   "day": "2026-10-12",
+   "session": "AM",
+   "consultant": "Dr Lima Ho",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "color": "blue",
+   "inputNote": "Roster info: 1 case Monday AM, requester asked for 1 junior"
+  },
+  {
+   "id": "mon-am-nuh-krwot3",
+   "site": "NUH",
+   "kind": "ot",
+   "name": "KRWOT 3",
+   "day": "2026-10-12",
+   "session": "AM",
+   "consultant": "Dr Delta Ng",
+   "status": "open",
+   "need": 2,
+   "src": "both",
+   "color": "blue",
+   "consultantOnLeave": true,
+   "inputNote": "Roster info: Dr Delta Ng (on leave Mon-Wed); CORE shows EMPTY but still staffs 2 juniors (E2E slot, full day)"
+  },
+  {
+   "id": "mon-am-nuh-mspot",
+   "site": "NUH",
+   "kind": "msp",
+   "name": "MSP OT",
+   "day": "2026-10-12",
+   "session": "AM",
+   "consultant": null,
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "color": "gold"
+  },
+  {
+   "id": "mon-am-ntfgh-clinic-1",
+   "site": "NTFGH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-12",
+   "session": "AM",
+   "consultant": "Dr Foxtrot Goh",
+   "status": "template",
+   "need": 0,
+   "src": "both",
+   "color": "grey",
+   "coreNeed": 1
+  },
+  {
+   "id": "mon-am-ntfgh-clinic-2",
+   "site": "NTFGH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-12",
+   "session": "AM",
+   "consultant": "Dr Juliet Koh",
+   "status": "closed",
+   "need": 0,
+   "src": "core"
+  },
+  {
+   "id": "mon-pm-nuh-clinic-1",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-12",
+   "session": "PM",
+   "consultant": "Dr Echo Wong",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "rooms": "G03/04/H04",
+   "patients": 19,
+   "color": "green"
+  },
+  {
+   "id": "mon-pm-nuh-clinic-2",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-12",
+   "session": "PM",
+   "consultant": "Dr Hotel Ong",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "rooms": "G05/06",
+   "patients": 18,
+   "tags": [
+    "Paeds"
+   ],
+   "color": "green"
+  },
+  {
+   "id": "mon-pm-nuh-clinic-3",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-12",
+   "session": "PM",
+   "consultant": "Dr Kilo Chew",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "rooms": "G07/08/12/H05",
+   "patients": 27,
+   "color": "green"
+  },
+  {
+   "id": "mon-pm-nuh-clinic-4",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-12",
+   "session": "PM",
+   "consultant": "Dr Sierra Heng",
+   "status": "template",
+   "need": 0,
+   "src": "hand",
+   "rooms": "G11/12",
+   "color": "grey"
+  },
+  {
+   "id": "mon-pm-nuh-mcot2",
+   "site": "NUH",
+   "kind": "ot",
+   "name": "MCOT 2",
+   "day": "2026-10-12",
+   "session": "PM",
+   "consultant": "Dr Lima Ho",
+   "status": "open",
+   "need": 2,
+   "src": "both",
+   "color": "blue",
+   "coreNeed": 1
+  },
+  {
+   "id": "mon-pm-nuh-krwot3",
+   "site": "NUH",
+   "kind": "ot",
+   "name": "KRWOT 3",
+   "day": "2026-10-12",
+   "session": "PM",
+   "consultant": "Dr Delta Ng",
+   "status": "open",
+   "need": 2,
+   "src": "both",
+   "color": "blue",
+   "consultantOnLeave": true,
+   "inputNote": "Roster info: Dr Delta Ng (on leave Mon-Wed); CORE shows EMPTY but still staffs 2 juniors (E2E slot, full day)"
+  },
+  {
+   "id": "mon-pm-nuh-mspot",
+   "site": "NUH",
+   "kind": "msp",
+   "name": "MSP OT",
+   "day": "2026-10-12",
+   "session": "PM",
+   "consultant": null,
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "color": "gold"
+  },
+  {
+   "id": "mon-pm-ntfgh-clinic-1",
+   "site": "NTFGH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-12",
+   "session": "PM",
+   "consultant": "Dr Foxtrot Goh",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "patients": 7,
+   "color": "orange"
+  },
+  {
+   "id": "tue-am-nuh-clinic-1",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-13",
+   "session": "AM",
+   "consultant": "Dr Bravo Sia",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "rooms": "G03/04",
+   "patients": 24,
+   "color": "green"
+  },
+  {
+   "id": "tue-am-nuh-clinic-2",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-13",
+   "session": "AM",
+   "consultant": "Dr Delta Ng",
+   "status": "closed",
+   "need": 0,
+   "src": "both",
+   "rooms": "G05/06/11",
+   "color": "grey"
+  },
+  {
+   "id": "tue-am-nuh-clinic-3",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-13",
+   "session": "AM",
+   "consultant": "Dr Echo Wong",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "rooms": "G07/08/12",
+   "patients": 24,
+   "color": "green"
+  },
+  {
+   "id": "tue-am-nuh-clinic-4",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-13",
+   "session": "AM",
+   "consultant": "Dr Charlie Oh",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "rooms": "H04/05",
+   "patients": 6,
+   "start": "9AM",
+   "color": "green"
+  },
+  {
+   "id": "tue-am-nuh-clinic-5",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-13",
+   "session": "AM",
+   "consultant": "Dr Golf Chua",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "patients": 10,
+   "tags": [
+    "MSO",
+    "Clinic B"
+   ],
+   "color": "green"
+  },
+  {
+   "id": "tue-am-nuh-hotclinic",
+   "site": "NUH",
+   "kind": "hot",
+   "name": "HOT CLINIC",
+   "day": "2026-10-13",
+   "session": "AM",
+   "consultant": null,
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "color": "green"
+  },
+  {
+   "id": "tue-am-nuh-mcot2",
+   "site": "NUH",
+   "kind": "ot",
+   "name": "MCOT 2",
+   "day": "2026-10-13",
+   "session": "AM",
+   "consultant": "Dr Foxtrot Goh",
+   "status": "open",
+   "need": 2,
+   "src": "both",
+   "color": "blue"
+  },
+  {
+   "id": "tue-am-nuh-krwot3",
+   "site": "NUH",
+   "kind": "ot",
+   "name": "KRWOT 3",
+   "day": "2026-10-13",
+   "session": "AM",
+   "consultant": "Dr Alpha Pek",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "color": "blue"
+  },
+  {
+   "id": "tue-am-nuh-mspot",
+   "site": "NUH",
+   "kind": "msp",
+   "name": "MSP OT",
+   "day": "2026-10-13",
+   "session": "AM",
+   "consultant": null,
+   "status": "open",
+   "need": 2,
+   "src": "both",
+   "color": "gold",
+   "coreNeed": 1
+  },
+  {
+   "id": "tue-am-ntfgh-clinic-1",
+   "site": "NTFGH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-13",
+   "session": "AM",
+   "consultant": "Dr India Teo",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "patients": 18,
+   "color": "orange"
+  },
+  {
+   "id": "tue-am-ntfgh-clinic-2",
+   "site": "NTFGH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-13",
+   "session": "AM",
+   "consultant": "Dr Sierra Heng",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "patients": 22,
+   "color": "orange"
+  },
+  {
+   "id": "tue-am-ntfgh-clinic-3",
+   "site": "NTFGH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-13",
+   "session": "AM",
+   "consultant": "Dr Kilo Chew",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "patients": 14,
+   "color": "orange"
+  },
+  {
+   "id": "tue-am-ah-ot",
+   "site": "AH",
+   "kind": "ot",
+   "name": "OT",
+   "day": "2026-10-13",
+   "session": "AM",
+   "consultant": "Dr Lima Ho",
+   "status": "closed",
+   "need": 0,
+   "src": "hand",
+   "alt": [
+    "Dr Hotel Ong"
+   ],
+   "color": "grey",
+   "external": true
+  },
+  {
+   "id": "tue-pm-nuh-clinic-1",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-13",
+   "session": "PM",
+   "consultant": "Dr Golf Chua",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "rooms": "G03/04",
+   "patients": 18,
+   "color": "green"
+  },
+  {
+   "id": "tue-pm-nuh-clinic-2",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-13",
+   "session": "PM",
+   "consultant": "Dr Foxtrot Goh",
+   "status": "template",
+   "need": 0,
+   "src": "hand",
+   "rooms": "G05/06/11",
+   "color": "grey"
+  },
+  {
+   "id": "tue-pm-nuh-clinic-3",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-13",
+   "session": "PM",
+   "consultant": "Dr Charlie Oh",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "rooms": "H04/05",
+   "patients": 20,
+   "start": "1.30PM",
+   "color": "green"
+  },
+  {
+   "id": "tue-pm-nuh-clinic-4",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-13",
+   "session": "PM",
+   "consultant": null,
+   "status": "template",
+   "need": 0,
+   "src": "hand",
+   "rooms": "G11/12",
+   "tags": [
+    "Special: Complex Recon (2nd Tue PM)"
+   ],
+   "color": "grey"
+  },
+  {
+   "id": "tue-pm-nuh-krwot3",
+   "site": "NUH",
+   "kind": "ot",
+   "name": "KRWOT 3",
+   "day": "2026-10-13",
+   "session": "PM",
+   "consultant": "Dr Alpha Pek",
+   "status": "open",
+   "need": 2,
+   "src": "both",
+   "color": "blue"
+  },
+  {
+   "id": "tue-pm-nuh-mspot",
+   "site": "NUH",
+   "kind": "msp",
+   "name": "MSP OT",
+   "day": "2026-10-13",
+   "session": "PM",
+   "consultant": null,
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "color": "gold"
+  },
+  {
+   "id": "tue-pm-nuh-clinic-5",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-13",
+   "session": "PM",
+   "consultant": "Dr Delta Ng",
+   "status": "closed",
+   "need": 0,
+   "src": "core"
+  },
+  {
+   "id": "tue-pm-nuh-clinic-6",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-13",
+   "session": "PM",
+   "consultant": "Dr Lima Ho",
+   "status": "closed",
+   "need": 0,
+   "src": "core"
+  },
+  {
+   "id": "tue-pm-ntfgh-clinic-1",
+   "site": "NTFGH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-13",
+   "session": "PM",
+   "consultant": "Dr Sierra Heng",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "patients": 11,
+   "color": "orange"
+  },
+  {
+   "id": "tue-pm-ah-clinic-1",
+   "site": "AH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-13",
+   "session": "PM",
+   "consultant": "Dr Hotel Ong",
+   "status": "consultant-only",
+   "need": 0,
+   "src": "hand",
+   "color": "orange",
+   "external": true
+  },
+  {
+   "id": "wed-am-nuh-clinic-1",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-14",
+   "session": "AM",
+   "consultant": "Dr Hotel Ong",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "rooms": "G03/04/H03",
+   "patients": 21,
+   "color": "green"
+  },
+  {
+   "id": "wed-am-nuh-clinic-2",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-14",
+   "session": "AM",
+   "consultant": "Dr Delta Ng",
+   "status": "closed",
+   "need": 0,
+   "src": "both",
+   "rooms": "G05/06/11",
+   "tags": [
+    "MSO"
+   ],
+   "color": "grey"
+  },
+  {
+   "id": "wed-am-nuh-clinic-3",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-14",
+   "session": "AM",
+   "consultant": "Dr Echo Wong",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "rooms": "H04/05",
+   "patients": 15,
+   "color": "green"
+  },
+  {
+   "id": "wed-am-nuh-clinic-4",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-14",
+   "session": "AM",
+   "consultant": "Dr Golf Chua",
+   "status": "template",
+   "need": 0,
+   "src": "hand",
+   "tags": [
+    "MSO",
+    "Clinic B"
+   ],
+   "color": "grey"
+  },
+  {
+   "id": "wed-am-nuh-clinic-5",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-14",
+   "session": "AM",
+   "consultant": "Dr Kilo Chew",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "patients": 20,
+   "color": "green"
+  },
+  {
+   "id": "wed-am-nuh-hotclinic",
+   "site": "NUH",
+   "kind": "hot",
+   "name": "HOT CLINIC",
+   "day": "2026-10-14",
+   "session": "AM",
+   "consultant": null,
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "color": "green"
+  },
+  {
+   "id": "wed-am-nuh-mcot2",
+   "site": "NUH",
+   "kind": "ot",
+   "name": "MCOT 2",
+   "day": "2026-10-14",
+   "session": "AM",
+   "consultant": "Dr Bravo Sia",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "color": "blue",
+   "coreNeed": 2
+  },
+  {
+   "id": "wed-am-nuh-krwot3",
+   "site": "NUH",
+   "kind": "ot",
+   "name": "KRWOT 3",
+   "day": "2026-10-14",
+   "session": "AM",
+   "consultant": "Dr Charlie Oh",
+   "status": "open",
+   "need": 2,
+   "src": "both",
+   "color": "blue",
+   "coreNeed": 1
+  },
+  {
+   "id": "wed-am-nuh-mspot",
+   "site": "NUH",
+   "kind": "msp",
+   "name": "MSP OT",
+   "day": "2026-10-14",
+   "session": "AM",
+   "consultant": null,
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "color": "gold"
+  },
+  {
+   "id": "wed-am-ntfgh-clinic-1",
+   "site": "NTFGH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-14",
+   "session": "AM",
+   "consultant": "Dr Alpha Pek",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "patients": 23,
+   "color": "orange"
+  },
+  {
+   "id": "wed-am-ntfgh-ntfghot15",
+   "site": "NTFGH",
+   "kind": "ot",
+   "name": "NTFGH OT 15",
+   "day": "2026-10-14",
+   "session": "AM",
+   "consultant": "Dr India Teo",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "alt": [
+    "Dr Foxtrot Goh",
+    "Dr Sierra Heng"
+   ],
+   "color": "orange"
+  },
+  {
+   "id": "wed-am-ah-clinic-1",
+   "site": "AH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-14",
+   "session": "AM",
+   "consultant": "Dr Lima Ho",
+   "status": "closed",
+   "need": 0,
+   "src": "hand",
+   "color": "grey",
+   "external": true
+  },
+  {
+   "id": "wed-pm-nuh-clinic-1",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-14",
+   "session": "PM",
+   "consultant": "Dr Delta Ng",
+   "status": "closed",
+   "need": 0,
+   "src": "both",
+   "rooms": "G05/06/11",
+   "tags": [
+    "MSO"
+   ],
+   "color": "grey"
+  },
+  {
+   "id": "wed-pm-nuh-clinic-2",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-14",
+   "session": "PM",
+   "consultant": "Dr Lima Ho",
+   "status": "closed",
+   "need": 0,
+   "src": "both",
+   "rooms": "G07/08/12/H03",
+   "tags": [
+    "Paeds"
+   ],
+   "color": "grey"
+  },
+  {
+   "id": "wed-pm-nuh-clinic-3",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-14",
+   "session": "PM",
+   "consultant": "Dr Kilo Chew",
+   "status": "template",
+   "need": 0,
+   "src": "hand",
+   "color": "grey"
+  },
+  {
+   "id": "wed-pm-nuh-mcot2",
+   "site": "NUH",
+   "kind": "ot",
+   "name": "MCOT 2",
+   "day": "2026-10-14",
+   "session": "PM",
+   "consultant": "Dr Alpha Pek",
+   "status": "open",
+   "need": 2,
+   "src": "both",
+   "color": "blue"
+  },
+  {
+   "id": "wed-pm-nuh-krwot3",
+   "site": "NUH",
+   "kind": "ot",
+   "name": "KRWOT 3",
+   "day": "2026-10-14",
+   "session": "PM",
+   "consultant": "Dr Kilo Chew",
+   "status": "open",
+   "need": 2,
+   "src": "both",
+   "color": "blue",
+   "inputNote": "Roster info: needs an experienced reg, not a fellow; hand grid header says Dr Juliet Koh (on leave), Roster info and CORE say Dr Kilo Chew"
+  },
+  {
+   "id": "wed-pm-nuh-mspot",
+   "site": "NUH",
+   "kind": "msp",
+   "name": "MSP OT",
+   "day": "2026-10-14",
+   "session": "PM",
+   "consultant": null,
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "color": "gold"
+  },
+  {
+   "id": "wed-pm-ntfgh-ntfghot15",
+   "site": "NTFGH",
+   "kind": "ot",
+   "name": "NTFGH OT 15",
+   "day": "2026-10-14",
+   "session": "PM",
+   "consultant": "Dr India Teo",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "alt": [
+    "Dr Foxtrot Goh",
+    "Dr Sierra Heng"
+   ],
+   "color": "orange"
+  },
+  {
+   "id": "thu-am-nuh-clinic-1",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-15",
+   "session": "AM",
+   "consultant": "Dr Bravo Sia",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "rooms": "G03/04",
+   "patients": 10,
+   "color": "green"
+  },
+  {
+   "id": "thu-am-nuh-clinic-2",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-15",
+   "session": "AM",
+   "consultant": "Dr Alpha Pek",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "rooms": "G05/06/11",
+   "patients": 27,
+   "color": "green"
+  },
+  {
+   "id": "thu-am-nuh-clinic-3",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-15",
+   "session": "AM",
+   "consultant": "Dr Lima Ho",
+   "status": "closed",
+   "need": 0,
+   "src": "both",
+   "rooms": "G07/08/12",
+   "color": "grey"
+  },
+  {
+   "id": "thu-am-nuh-hotclinic",
+   "site": "NUH",
+   "kind": "hot",
+   "name": "HOT CLINIC",
+   "day": "2026-10-15",
+   "session": "AM",
+   "consultant": null,
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "color": "green"
+  },
+  {
+   "id": "thu-am-nuh-mcot2",
+   "site": "NUH",
+   "kind": "ot",
+   "name": "MCOT 2",
+   "day": "2026-10-15",
+   "session": "AM",
+   "consultant": "Dr Hotel Ong",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "color": "blue"
+  },
+  {
+   "id": "thu-am-nuh-krwot3",
+   "site": "NUH",
+   "kind": "ot",
+   "name": "KRWOT 3",
+   "day": "2026-10-15",
+   "session": "AM",
+   "consultant": "Dr Kilo Chew",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "color": "blue"
+  },
+  {
+   "id": "thu-am-nuh-mspot",
+   "site": "NUH",
+   "kind": "msp",
+   "name": "MSP OT",
+   "day": "2026-10-15",
+   "session": "AM",
+   "consultant": null,
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "color": "gold"
+  },
+  {
+   "id": "thu-am-nuh-clinic-4",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-15",
+   "session": "AM",
+   "consultant": "Dr Juliet Koh",
+   "status": "closed",
+   "need": 0,
+   "src": "core"
+  },
+  {
+   "id": "thu-am-ntfgh-clinic-1",
+   "site": "NTFGH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-15",
+   "session": "AM",
+   "consultant": "Dr Foxtrot Goh",
+   "status": "open",
+   "need": 1,
+   "src": "hand",
+   "patients": 9,
+   "color": "orange"
+  },
+  {
+   "id": "thu-am-ntfgh-clinic-2",
+   "site": "NTFGH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-15",
+   "session": "AM",
+   "consultant": "Dr Delta Ng",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "patients": 17,
+   "color": "orange"
+  },
+  {
+   "id": "thu-am-ntfgh-clinic-3",
+   "site": "NTFGH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-15",
+   "session": "AM",
+   "consultant": "Dr Sierra Heng",
+   "status": "template",
+   "need": 0,
+   "src": "hand",
+   "color": "grey"
+  },
+  {
+   "id": "thu-am-ntfgh-ntfghot15",
+   "site": "NTFGH",
+   "kind": "ot",
+   "name": "NTFGH OT 15",
+   "day": "2026-10-15",
+   "session": "AM",
+   "consultant": "Dr Echo Wong",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "color": "orange",
+   "inputNote": "Roster info says Dr Sierra Heng on 15/10 (Dr Echo Wong usually); both the CORE sheet and the hand grid use Dr Echo Wong"
+  },
+  {
+   "id": "thu-pm-nuh-clinic-1",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-15",
+   "session": "PM",
+   "consultant": "Dr Lima Ho",
+   "status": "closed",
+   "need": 0,
+   "src": "both",
+   "rooms": "G07/08/12/H03",
+   "tags": [
+    "Paeds"
+   ],
+   "color": "grey"
+  },
+  {
+   "id": "thu-pm-nuh-clinic-2",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-15",
+   "session": "PM",
+   "consultant": "Dr Sierra Heng",
+   "status": "template",
+   "need": 0,
+   "src": "hand",
+   "color": "grey"
+  },
+  {
+   "id": "thu-pm-nuh-krwot3",
+   "site": "NUH",
+   "kind": "ot",
+   "name": "KRWOT 3",
+   "day": "2026-10-15",
+   "session": "PM",
+   "consultant": "Dr Kilo Chew",
+   "status": "open",
+   "need": 2,
+   "src": "both",
+   "color": "blue"
+  },
+  {
+   "id": "thu-pm-nuh-mspot",
+   "site": "NUH",
+   "kind": "msp",
+   "name": "MSP OT",
+   "day": "2026-10-15",
+   "session": "PM",
+   "consultant": null,
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "color": "gold"
+  },
+  {
+   "id": "thu-pm-nuh-clinic-3",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-15",
+   "session": "PM",
+   "consultant": "Dr Juliet Koh",
+   "status": "closed",
+   "need": 0,
+   "src": "core"
+  },
+  {
+   "id": "thu-pm-ntfgh-clinic-1",
+   "site": "NTFGH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-15",
+   "session": "PM",
+   "consultant": "Dr Echo Wong",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "patients": 16,
+   "color": "orange"
+  },
+  {
+   "id": "thu-pm-ntfgh-clinic-2",
+   "site": "NTFGH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-15",
+   "session": "PM",
+   "consultant": "Dr Sierra Heng",
+   "status": "open",
+   "need": 1,
+   "src": "hand",
+   "color": "orange"
+  },
+  {
+   "id": "thu-pm-jmc-ot1",
+   "site": "JMC",
+   "kind": "ot",
+   "name": "OT 1",
+   "day": "2026-10-15",
+   "session": "PM",
+   "consultant": "Dr Delta Ng",
+   "status": "consultant-only",
+   "need": 0,
+   "src": "hand",
+   "color": "orange",
+   "external": true
+  },
+  {
+   "id": "fri-am-nuh-clinic-1",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-16",
+   "session": "AM",
+   "consultant": "Dr Kilo Chew",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "rooms": "G07/08/12",
+   "patients": 26,
+   "color": "green"
+  },
+  {
+   "id": "fri-am-nuh-clinic-2",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-16",
+   "session": "AM",
+   "consultant": "Dr Hotel Ong",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "rooms": "H02/03",
+   "patients": 10,
+   "color": "green"
+  },
+  {
+   "id": "fri-am-nuh-clinic-3",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-16",
+   "session": "AM",
+   "consultant": "Dr Alpha Pek",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "rooms": "H04/05",
+   "patients": 16,
+   "color": "green"
+  },
+  {
+   "id": "fri-am-nuh-hotclinic",
+   "site": "NUH",
+   "kind": "hot",
+   "name": "HOT CLINIC",
+   "day": "2026-10-16",
+   "session": "AM",
+   "consultant": null,
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "color": "green"
+  },
+  {
+   "id": "fri-am-nuh-mcot2",
+   "site": "NUH",
+   "kind": "ot",
+   "name": "MCOT 2",
+   "day": "2026-10-16",
+   "session": "AM",
+   "consultant": "Dr Echo Wong",
+   "status": "open",
+   "need": 2,
+   "src": "both",
+   "color": "blue",
+   "coreNeed": 1
+  },
+  {
+   "id": "fri-am-nuh-krwot3",
+   "site": "NUH",
+   "kind": "ot",
+   "name": "KRWOT 3",
+   "day": "2026-10-16",
+   "session": "AM",
+   "consultant": "Dr Golf Chua",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "color": "blue",
+   "coreNeed": 2
+  },
+  {
+   "id": "fri-am-nuh-mspot",
+   "site": "NUH",
+   "kind": "msp",
+   "name": "MSP OT",
+   "day": "2026-10-16",
+   "session": "AM",
+   "consultant": null,
+   "status": "open",
+   "need": 2,
+   "src": "both",
+   "color": "gold",
+   "coreNeed": 1
+  },
+  {
+   "id": "fri-am-ntfgh-clinic-1",
+   "site": "NTFGH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-16",
+   "session": "AM",
+   "consultant": "Dr Foxtrot Goh",
+   "status": "template",
+   "need": 0,
+   "src": "hand",
+   "color": "grey"
+  },
+  {
+   "id": "fri-am-ntfgh-clinic-2",
+   "site": "NTFGH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-16",
+   "session": "AM",
+   "consultant": "Dr Delta Ng",
+   "status": "template",
+   "need": 0,
+   "src": "hand",
+   "color": "grey"
+  },
+  {
+   "id": "fri-am-ntfgh-clinic-3",
+   "site": "NTFGH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-16",
+   "session": "AM",
+   "consultant": "Dr Sierra Heng",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "patients": 28,
+   "color": "orange"
+  },
+  {
+   "id": "fri-am-ah-clinic-1",
+   "site": "AH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-16",
+   "session": "AM",
+   "consultant": "Dr Lima Ho",
+   "status": "closed",
+   "need": 0,
+   "src": "hand",
+   "color": "grey",
+   "external": true
+  },
+  {
+   "id": "fri-pm-nuh-clinic-1",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-16",
+   "session": "PM",
+   "consultant": "Dr Delta Ng",
+   "status": "template",
+   "need": 0,
+   "src": "hand",
+   "color": "grey"
+  },
+  {
+   "id": "fri-pm-nuh-clinic-2",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-16",
+   "session": "PM",
+   "consultant": "Dr Alpha Pek",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "rooms": "G07/08/11",
+   "patients": 15,
+   "paedsPatients": 12,
+   "tags": [
+    "Paeds"
+   ],
+   "color": "green"
+  },
+  {
+   "id": "fri-pm-nuh-clinic-3",
+   "site": "NUH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-16",
+   "session": "PM",
+   "consultant": "Dr Kilo Chew",
+   "status": "template",
+   "need": 0,
+   "src": "hand",
+   "color": "grey"
+  },
+  {
+   "id": "fri-pm-nuh-mcot2",
+   "site": "NUH",
+   "kind": "ot",
+   "name": "MCOT 2",
+   "day": "2026-10-16",
+   "session": "PM",
+   "consultant": "Dr Echo Wong",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "color": "blue"
+  },
+  {
+   "id": "fri-pm-nuh-krwot3",
+   "site": "NUH",
+   "kind": "ot",
+   "name": "KRWOT 3",
+   "day": "2026-10-16",
+   "session": "PM",
+   "consultant": "Dr Golf Chua",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "color": "blue",
+   "coreNeed": 2
+  },
+  {
+   "id": "fri-pm-nuh-mspot",
+   "site": "NUH",
+   "kind": "msp",
+   "name": "MSP OT",
+   "day": "2026-10-16",
+   "session": "PM",
+   "consultant": null,
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "color": "gold"
+  },
+  {
+   "id": "fri-pm-ntfgh-clinic-1",
+   "site": "NTFGH",
+   "kind": "clinic",
+   "name": "CLINIC",
+   "day": "2026-10-16",
+   "session": "PM",
+   "consultant": "Dr Delta Ng",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "patients": 15,
+   "color": "orange"
+  },
+  {
+   "id": "fri-pm-ntfgh-ntfghot1",
+   "site": "NTFGH",
+   "kind": "ot",
+   "name": "NTFGH OT 1",
+   "day": "2026-10-16",
+   "session": "PM",
+   "consultant": "Dr Sierra Heng",
+   "status": "open",
+   "need": 1,
+   "src": "both",
+   "tags": [
+    "LA"
+   ],
+   "color": "orange",
+   "notes": [
+    "CORE sheet header says NTFGH OT 2"
+   ]
+  },
+  {
+   "id": "fri-pm-ah-dsot1",
+   "site": "AH",
+   "kind": "ot",
+   "name": "DSOT 1",
+   "day": "2026-10-16",
+   "session": "PM",
+   "consultant": "Dr Lima Ho",
+   "status": "closed",
+   "need": 0,
+   "src": "hand",
+   "color": "grey",
+   "external": true
+  }
+ ],
+ "e2e": [
+  {
+   "list": "KRWOT 3",
+   "day": "2026-10-12",
+   "window": "full day"
+  },
+  {
+   "list": "KRWOT 3",
+   "day": "2026-10-13",
+   "window": "after 14:00"
+  },
+  {
+   "list": "KRWOT 3",
+   "day": "2026-10-14",
+   "window": "PM"
+  },
+  {
+   "list": "KRWOT 3",
+   "day": "2026-10-15",
+   "window": "PM"
+  },
+  {
+   "list": "KRWOT 3",
+   "day": "2026-10-16",
+   "window": "after 10:00"
+  },
+  {
+   "list": "MCOT 2",
+   "day": "2026-10-12",
+   "window": "AM until 10:00"
+  },
+  {
+   "list": "MCOT 2",
+   "day": "2026-10-13",
+   "window": "AM"
+  },
+  {
+   "list": "MCOT 2",
+   "day": "2026-10-14",
+   "window": "11:00-13:00 and from 15:00"
+  }
+ ],
+ "requests": [
+  {
+   "type": "list-person",
+   "person": "Dr Oscar Toh",
+   "list": "MCOT 2",
+   "day": "2026-10-16",
+   "session": "both"
+  },
+  {
+   "type": "list-need",
+   "list": "KRWOT 7",
+   "day": "2026-10-12",
+   "session": "AM",
+   "need": 1
+  },
+  {
+   "type": "list-person",
+   "person": "Dr Oscar Toh",
+   "list": "KRWOT 3",
+   "day": "2026-10-13",
+   "session": "AM",
+   "note": "at least AM"
+  },
+  {
+   "type": "list-grade",
+   "list": "KRWOT 3",
+   "day": "2026-10-14",
+   "session": "PM",
+   "grade": "experienced reg, not fellows"
+  }
+ ],
+ "locums": [
+  {
+   "name": "Dr Lambda Ang",
+   "to": "Dr Bravo Sia clinic",
+   "days": [
+    "2026-10-13",
+    "2026-10-15"
+   ],
+   "session": "AM"
+  },
+  {
+   "name": "Dr Kappa Phua",
+   "to": "Dr Hotel Ong clinic",
+   "days": [
+    "2026-10-12"
+   ],
+   "session": "AM+PM"
+  },
+  {
+   "name": "Dr Kappa Phua",
+   "to": "Dr Echo Wong clinic",
+   "days": [
+    "2026-10-13"
+   ],
+   "session": "AM"
+  },
+  {
+   "name": "Dr Sigma Tham",
+   "to": null,
+   "note": "not around"
+  },
+  {
+   "name": "Dr Omega Ow",
+   "to": "Dr Sierra Heng NTFGH clinic",
+   "days": [
+    "2026-10-16"
+   ],
+   "session": "AM"
+  }
+ ],
+ "leave": [
+  {
+   "name": "Dr Uniform Seah",
+   "from": "2026-10-12",
+   "to": "2026-10-16",
+   "src": "docx"
+  },
+  {
+   "name": "Dr Zeta Soh",
+   "from": "2026-10-12",
+   "to": "2026-10-13",
+   "src": "docx"
+  },
+  {
+   "name": "Dr Alpha Pek",
+   "from": "2026-10-17",
+   "to": "2026-10-18",
+   "src": "core"
+  },
+  {
+   "name": "Dr Delta Ng",
+   "from": "2026-10-12",
+   "to": "2026-10-14",
+   "src": "core"
+  },
+  {
+   "name": "Dr Juliet Koh",
+   "from": "2026-10-12",
+   "to": "2026-10-18",
+   "src": "core"
+  },
+  {
+   "name": "Dr Lima Ho",
+   "from": "2026-10-13",
+   "to": "2026-10-16",
+   "src": "core"
+  },
+  {
+   "name": "Dr Xray Yap",
+   "from": "2026-10-14",
+   "to": "2026-10-14",
+   "src": "hand",
+   "note": "TL (hand grid only)"
+  },
+  {
+   "name": "Dr Romeo Tay",
+   "from": "2026-10-16",
+   "to": "2026-10-16",
+   "src": "hand",
+   "note": "hand grid only; CORE still rosters him"
+  },
+  {
+   "name": "Dr Yankee Pang",
+   "from": "2026-10-16",
+   "to": "2026-10-16",
+   "src": "hand",
+   "note": "hand grid only; CORE still rosters him"
+  }
+ ],
+ "calls": [
+  {
+   "date": "2026-10-11",
+   "con": null,
+   "reg": "Dr Sierra Heng",
+   "moNuh": "Dr Kappa Phua",
+   "moNtf": "Dr November Sim"
+  },
+  {
+   "date": "2026-10-12",
+   "con": "Dr Echo Wong",
+   "reg": "Dr Zulu Neo",
+   "moNuh": "Dr Eta Aw",
+   "moNtf": "Dr Tango Quek"
+  },
+  {
+   "date": "2026-10-13",
+   "con": "Dr Alpha Pek",
+   "reg": "Dr Quebec Low",
+   "moNuh": "Dr Romeo Tay",
+   "moNtf": "Dr Theta Kwek"
+  },
+  {
+   "date": "2026-10-14",
+   "con": "Dr Kilo Chew",
+   "reg": "Dr Oscar Toh",
+   "moNuh": "Dr Yankee Pang",
+   "moNtf": "Dr Whiskey Chin"
+  },
+  {
+   "date": "2026-10-15",
+   "con": "Dr Delta Ng",
+   "reg": "Dr November Sim",
+   "moNuh": "Dr Iota Loh",
+   "moNtf": "Dr Eta Aw"
+  },
+  {
+   "date": "2026-10-16",
+   "con": "Dr Hotel Ong",
+   "reg": "Dr Quebec Low",
+   "moNuh": "Dr Victor Lau",
+   "moNtf": "Dr Tango Quek"
+  },
+  {
+   "date": "2026-10-17",
+   "con": "Dr Lima Ho",
+   "reg": "Dr Sierra Heng",
+   "moNuh": null,
+   "moNtf": null
+  },
+  {
+   "date": "2026-10-18",
+   "con": "Dr Echo Wong",
+   "reg": null,
+   "moNuh": null,
+   "moNtf": null
+  }
+ ],
+ "grid": {
+  "2026-10-12": {
+   "AM": [
+    {
+     "list": "mon-am-nuh-clinic-1",
+     "juniors": [
+      "Dr Yankee Pang"
+     ]
+    },
+    {
+     "list": "mon-am-nuh-clinic-2",
+     "juniors": [
+      "Dr Kappa Phua"
+     ]
+    },
+    {
+     "list": "mon-am-nuh-clinic-3",
+     "juniors": [
+      "Dr Romeo Tay"
+     ]
+    },
+    {
+     "list": "mon-am-nuh-hotclinic",
+     "juniors": [
+      "Dr Xray Yap"
+     ]
+    },
+    {
+     "list": "mon-am-nuh-mcot2",
+     "juniors": [
+      "Dr Tango Quek",
+      "Dr Victor Lau"
+     ]
+    },
+    {
+     "list": "mon-am-nuh-krwot7",
+     "juniors": [
+      "Dr Papa Foo"
+     ]
+    },
+    {
+     "list": "mon-am-nuh-krwot3",
+     "juniors": [
+      "Dr Quebec Low",
+      "Dr Iota Loh"
+     ]
+    },
+    {
+     "list": "mon-am-nuh-mspot",
+     "juniors": [
+      "Dr Whiskey Chin"
+     ]
+    },
+    {
+     "list": "mon-am-ntfgh-clinic-1",
+     "juniors": []
+    }
+   ],
+   "PM": [
+    {
+     "list": "mon-pm-nuh-clinic-1",
+     "juniors": [
+      "Dr Romeo Tay"
+     ]
+    },
+    {
+     "list": "mon-pm-nuh-clinic-2",
+     "juniors": [
+      "Dr Kappa Phua"
+     ]
+    },
+    {
+     "list": "mon-pm-nuh-clinic-3",
+     "juniors": [
+      "Dr Yankee Pang"
+     ]
+    },
+    {
+     "list": "mon-pm-nuh-clinic-4",
+     "juniors": []
+    },
+    {
+     "list": "mon-pm-nuh-mcot2",
+     "juniors": [
+      "Dr Tango Quek",
+      "Dr Victor Lau"
+     ]
+    },
+    {
+     "list": "mon-pm-nuh-krwot3",
+     "juniors": [
+      "Dr Quebec Low",
+      "Dr Iota Loh"
+     ]
+    },
+    {
+     "list": "mon-pm-nuh-mspot",
+     "juniors": [
+      "Dr Oscar Toh"
+     ]
+    },
+    {
+     "list": "mon-pm-ntfgh-clinic-1",
+     "juniors": [
+      "Dr Theta Kwek"
+     ],
+     "notes": [
+      "(with Dr Zulu Neo)"
+     ]
+    }
+   ]
+  },
+  "2026-10-13": {
+   "AM": [
+    {
+     "list": "tue-am-nuh-clinic-1",
+     "juniors": [
+      "Dr Lambda Ang"
+     ],
+     "extras": [
+      "Dr Upsilon Bay"
+     ]
+    },
+    {
+     "list": "tue-am-nuh-clinic-2",
+     "juniors": []
+    },
+    {
+     "list": "tue-am-nuh-clinic-3",
+     "juniors": [
+      "Dr Kappa Phua"
+     ],
+     "extras": [
+      "Dr Tau Khoo"
+     ]
+    },
+    {
+     "list": "tue-am-nuh-clinic-4",
+     "juniors": [
+      "Dr Yankee Pang"
+     ]
+    },
+    {
+     "list": "tue-am-nuh-clinic-5",
+     "juniors": [
+      "Dr Xray Yap"
+     ]
+    },
+    {
+     "list": "tue-am-nuh-hotclinic",
+     "juniors": [
+      "Dr November Sim"
+     ]
+    },
+    {
+     "list": "tue-am-nuh-mcot2",
+     "juniors": [
+      "Dr Tango Quek",
+      "Dr Whiskey Chin"
+     ]
+    },
+    {
+     "list": "tue-am-nuh-krwot3",
+     "juniors": [
+      "Dr Oscar Toh"
+     ]
+    },
+    {
+     "list": "tue-am-nuh-mspot",
+     "juniors": [
+      "Dr Eta Aw",
+      "Dr Papa Foo"
+     ]
+    },
+    {
+     "list": "tue-am-ntfgh-clinic-1",
+     "juniors": [
+      "Dr Victor Lau"
+     ]
+    },
+    {
+     "list": "tue-am-ntfgh-clinic-2",
+     "juniors": [
+      "Dr Quebec Low"
+     ]
+    },
+    {
+     "list": "tue-am-ntfgh-clinic-3",
+     "juniors": [
+      "Dr Iota Loh"
+     ]
+    },
+    {
+     "list": "tue-am-ah-ot",
+     "juniors": []
+    }
+   ],
+   "PM": [
+    {
+     "list": "tue-pm-nuh-clinic-1",
+     "juniors": [
+      "Dr Xray Yap"
+     ]
+    },
+    {
+     "list": "tue-pm-nuh-clinic-2",
+     "juniors": []
+    },
+    {
+     "list": "tue-pm-nuh-clinic-3",
+     "juniors": [
+      "Dr Yankee Pang"
+     ]
+    },
+    {
+     "list": "tue-pm-nuh-clinic-4",
+     "juniors": []
+    },
+    {
+     "list": "tue-pm-nuh-krwot3",
+     "juniors": [
+      "Dr Oscar Toh",
+      "Dr Whiskey Chin"
+     ]
+    },
+    {
+     "list": "tue-pm-nuh-mspot",
+     "juniors": [
+      "Dr November Sim"
+     ],
+     "extras": [
+      "Dr Upsilon Bay"
+     ]
+    },
+    {
+     "list": "tue-pm-ntfgh-clinic-1",
+     "juniors": [
+      "Dr Victor Lau"
+     ]
+    },
+    {
+     "list": "tue-pm-ah-clinic-1",
+     "juniors": []
+    }
+   ]
+  },
+  "2026-10-14": {
+   "AM": [
+    {
+     "list": "wed-am-nuh-clinic-1",
+     "juniors": [
+      "Dr Romeo Tay"
+     ],
+     "extras": [
+      "Dr Upsilon Bay"
+     ]
+    },
+    {
+     "list": "wed-am-nuh-clinic-2",
+     "juniors": []
+    },
+    {
+     "list": "wed-am-nuh-clinic-3",
+     "juniors": [
+      "Dr Victor Lau"
+     ]
+    },
+    {
+     "list": "wed-am-nuh-clinic-4",
+     "juniors": []
+    },
+    {
+     "list": "wed-am-nuh-clinic-5",
+     "juniors": [
+      "Dr Papa Foo"
+     ]
+    },
+    {
+     "list": "wed-am-nuh-hotclinic",
+     "juniors": [
+      "Dr Eta Aw"
+     ],
+     "notes": [
+      "(KIV MSP)"
+     ]
+    },
+    {
+     "list": "wed-am-nuh-mcot2",
+     "juniors": [
+      "Dr Iota Loh"
+     ]
+    },
+    {
+     "list": "wed-am-nuh-krwot3",
+     "juniors": [
+      "Dr November Sim",
+      "Dr Theta Kwek"
+     ]
+    },
+    {
+     "list": "wed-am-nuh-mspot",
+     "juniors": [
+      "Dr Tango Quek"
+     ],
+     "extras": [
+      "Dr Tau Khoo"
+     ],
+     "notes": [
+      "(KIV HOT)"
+     ]
+    },
+    {
+     "list": "wed-am-ntfgh-clinic-1",
+     "juniors": [
+      "Dr Quebec Low"
+     ]
+    },
+    {
+     "list": "wed-am-ntfgh-ntfghot15",
+     "juniors": [
+      "Dr Zeta Soh"
+     ]
+    },
+    {
+     "list": "wed-am-ah-clinic-1",
+     "juniors": []
+    }
+   ],
+   "PM": [
+    {
+     "list": "wed-pm-nuh-clinic-1",
+     "juniors": []
+    },
+    {
+     "list": "wed-pm-nuh-clinic-2",
+     "juniors": []
+    },
+    {
+     "list": "wed-pm-nuh-clinic-3",
+     "juniors": []
+    },
+    {
+     "list": "wed-pm-nuh-mcot2",
+     "juniors": [
+      "Dr Eta Aw",
+      "Dr Iota Loh"
+     ]
+    },
+    {
+     "list": "wed-pm-nuh-krwot3",
+     "juniors": [
+      "Dr November Sim",
+      "Dr Theta Kwek"
+     ],
+     "extras": [
+      "Dr Tau Khoo"
+     ]
+    },
+    {
+     "list": "wed-pm-nuh-mspot",
+     "juniors": [
+      "Dr Oscar Toh"
+     ],
+     "extras": [
+      "Dr Upsilon Bay"
+     ]
+    },
+    {
+     "list": "wed-pm-ntfgh-ntfghot15",
+     "juniors": [
+      "Dr Zeta Soh"
+     ]
+    }
+   ]
+  },
+  "2026-10-15": {
+   "AM": [
+    {
+     "list": "thu-am-nuh-clinic-1",
+     "juniors": [
+      "Dr Lambda Ang"
+     ]
+    },
+    {
+     "list": "thu-am-nuh-clinic-2",
+     "juniors": [
+      "Dr Victor Lau"
+     ],
+     "extras": [
+      "Dr Upsilon Bay"
+     ]
+    },
+    {
+     "list": "thu-am-nuh-clinic-3",
+     "juniors": []
+    },
+    {
+     "list": "thu-am-nuh-hotclinic",
+     "juniors": [
+      "Dr Quebec Low"
+     ]
+    },
+    {
+     "list": "thu-am-nuh-mcot2",
+     "juniors": [
+      "Dr Romeo Tay"
+     ]
+    },
+    {
+     "list": "thu-am-nuh-krwot3",
+     "juniors": [
+      "Dr Papa Foo"
+     ]
+    },
+    {
+     "list": "thu-am-nuh-mspot",
+     "juniors": [
+      "Dr Oscar Toh"
+     ],
+     "extras": [
+      "Dr Tau Khoo"
+     ]
+    },
+    {
+     "list": "thu-am-ntfgh-clinic-1",
+     "juniors": [
+      "Dr Zeta Soh"
+     ]
+    },
+    {
+     "list": "thu-am-ntfgh-clinic-2",
+     "juniors": [
+      "Dr Whiskey Chin"
+     ]
+    },
+    {
+     "list": "thu-am-ntfgh-clinic-3",
+     "juniors": []
+    },
+    {
+     "list": "thu-am-ntfgh-ntfghot15",
+     "juniors": [
+      "Dr Theta Kwek"
+     ]
+    }
+   ],
+   "PM": [
+    {
+     "list": "thu-pm-nuh-clinic-1",
+     "juniors": []
+    },
+    {
+     "list": "thu-pm-nuh-clinic-2",
+     "juniors": []
+    },
+    {
+     "list": "thu-pm-nuh-krwot3",
+     "juniors": [
+      "Dr Tango Quek",
+      "Dr Papa Foo"
+     ],
+     "extras": [
+      "Dr Upsilon Bay"
+     ]
+    },
+    {
+     "list": "thu-pm-nuh-mspot",
+     "juniors": [
+      "Dr Quebec Low"
+     ],
+     "extras": [
+      "Dr Tau Khoo"
+     ]
+    },
+    {
+     "list": "thu-pm-ntfgh-clinic-1",
+     "juniors": [
+      "Dr Zeta Soh"
+     ]
+    },
+    {
+     "list": "thu-pm-ntfgh-clinic-2",
+     "juniors": [
+      "Dr Theta Kwek"
+     ]
+    },
+    {
+     "list": "thu-pm-jmc-ot1",
+     "juniors": []
+    }
+   ]
+  },
+  "2026-10-16": {
+   "AM": [
+    {
+     "list": "fri-am-nuh-clinic-1",
+     "juniors": [
+      "Dr Iota Loh"
+     ],
+     "extras": [
+      "Dr Tau Khoo"
+     ]
+    },
+    {
+     "list": "fri-am-nuh-clinic-2",
+     "juniors": [
+      "Dr Whiskey Chin"
+     ],
+     "extras": [
+      "Dr Upsilon Bay"
+     ]
+    },
+    {
+     "list": "fri-am-nuh-clinic-3",
+     "juniors": [
+      "Dr Victor Lau"
+     ]
+    },
+    {
+     "list": "fri-am-nuh-hotclinic",
+     "juniors": [
+      "Dr Papa Foo"
+     ]
+    },
+    {
+     "list": "fri-am-nuh-mcot2",
+     "juniors": [
+      "Dr Oscar Toh",
+      "Dr Quebec Low"
+     ]
+    },
+    {
+     "list": "fri-am-nuh-krwot3",
+     "juniors": [
+      "Dr Xray Yap"
+     ]
+    },
+    {
+     "list": "fri-am-nuh-mspot",
+     "juniors": [
+      "Dr November Sim",
+      "Dr Theta Kwek"
+     ]
+    },
+    {
+     "list": "fri-am-ntfgh-clinic-1",
+     "juniors": []
+    },
+    {
+     "list": "fri-am-ntfgh-clinic-2",
+     "juniors": []
+    },
+    {
+     "list": "fri-am-ntfgh-clinic-3",
+     "juniors": [
+      "Dr Omega Ow"
+     ]
+    },
+    {
+     "list": "fri-am-ah-clinic-1",
+     "juniors": []
+    }
+   ],
+   "PM": [
+    {
+     "list": "fri-pm-nuh-clinic-1",
+     "juniors": []
+    },
+    {
+     "list": "fri-pm-nuh-clinic-2",
+     "juniors": [
+      "Dr Papa Foo"
+     ],
+     "extras": [
+      "Dr Tau Khoo",
+      "Dr Upsilon Bay"
+     ]
+    },
+    {
+     "list": "fri-pm-nuh-clinic-3",
+     "juniors": []
+    },
+    {
+     "list": "fri-pm-nuh-mcot2",
+     "juniors": [
+      "Dr Oscar Toh"
+     ]
+    },
+    {
+     "list": "fri-pm-nuh-krwot3",
+     "juniors": [
+      "Dr Theta Kwek"
+     ]
+    },
+    {
+     "list": "fri-pm-nuh-mspot",
+     "juniors": [
+      "Dr Whiskey Chin"
+     ]
+    },
+    {
+     "list": "fri-pm-ntfgh-clinic-1",
+     "juniors": [
+      "Dr Zeta Soh"
+     ]
+    },
+    {
+     "list": "fri-pm-ntfgh-ntfghot1",
+     "juniors": [
+      "Dr Tango Quek"
+     ],
+     "notes": [
+      "CORE sheet header says NTFGH OT 2"
+     ]
+    },
+    {
+     "list": "fri-pm-ah-dsot1",
+     "juniors": []
+    }
+   ]
+  }
+ },
+ "postCall": {
+  "2026-10-12": [
+   "Dr Sierra Heng",
+   "Dr Kappa Phua",
+   "Dr November Sim"
+  ],
+  "2026-10-13": [
+   "Dr Zulu Neo",
+   "Dr Eta Aw",
+   "Dr Theta Kwek"
+  ],
+  "2026-10-14": [
+   "Dr Tango Quek",
+   "Dr Romeo Tay",
+   "Dr Quebec Low"
+  ],
+  "2026-10-15": [
+   "Dr Oscar Toh",
+   "Dr Yankee Pang",
+   "Dr Whiskey Chin"
+  ],
+  "2026-10-16": [
+   "Dr November Sim",
+   "Dr Iota Loh",
+   "Dr Eta Aw",
+   "Dr Xray Yap"
+  ]
+ },
+ "free": {
+  "2026-10-12": [
+   {
+    "name": "Dr Oscar Toh",
+    "when": "AM",
+    "kind": "research"
+   },
+   {
+    "name": "Dr Eta Aw",
+    "when": "AM",
+    "kind": "other",
+    "why": "on call"
+   },
+   {
+    "name": "Dr Theta Kwek",
+    "when": "AM",
+    "kind": "other",
+    "why": "NTF on call"
+   },
+   {
+    "name": "Dr November Sim",
+    "when": "AM",
+    "kind": "other",
+    "why": "post call NTF"
+   },
+   {
+    "name": "Dr Xray Yap",
+    "when": "PM",
+    "kind": "research"
+   },
+   {
+    "name": "Dr Whiskey Chin",
+    "when": "PM",
+    "kind": "research"
+   },
+   {
+    "name": "Dr Papa Foo",
+    "when": "PM",
+    "kind": "research"
+   },
+   {
+    "name": "Dr Eta Aw",
+    "when": "PM",
+    "kind": "other",
+    "why": "on call"
+   }
+  ],
+  "2026-10-13": [
+   {
+    "name": "Dr Theta Kwek",
+    "when": "AM",
+    "kind": "research"
+   },
+   {
+    "name": "Dr Romeo Tay",
+    "when": "AM",
+    "kind": "other",
+    "why": "on call"
+   },
+   {
+    "name": "Dr Papa Foo",
+    "when": "PM",
+    "kind": "research"
+   },
+   {
+    "name": "Dr Iota Loh",
+    "when": "PM",
+    "kind": "research"
+   },
+   {
+    "name": "Dr Tango Quek",
+    "when": "PM",
+    "kind": "other",
+    "why": "on call"
+   },
+   {
+    "name": "Dr Romeo Tay",
+    "when": "PM",
+    "kind": "other",
+    "why": "on call"
+   },
+   {
+    "name": "Dr Quebec Low",
+    "when": "PM",
+    "kind": "other",
+    "why": "NTF on call"
+   },
+   {
+    "name": "Dr Tau Khoo",
+    "when": "PM",
+    "kind": "other",
+    "why": "OPS"
+   }
+  ],
+  "2026-10-14": [
+   {
+    "name": "Dr Oscar Toh",
+    "when": "AM",
+    "kind": "other",
+    "why": "on call"
+   },
+   {
+    "name": "Dr Yankee Pang",
+    "when": "AM",
+    "kind": "other",
+    "why": "on call"
+   },
+   {
+    "name": "Dr Whiskey Chin",
+    "when": "AM",
+    "kind": "other",
+    "why": "NTF on call"
+   },
+   {
+    "name": "Dr Papa Foo",
+    "when": "PM",
+    "kind": "research"
+   },
+   {
+    "name": "Dr Victor Lau",
+    "when": "PM",
+    "kind": "research"
+   },
+   {
+    "name": "Dr Yankee Pang",
+    "when": "PM",
+    "kind": "other",
+    "why": "on call"
+   },
+   {
+    "name": "Dr Whiskey Chin",
+    "when": "PM",
+    "kind": "other",
+    "why": "NTF on call"
+   }
+  ],
+  "2026-10-15": [
+   {
+    "name": "Dr Tango Quek",
+    "when": "AM",
+    "kind": "research"
+   },
+   {
+    "name": "Dr November Sim",
+    "when": "AM",
+    "kind": "other",
+    "why": "on call"
+   },
+   {
+    "name": "Dr Iota Loh",
+    "when": "AM",
+    "kind": "other",
+    "why": "on call"
+   },
+   {
+    "name": "Dr Eta Aw",
+    "when": "AM",
+    "kind": "other",
+    "why": "NTF on call"
+   },
+   {
+    "name": "Dr Xray Yap",
+    "when": "AM",
+    "kind": "other",
+    "why": "Ortho EOT AM"
+   },
+   {
+    "name": "Dr Yankee Pang",
+    "when": "AM",
+    "kind": "other",
+    "why": "post call"
+   },
+   {
+    "name": "Dr Xray Yap",
+    "when": "PM",
+    "kind": "research"
+   },
+   {
+    "name": "Dr Victor Lau",
+    "when": "PM",
+    "kind": "research"
+   },
+   {
+    "name": "Dr Romeo Tay",
+    "when": "PM",
+    "kind": "research"
+   },
+   {
+    "name": "Dr November Sim",
+    "when": "PM",
+    "kind": "other",
+    "why": "on call"
+   },
+   {
+    "name": "Dr Iota Loh",
+    "when": "PM",
+    "kind": "other",
+    "why": "on call"
+   },
+   {
+    "name": "Dr Eta Aw",
+    "when": "PM",
+    "kind": "other",
+    "why": "NTF on call"
+   }
+  ],
+  "2026-10-16": [
+   {
+    "name": "Dr Zeta Soh",
+    "when": "AM",
+    "kind": "research"
+   },
+   {
+    "name": "Dr Tango Quek",
+    "when": "AM",
+    "kind": "other",
+    "why": "NTF on call"
+   },
+   {
+    "name": "Dr Eta Aw",
+    "when": "AM",
+    "kind": "other",
+    "why": "NTF post call"
+   },
+   {
+    "name": "Dr Quebec Low",
+    "when": "PM",
+    "kind": "other",
+    "why": "on call"
+   },
+   {
+    "name": "Dr Victor Lau",
+    "when": "PM",
+    "kind": "other",
+    "why": "on call"
+   }
+  ]
+ },
+ "handCalls": [
+  {
+   "date": "2026-10-12",
+   "con": "Dr Echo Wong",
+   "reg": "Dr Zulu Neo",
+   "moNuh": "Dr Eta Aw",
+   "moNtf": "Dr Theta Kwek"
+  },
+  {
+   "date": "2026-10-13",
+   "con": "Dr Alpha Pek",
+   "reg": "Dr Tango Quek",
+   "moNuh": "Dr Romeo Tay",
+   "moNtf": "Dr Quebec Low"
+  },
+  {
+   "date": "2026-10-14",
+   "con": "Dr Kilo Chew",
+   "reg": "Dr Oscar Toh",
+   "moNuh": "Dr Yankee Pang",
+   "moNtf": "Dr Whiskey Chin"
+  },
+  {
+   "date": "2026-10-15",
+   "con": "Dr Delta Ng",
+   "reg": "Dr November Sim",
+   "moNuh": "Dr Iota Loh",
+   "moNtf": "Dr Eta Aw"
+  },
+  {
+   "date": "2026-10-16",
+   "con": "Dr Hotel Ong",
+   "reg": "Dr Quebec Low",
+   "moNuh": "Dr Victor Lau",
+   "moNtf": "Dr Tango Quek"
+  }
+ ],
+ "observed": {
+  "callTiers": {
+   "weekday": [
+    "con",
+    "reg",
+    "moNuh",
+    "moNtf"
+   ],
+   "sat": [
+    "con",
+    "reg"
+   ],
+   "sun": [
+    "con"
+   ]
+  },
+  "note": "callTiers from the CORE sheet (Sat/Sun rows); Roster info gives only reg/moNuh/moNtf for weekdays",
+  "postCall": "PM off, AM may still be rostered (both hand grid and CORE)",
+  "needs": {
+   "hot": 1,
+   "msp": "1-2",
+   "krwot3": "1-3",
+   "mcot2": "1-2",
+   "clinic": "0-1 (+ outposters)",
+   "ntfghOt15": 1
+  }
+ },
+ "handStats": [
+  {
+   "name": "Dr November Sim",
+   "mspLaOt": 2,
+   "electiveOt": 2,
+   "clinic": 1,
+   "adminResearchSkills": 0,
+   "al": 0,
+   "freeOnCallOther": 3,
+   "postCall": 2
+  },
+  {
+   "name": "Dr Oscar Toh",
+   "mspLaOt": 3,
+   "electiveOt": 4,
+   "clinic": 0,
+   "adminResearchSkills": 1,
+   "al": 0,
+   "freeOnCallOther": 1,
+   "postCall": 1
+  },
+  {
+   "name": "Dr Papa Foo",
+   "mspLaOt": 1,
+   "electiveOt": 3,
+   "clinic": 3,
+   "adminResearchSkills": 3,
+   "al": 0,
+   "freeOnCallOther": 0,
+   "postCall": 0
+  },
+  {
+   "name": "Dr Quebec Low",
+   "mspLaOt": 1,
+   "electiveOt": 3,
+   "clinic": 3,
+   "adminResearchSkills": 0,
+   "al": 0,
+   "freeOnCallOther": 2,
+   "postCall": 1
+  },
+  {
+   "name": "Dr Romeo Tay",
+   "mspLaOt": 0,
+   "electiveOt": 1,
+   "clinic": 3,
+   "adminResearchSkills": 1,
+   "al": 1,
+   "freeOnCallOther": 2,
+   "postCall": 1
+  },
+  {
+   "name": "Dr Tango Quek",
+   "mspLaOt": 2,
+   "electiveOt": 4,
+   "clinic": 0,
+   "adminResearchSkills": 1,
+   "al": 0,
+   "freeOnCallOther": 2,
+   "postCall": 1
+  },
+  {
+   "name": "Dr Uniform Seah",
+   "mspLaOt": 0,
+   "electiveOt": 0,
+   "clinic": 0,
+   "adminResearchSkills": 0,
+   "al": 5,
+   "freeOnCallOther": 0,
+   "postCall": 0
+  },
+  {
+   "name": "Dr Victor Lau",
+   "mspLaOt": 0,
+   "electiveOt": 2,
+   "clinic": 5,
+   "adminResearchSkills": 2,
+   "al": 0,
+   "freeOnCallOther": 1,
+   "postCall": 0
+  },
+  {
+   "name": "Dr Whiskey Chin",
+   "mspLaOt": 2,
+   "electiveOt": 2,
+   "clinic": 2,
+   "adminResearchSkills": 1,
+   "al": 0,
+   "freeOnCallOther": 2,
+   "postCall": 1
+  },
+  {
+   "name": "Dr Xray Yap",
+   "mspLaOt": 0,
+   "electiveOt": 1,
+   "clinic": 3,
+   "adminResearchSkills": 2,
+   "al": 1,
+   "freeOnCallOther": 1,
+   "postCall": 1
+  },
+  {
+   "name": "Dr Yankee Pang",
+   "mspLaOt": 0,
+   "electiveOt": 0,
+   "clinic": 4,
+   "adminResearchSkills": 0,
+   "al": 1,
+   "freeOnCallOther": 3,
+   "postCall": 1
+  },
+  {
+   "name": "Dr Zeta Soh",
+   "mspLaOt": 0,
+   "electiveOt": 2,
+   "clinic": 3,
+   "adminResearchSkills": 1,
+   "al": 2,
+   "freeOnCallOther": 0,
+   "postCall": 0
+  },
+  {
+   "name": "Dr Theta Kwek",
+   "mspLaOt": 1,
+   "electiveOt": 4,
+   "clinic": 2,
+   "adminResearchSkills": 1,
+   "al": 0,
+   "freeOnCallOther": 1,
+   "postCall": 1
+  },
+  {
+   "name": "Dr Iota Loh",
+   "mspLaOt": 0,
+   "electiveOt": 4,
+   "clinic": 2,
+   "adminResearchSkills": 1,
+   "al": 0,
+   "freeOnCallOther": 2,
+   "postCall": 1
+  },
+  {
+   "name": "Dr Eta Aw",
+   "mspLaOt": 1,
+   "electiveOt": 1,
+   "clinic": 1,
+   "adminResearchSkills": 0,
+   "al": 0,
+   "freeOnCallOther": 5,
+   "postCall": 2
+  }
+ ],
+ "core": {
+  "grid": {
+   "2026-10-12": {
+    "AM": [
+     {
+      "list": "mon-am-nuh-clinic-1",
+      "juniors": [
+       "Dr Yankee Pang"
+      ]
+     },
+     {
+      "list": "mon-am-nuh-clinic-2",
+      "juniors": [
+       "Dr Kappa Phua"
+      ]
+     },
+     {
+      "list": "mon-am-nuh-clinic-3",
+      "juniors": [
+       "Dr Papa Foo"
+      ]
+     },
+     {
+      "list": "mon-am-nuh-hotclinic",
+      "juniors": [
+       "Dr Xray Yap"
+      ]
+     },
+     {
+      "list": "mon-am-nuh-mcot2",
+      "juniors": [
+       "Dr Oscar Toh",
+       "Dr Victor Lau"
+      ]
+     },
+     {
+      "list": "mon-am-nuh-krwot7",
+      "juniors": [
+       "Dr Romeo Tay"
+      ]
+     },
+     {
+      "list": "mon-am-nuh-krwot3",
+      "juniors": [
+       "Dr Iota Loh",
+       "Dr Quebec Low"
+      ]
+     },
+     {
+      "list": "mon-am-nuh-mspot",
+      "juniors": [
+       "Dr Whiskey Chin"
+      ]
+     },
+     {
+      "list": "mon-am-ntfgh-clinic-1",
+      "juniors": [
+       "Dr Theta Kwek"
+      ]
+     },
+     {
+      "list": "mon-am-ntfgh-clinic-2",
+      "juniors": []
+     }
+    ],
+    "PM": [
+     {
+      "list": "mon-pm-nuh-clinic-1",
+      "juniors": [
+       "Dr Romeo Tay"
+      ]
+     },
+     {
+      "list": "mon-pm-nuh-clinic-2",
+      "juniors": [
+       "Dr Kappa Phua"
+      ]
+     },
+     {
+      "list": "mon-pm-nuh-clinic-3",
+      "juniors": [
+       "Dr Papa Foo"
+      ]
+     },
+     {
+      "list": "mon-pm-nuh-mcot2",
+      "juniors": [
+       "Dr Victor Lau"
+      ]
+     },
+     {
+      "list": "mon-pm-nuh-krwot3",
+      "juniors": [
+       "Dr Iota Loh",
+       "Dr Quebec Low"
+      ]
+     },
+     {
+      "list": "mon-pm-nuh-mspot",
+      "juniors": [
+       "Dr Oscar Toh"
+      ]
+     },
+     {
+      "list": "mon-pm-ntfgh-clinic-1",
+      "juniors": [
+       "Dr Theta Kwek"
+      ]
+     }
+    ]
+   },
+   "2026-10-13": {
+    "AM": [
+     {
+      "list": "tue-am-nuh-clinic-1",
+      "juniors": [
+       "Dr Lambda Ang"
+      ]
+     },
+     {
+      "list": "tue-am-nuh-clinic-2",
+      "juniors": []
+     },
+     {
+      "list": "tue-am-nuh-clinic-3",
+      "juniors": [
+       "Dr Kappa Phua"
+      ]
+     },
+     {
+      "list": "tue-am-nuh-clinic-4",
+      "juniors": [
+       "Dr Eta Aw"
+      ]
+     },
+     {
+      "list": "tue-am-nuh-clinic-5",
+      "juniors": [
+       "Dr Yankee Pang"
+      ]
+     },
+     {
+      "list": "tue-am-nuh-hotclinic",
+      "juniors": [
+       "Dr Xray Yap"
+      ]
+     },
+     {
+      "list": "tue-am-nuh-mcot2",
+      "juniors": [
+       "Dr Papa Foo",
+       "Dr November Sim"
+      ]
+     },
+     {
+      "list": "tue-am-nuh-krwot3",
+      "juniors": [
+       "Dr Oscar Toh"
+      ]
+     },
+     {
+      "list": "tue-am-nuh-mspot",
+      "juniors": [
+       "Dr Whiskey Chin"
+      ]
+     },
+     {
+      "list": "tue-am-ntfgh-clinic-1",
+      "juniors": [
+       "Dr Victor Lau"
+      ]
+     },
+     {
+      "list": "tue-am-ntfgh-clinic-2",
+      "juniors": [
+       "Dr Tango Quek"
+      ]
+     },
+     {
+      "list": "tue-am-ntfgh-clinic-3",
+      "juniors": [
+       "Dr Iota Loh"
+      ]
+     }
+    ],
+    "PM": [
+     {
+      "list": "tue-pm-nuh-clinic-1",
+      "juniors": [
+       "Dr Xray Yap"
+      ]
+     },
+     {
+      "list": "tue-pm-nuh-clinic-3",
+      "juniors": [
+       "Dr Papa Foo"
+      ]
+     },
+     {
+      "list": "tue-pm-nuh-krwot3",
+      "juniors": [
+       "Dr Oscar Toh",
+       "Dr Whiskey Chin"
+      ]
+     },
+     {
+      "list": "tue-pm-nuh-mspot",
+      "juniors": [
+       "Dr November Sim"
+      ]
+     },
+     {
+      "list": "tue-pm-nuh-clinic-5",
+      "juniors": []
+     },
+     {
+      "list": "tue-pm-nuh-clinic-6",
+      "juniors": []
+     },
+     {
+      "list": "tue-pm-ntfgh-clinic-1",
+      "juniors": [
+       "Dr Iota Loh"
+      ]
+     }
+    ]
+   },
+   "2026-10-14": {
+    "AM": [
+     {
+      "list": "wed-am-nuh-clinic-1",
+      "juniors": [
+       "Dr Romeo Tay"
+      ]
+     },
+     {
+      "list": "wed-am-nuh-clinic-2",
+      "juniors": []
+     },
+     {
+      "list": "wed-am-nuh-clinic-3",
+      "juniors": [
+       "Dr Victor Lau"
+      ]
+     },
+     {
+      "list": "wed-am-nuh-clinic-5",
+      "juniors": [
+       "Dr Papa Foo"
+      ]
+     },
+     {
+      "list": "wed-am-nuh-hotclinic",
+      "juniors": [
+       "Dr Tango Quek"
+      ]
+     },
+     {
+      "list": "wed-am-nuh-mcot2",
+      "juniors": [
+       "Dr Xray Yap",
+       "Dr Eta Aw"
+      ]
+     },
+     {
+      "list": "wed-am-nuh-krwot3",
+      "juniors": [
+       "Dr November Sim"
+      ]
+     },
+     {
+      "list": "wed-am-nuh-mspot",
+      "juniors": [
+       "Dr Quebec Low"
+      ]
+     },
+     {
+      "list": "wed-am-ntfgh-clinic-1",
+      "juniors": [
+       "Dr Theta Kwek"
+      ]
+     },
+     {
+      "list": "wed-am-ntfgh-ntfghot15",
+      "juniors": [
+       "Dr Zeta Soh"
+      ]
+     }
+    ],
+    "PM": [
+     {
+      "list": "wed-pm-nuh-clinic-1",
+      "juniors": []
+     },
+     {
+      "list": "wed-pm-nuh-clinic-2",
+      "juniors": []
+     },
+     {
+      "list": "wed-pm-nuh-mcot2",
+      "juniors": [
+       "Dr Xray Yap",
+       "Dr Eta Aw"
+      ]
+     },
+     {
+      "list": "wed-pm-nuh-krwot3",
+      "juniors": [
+       "Dr Papa Foo",
+       "Dr November Sim"
+      ]
+     },
+     {
+      "list": "wed-pm-nuh-mspot",
+      "juniors": [
+       "Dr Tango Quek"
+      ]
+     },
+     {
+      "list": "wed-pm-ntfgh-ntfghot15",
+      "juniors": [
+       "Dr Zeta Soh"
+      ]
+     }
+    ]
+   },
+   "2026-10-15": {
+    "AM": [
+     {
+      "list": "thu-am-nuh-clinic-1",
+      "juniors": [
+       "Dr Lambda Ang"
+      ]
+     },
+     {
+      "list": "thu-am-nuh-clinic-2",
+      "juniors": [
+       "Dr Yankee Pang"
+      ]
+     },
+     {
+      "list": "thu-am-nuh-clinic-3",
+      "juniors": []
+     },
+     {
+      "list": "thu-am-nuh-hotclinic",
+      "juniors": [
+       "Dr Quebec Low"
+      ]
+     },
+     {
+      "list": "thu-am-nuh-mcot2",
+      "juniors": [
+       "Dr Romeo Tay"
+      ]
+     },
+     {
+      "list": "thu-am-nuh-krwot3",
+      "juniors": [
+       "Dr Papa Foo"
+      ]
+     },
+     {
+      "list": "thu-am-nuh-mspot",
+      "juniors": [
+       "Dr Oscar Toh"
+      ]
+     },
+     {
+      "list": "thu-am-nuh-clinic-4",
+      "juniors": []
+     },
+     {
+      "list": "thu-am-ntfgh-clinic-2",
+      "juniors": [
+       "Dr Whiskey Chin"
+      ]
+     },
+     {
+      "list": "thu-am-ntfgh-ntfghot15",
+      "juniors": [
+       "Dr Theta Kwek"
+      ]
+     }
+    ],
+    "PM": [
+     {
+      "list": "thu-pm-nuh-clinic-1",
+      "juniors": []
+     },
+     {
+      "list": "thu-pm-nuh-krwot3",
+      "juniors": [
+       "Dr Papa Foo",
+       "Dr Tango Quek"
+      ]
+     },
+     {
+      "list": "thu-pm-nuh-mspot",
+      "juniors": [
+       "Dr Quebec Low"
+      ]
+     },
+     {
+      "list": "thu-pm-nuh-clinic-3",
+      "juniors": []
+     },
+     {
+      "list": "thu-pm-ntfgh-clinic-1",
+      "juniors": [
+       "Dr Zeta Soh"
+      ]
+     }
+    ]
+   },
+   "2026-10-16": {
+    "AM": [
+     {
+      "list": "fri-am-nuh-clinic-1",
+      "juniors": [
+       "Dr Iota Loh"
+      ]
+     },
+     {
+      "list": "fri-am-nuh-clinic-2",
+      "juniors": [
+       "Dr Romeo Tay"
+      ]
+     },
+     {
+      "list": "fri-am-nuh-clinic-3",
+      "juniors": [
+       "Dr Whiskey Chin"
+      ]
+     },
+     {
+      "list": "fri-am-nuh-hotclinic",
+      "juniors": [
+       "Dr Papa Foo"
+      ]
+     },
+     {
+      "list": "fri-am-nuh-mcot2",
+      "juniors": [
+       "Dr Oscar Toh"
+      ]
+     },
+     {
+      "list": "fri-am-nuh-krwot3",
+      "juniors": [
+       "Dr Xray Yap",
+       "Dr Yankee Pang"
+      ]
+     },
+     {
+      "list": "fri-am-nuh-mspot",
+      "juniors": [
+       "Dr November Sim"
+      ]
+     },
+     {
+      "list": "fri-am-ntfgh-clinic-3",
+      "juniors": [
+       "Dr Omega Ow"
+      ]
+     }
+    ],
+    "PM": [
+     {
+      "list": "fri-pm-nuh-clinic-2",
+      "juniors": [
+       "Dr Romeo Tay"
+      ]
+     },
+     {
+      "list": "fri-pm-nuh-mcot2",
+      "juniors": [
+       "Dr Oscar Toh"
+      ]
+     },
+     {
+      "list": "fri-pm-nuh-krwot3",
+      "juniors": [
+       "Dr Xray Yap",
+       "Dr Yankee Pang"
+      ]
+     },
+     {
+      "list": "fri-pm-nuh-mspot",
+      "juniors": [
+       "Dr Whiskey Chin"
+      ]
+     },
+     {
+      "list": "fri-pm-ntfgh-clinic-1",
+      "juniors": [
+       "Dr Zeta Soh"
+      ]
+     },
+     {
+      "list": "fri-pm-ntfgh-ntfghot1",
+      "juniors": [
+       "Dr Theta Kwek"
+      ]
+     }
+    ]
+   },
+   "2026-10-17": {
+    "AM": [],
+    "PM": []
+   },
+   "2026-10-18": {
+    "AM": [],
+    "PM": []
+   }
+  },
+  "postCall": {
+   "2026-10-12": [
+    "Dr November Sim"
+   ],
+   "2026-10-13": [
+    "Dr Eta Aw",
+    "Dr Tango Quek"
+   ],
+   "2026-10-14": [
+    "Dr Quebec Low",
+    "Dr Romeo Tay",
+    "Dr Theta Kwek"
+   ],
+   "2026-10-15": [
+    "Dr Oscar Toh",
+    "Dr Yankee Pang",
+    "Dr Whiskey Chin"
+   ],
+   "2026-10-16": [
+    "Dr November Sim",
+    "Dr Iota Loh",
+    "Dr Eta Aw"
+   ],
+   "2026-10-17": [],
+   "2026-10-18": []
+  },
+  "free": {
+   "2026-10-12": [
+    {
+     "name": "Dr Xray Yap",
+     "when": "PM"
+    },
+    {
+     "name": "Dr November Sim",
+     "when": "AM"
+    },
+    {
+     "name": "Dr Yankee Pang",
+     "when": "PM"
+    },
+    {
+     "name": "Dr Whiskey Chin",
+     "when": "PM"
+    },
+    {
+     "name": "Dr Eta Aw",
+     "when": "FULL DAY"
+    },
+    {
+     "name": "Dr Tango Quek",
+     "when": "FULL DAY"
+    }
+   ],
+   "2026-10-13": [
+    {
+     "name": "Dr Quebec Low",
+     "when": "FULL DAY"
+    },
+    {
+     "name": "Dr Yankee Pang",
+     "when": "PM"
+    },
+    {
+     "name": "Dr Romeo Tay",
+     "when": "FULL DAY"
+    },
+    {
+     "name": "Dr Theta Kwek",
+     "when": "FULL DAY"
+    },
+    {
+     "name": "Dr Victor Lau",
+     "when": "PM"
+    }
+   ],
+   "2026-10-14": [
+    {
+     "name": "Dr Iota Loh",
+     "when": "FULL DAY"
+    },
+    {
+     "name": "Dr Oscar Toh",
+     "when": "FULL DAY"
+    },
+    {
+     "name": "Dr Yankee Pang",
+     "when": "FULL DAY"
+    },
+    {
+     "name": "Dr Whiskey Chin",
+     "when": "FULL DAY"
+    },
+    {
+     "name": "Dr Victor Lau",
+     "when": "PM"
+    }
+   ],
+   "2026-10-15": [
+    {
+     "name": "Dr Xray Yap",
+     "when": "FULL DAY"
+    },
+    {
+     "name": "Dr November Sim",
+     "when": "FULL DAY"
+    },
+    {
+     "name": "Dr Iota Loh",
+     "when": "FULL DAY"
+    },
+    {
+     "name": "Dr Zeta Soh",
+     "when": "AM"
+    },
+    {
+     "name": "Dr Romeo Tay",
+     "when": "PM"
+    },
+    {
+     "name": "Dr Theta Kwek",
+     "when": "PM"
+    },
+    {
+     "name": "Dr Victor Lau",
+     "when": "FULL DAY"
+    },
+    {
+     "name": "Dr Eta Aw",
+     "when": "FULL DAY"
+    },
+    {
+     "name": "Dr Tango Quek",
+     "when": "AM"
+    }
+   ],
+   "2026-10-16": [
+    {
+     "name": "Dr Papa Foo",
+     "when": "PM"
+    },
+    {
+     "name": "Dr Zeta Soh",
+     "when": "AM"
+    },
+    {
+     "name": "Dr Quebec Low",
+     "when": "FULL DAY"
+    },
+    {
+     "name": "Dr Theta Kwek",
+     "when": "AM"
+    },
+    {
+     "name": "Dr Victor Lau",
+     "when": "FULL DAY"
+    },
+    {
+     "name": "Dr Eta Aw",
+     "when": "AM"
+    },
+    {
+     "name": "Dr Tango Quek",
+     "when": "FULL DAY"
+    }
+   ],
+   "2026-10-17": [],
+   "2026-10-18": []
+  },
+  "leave": {
+   "2026-10-12": [
+    "Dr Delta Ng",
+    "Dr Uniform Seah",
+    "Dr Zeta Soh",
+    "Dr Juliet Koh"
+   ],
+   "2026-10-13": [
+    "Dr Delta Ng",
+    "Dr Uniform Seah",
+    "Dr Zeta Soh",
+    "Dr Juliet Koh",
+    "Dr Lima Ho"
+   ],
+   "2026-10-14": [
+    "Dr Delta Ng",
+    "Dr Uniform Seah",
+    "Dr Juliet Koh",
+    "Dr Lima Ho"
+   ],
+   "2026-10-15": [
+    "Dr Uniform Seah",
+    "Dr Juliet Koh",
+    "Dr Lima Ho"
+   ],
+   "2026-10-16": [
+    "Dr Uniform Seah",
+    "Dr Juliet Koh",
+    "Dr Lima Ho"
+   ],
+   "2026-10-17": [
+    "Dr Alpha Pek",
+    "Dr Juliet Koh"
+   ],
+   "2026-10-18": [
+    "Dr Alpha Pek",
+    "Dr Juliet Koh"
+   ]
+  },
+  "calls": [
+   {
+    "date": "2026-10-12",
+    "con": "Dr Echo Wong",
+    "reg": "Dr Zulu Neo",
+    "moNuh": "Dr Eta Aw",
+    "moNtf": "Dr Tango Quek"
+   },
+   {
+    "date": "2026-10-13",
+    "con": "Dr Alpha Pek",
+    "reg": "Dr Quebec Low",
+    "moNuh": "Dr Romeo Tay",
+    "moNtf": "Dr Theta Kwek"
+   },
+   {
+    "date": "2026-10-14",
+    "con": "Dr Kilo Chew",
+    "reg": "Dr Oscar Toh",
+    "moNuh": "Dr Yankee Pang",
+    "moNtf": "Dr Whiskey Chin"
+   },
+   {
+    "date": "2026-10-15",
+    "con": "Dr Delta Ng",
+    "reg": "Dr November Sim",
+    "moNuh": "Dr Iota Loh",
+    "moNtf": "Dr Eta Aw"
+   },
+   {
+    "date": "2026-10-16",
+    "con": "Dr Hotel Ong",
+    "reg": "Dr Quebec Low",
+    "moNuh": "Dr Victor Lau",
+    "moNtf": "Dr Tango Quek"
+   },
+   {
+    "date": "2026-10-17",
+    "con": "Dr Lima Ho",
+    "reg": "Dr Sierra Heng",
+    "moNuh": null,
+    "moNtf": null
+   },
+   {
+    "date": "2026-10-18",
+    "con": "Dr Echo Wong",
+    "reg": null,
+    "moNuh": null,
+    "moNtf": null
+   }
+  ]
+ }
+}
