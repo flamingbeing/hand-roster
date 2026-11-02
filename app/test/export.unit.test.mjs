@@ -106,6 +106,8 @@ test('hand grid: title, one row per section, "Consultant SITE Clinic rooms - pat
   assert.ok(sections[5].cells[0].some(l => l.t === 'Dr Ann Test (on call)'));
   const noPatients = handSections(weekLayout({ ...base, style: 'hand', patients: false }))[0].cells[0].map(l => l.t);
   assert.ok(noPatients.includes('Dr Fay Test NUH Clinic G03/04'));
+  const empty = handSections(weekLayout({ monday: '2026-11-02', style: 'hand', lists: [], people: [] }));
+  assert.deepEqual(empty.map(s => s.title), ['AM sessions', 'PM sessions', 'On call', 'Leave', 'Post-call'], 'an empty week still prints the five rows');
 });
 
 test('calls layout: a row a day, four tiers, off days marked, counts without the idle', () => {

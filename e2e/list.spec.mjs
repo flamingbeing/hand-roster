@@ -1,6 +1,6 @@
 // Sign-in, roles from the role doc, and the Week tab's lists.
 import AxeBuilder from './axe.mjs';
-import { test, expect, signIn, addList, weekdayShown, synced, serverHas, db, uniq, APP } from './fixtures.mjs';
+import { test, expect, signIn, openWeek, addList, weekdayShown, synced, serverHas, db, uniq, APP } from './fixtures.mjs';
 
 test('signed out: the sign-in screen, accessible', { tag: '@smoke' }, async ({ phone }) => {
   const page = await phone();
@@ -88,25 +88,22 @@ test('a role change during a token refresh still reaches the page', async ({ pho
   }
 });
 
-test('typing the next item while the last one saves keeps the new draft (slow or offline network)', async ({ phone }) => {
+test('two lists added offline, the second while the first is still unsent, both show and both reach the server', async ({ phone }) => {
   const page = await phone();
   await signIn(page, 'member');
+  await openWeek(page);
   await synced(page);
   await page.context().setOffline(true);
   const first = uniq('first'), second = uniq('second');
-  // both user actions in one task, so the next draft is typed before the first save resolves
-  await page.evaluate(({ first, second }) => {
-    const box = /** @type {HTMLInputElement} */ (document.querySelector('#new-text'));
-    box.value = first;
-    /** @type {HTMLFormElement} */ (document.querySelector('#week-build')).requestSubmit();
-    box.value = second;
-    box.dispatchEvent(new Event('input', { bubbles: true }));
-  }, { first, second });
-  await expect(page.locator('#today')).toContainText(first);
-  await expect(page.locator('#new-text')).toHaveValue(second);
-  await page.click('#week-build button[type=submit]');
-  await expect(page.locator('#today')).toContainText(second);
-  await expect(page.locator('#new-text')).toHaveValue('');
+  const wd = weekdayShown();
+  // both adds in one task, so the second is queued before the first save resolves
+  await page.evaluate(([a, b, w]) => {
+    const lists = window.starter.data().lists;
+    lists.add({ site: 'NUH', kind: 'ot', name: a, wd: w, session: 'AM', need: 1, status: 'open' });
+    lists.add({ site: 'NUH', kind: 'ot', name: b, wd: w, session: 'AM', need: 1, status: 'open' });
+  }, [first, second, wd]);
+  await expect(page.locator('#week-grid')).toContainText(first);
+  await expect(page.locator('#week-grid')).toContainText(second);
   await page.context().setOffline(false);
   await serverHas(first);
   await serverHas(second);

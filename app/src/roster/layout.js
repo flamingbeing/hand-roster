@@ -164,7 +164,7 @@ export function coreRows(layout) {
 }
 
 /**
- * The hand-made grid's rows: one per section (AM sessions, PM sessions, on call, leave, post-call, free), each day's cell
+ * The hand-made grid's rows: one per section, the first five always shown (AM sessions, PM sessions, on call, leave, post-call, free), each day's cell
  * the stacked lines of every block of that section. On-call lines carry their tier ("CON: name"), and an empty tier on a
  * day that has none is left out.
  * @param {WeekLayout} layout
@@ -172,10 +172,12 @@ export function coreRows(layout) {
  */
 export function handSections(layout) {
   /** @type {{ title: string, section: string, cells: Line[][] }[]} */
-  const out = [];
+  const row0 = section => ({ title: HAND_NAMES[section] ?? section, section, cells: layout.days.map(() => /** @type {Line[]} */ ([])) });
+  // the hand-made grid always has these rows, empty or not; FREE only once built
+  const out = [SECTIONS.am, SECTIONS.pm, SECTIONS.call, SECTIONS.leave, SECTIONS.post].map(row0);
   for (const b of layout.blocks) {
     let row = out.find(r => r.section === b.section);
-    if (!row) { row = { title: HAND_NAMES[b.section] ?? b.section, section: b.section, cells: layout.days.map(() => []) }; out.push(row); }
+    if (!row) { row = row0(b.section); out.push(row); }
     b.lines.forEach((lines, i) => {
       for (const ln of lines) {
         if (b.prefix) { if (ln.t) row.cells[i].push({ ...ln, t: `${b.label}: ${ln.t}` }); } else row.cells[i].push(ln);
