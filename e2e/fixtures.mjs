@@ -188,7 +188,7 @@ export async function signIn(page, role = 'member', { path = APP } = {}) {
   const uid = await page.locator('#uid').textContent();
   if (role) {
     await db.put(`members/${uid}`, { role, v: 1 });
-    await expect(page.locator('#list-view')).toBeVisible();
+    await expect(page.locator('#week-view')).toBeVisible();
     await expect.poll(() => page.evaluate(() => window.starter.ready)).toBe(true);
   }
   return { uid, email };
@@ -199,7 +199,7 @@ export async function signInAgain(page, email) {
   await page.goto(APP, { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#signed-out')).toBeVisible();
   await page.evaluate(e => window.starter.signInAs(e), email);
-  await expect(page.locator('#list-view')).toBeVisible();
+  await expect(page.locator('#week-view')).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.starter.ready)).toBe(true);
 }
 
@@ -208,16 +208,19 @@ export async function signInAgain(page, email) {
 // A static app has no sign-in: the step a cloud app's tests sign in with only opens the list. -> {}
 export async function signIn(page, role = 'member', { path = APP } = {}) {
   await page.goto(path, { waitUntil: 'domcontentloaded' });
-  await expect(page.locator('#list-view')).toBeVisible();
+  await expect(page.locator('#week-view')).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.starter.ready)).toBe(true);
   return {};
 }
 }static */
 
-export async function add(page, text) {
-  await page.fill('#new-text', text);
-  await page.click('#add button[type=submit]');
-  await expect(page.locator('#today')).toContainText(text);
+/** the weekday (1 = Monday .. 5 = Friday) the Week tab opens on: today, or Monday from the weekend on */
+export const weekdayShown = (d = new Date()) => (d.getDay() >= 1 && d.getDay() <= 5 ? d.getDay() : 1);
+/** Add a list (a row of the weekly template) on the day the Week tab shows, through the page's own write queue, and wait for it on the grid. */
+export async function addList(page, name) {
+  const wd = weekdayShown();
+  await page.evaluate(([n, w]) => window.starter.data().lists.add({ site: 'NUH', kind: 'ot', name: n, wd: w, session: 'AM', need: 1, status: 'open' }), [name, wd]);
+  await expect(page.locator('#week-grid')).toContainText(name);
 }
 // Open a dialog from its button and wait for the dialog. The list redraws its buttons whenever a snapshot lands (the files
 // snapshot follows the first list one); a pointer click whose button is swapped out between press and release is dropped
@@ -237,22 +240,10 @@ export const openSettings = async (page, title) => {
   await page.locator('#settings-host .ui-settings-menu-groups .ui-settings-go').filter({ hasText: new RegExp(`^${title}`) }).click();
   await expect(page.locator('#settings-host .ui-settings-back:visible')).toBeVisible();
 };
-export const openToday = async page => { await toTop(page); await page.locator(tabLink('today-page')).first().click(); await expect(page.locator('#today-page')).toBeVisible(); };
+export const openWeek = async page => { await toTop(page); await page.locator(tabLink('week-page')).first().click(); await expect(page.locator('#week-page')).toBeVisible(); };
 export const openTab = async (page, name) => { await toTop(page); await page.locator(tabLink(`${name}-page`)).first().click(); await expect(page.locator(`#${name}-page`)).toBeVisible(); };
 export const clickOpens = async (button, dialog) => { await button.dispatchEvent('click'); await expect(dialog).toBeVisible(); };
 export const synced = page => expect.poll(() => page.evaluate(() => window.starter.status), { timeout: 15_000 }).toBe('synced');
 // cloud{
-export const serverHas = text => expect.poll(async () => (await db.list('spaces/_/tasks')).some(d => d.text === text), { timeout: 15_000 }).toBe(true);
-// The id of the shared item with this text (db.list leaves document ids out).
-export async function itemIdOf(text) {
-  const host = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
-  // (every page: the shared list grows over a long --repeat-each soak, past one page)
-  for (let token = ''; ;) {
-    const r = await fetch(`http://${host}/v1/projects/demo-hand-roster/databases/(default)/documents/spaces/_/tasks?pageSize=300${token ? `&pageToken=${encodeURIComponent(token)}` : ''}`, { headers: { Authorization: 'Bearer owner' } });
-    const j = await r.json();
-    const d = (j.documents || []).find(x => x.fields?.text?.stringValue === text);
-    if (d) return d.name.split('/').pop();
-    if (!(token = j.nextPageToken || '')) return undefined;
-  }
-}
+export const serverHas = name => expect.poll(async () => (await db.list('spaces/_/lists')).some(d => d.name === name), { timeout: 15_000 }).toBe(true);
 // }cloud

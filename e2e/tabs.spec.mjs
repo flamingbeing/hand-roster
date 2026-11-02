@@ -5,20 +5,20 @@ import { test, expect, APP, openSettings } from './fixtures.mjs';
 test('a tab taken off the bar is one tap away in Settings and stays off', async ({ phone }) => {
   const page = await phone();
   await page.goto(APP, { waitUntil: 'domcontentloaded' });
-  const done = page.locator('.ui-tabbar [data-tab-id="done"]');
-  await expect(done).toBeVisible();
+  const people = page.locator('.ui-tabbar [data-tab-id="people"]');
+  await expect(people).toBeVisible();
 
   await openSettings(page, 'Tab bar');
   await expect(page.getByRole('switch', { name: 'On the tab bar: Settings' })).toBeDisabled();   // Settings stays
-  await page.getByRole('switch', { name: 'On the tab bar: Done' }).click();
-  await expect(done).toHaveAttribute('data-off-bar', '');
-  await expect(done).toBeHidden();
+  await page.getByRole('switch', { name: 'On the tab bar: People' }).click();
+  await expect(people).toHaveAttribute('data-off-bar', '');
+  await expect(people).toBeHidden();
 
   await page.locator('#settings-host .ui-settings-back:visible').click();
-  const off = page.locator('#settings-host .ui-settings-top').getByRole('button', { name: 'Done' });
+  const off = page.locator('#settings-host .ui-settings-top').getByRole('button', { name: 'People' });
   await off.click();
-  await expect(page.locator('#done-page')).toBeVisible();
+  await expect(page.locator('#people-page')).toBeVisible();
 
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await expect(page.locator('.ui-tabbar [data-tab-id="done"]')).toHaveAttribute('data-off-bar', '');
+  await expect(page.locator('.ui-tabbar [data-tab-id="people"]')).toHaveAttribute('data-off-bar', '');
 });

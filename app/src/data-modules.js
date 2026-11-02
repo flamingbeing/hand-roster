@@ -16,8 +16,8 @@
 
 // The bin recipe's data side (recipes/bin.json, bin-data.js): api({ sdk, space, items, put }) -> the BinApi (items.js) that
 // cloud.js hands the screens as app.bin; coll is the collection the delete writes its entries to.
-/** @typedef {{ coll: string, api: (o: { sdk: () => Promise<any>, space: string, items: () => import('./items.js').Item[],
- *   put: (item: import('./items.js').Item) => Promise<string> }) => import('./items.js').BinApi }} BinData */
+/** @typedef {{ coll: string, api: (o: { sdk: () => Promise<any>, space: string, items: () => Record<string, any>[],
+ *   put: (item: Record<string, any>) => Promise<string> }) => import('./items.js').BinApi }} BinData */
 
 /** @type {{ files?: FilesData, bin?: BinData, feedback?: FeedbackData }} */
 export const dataModules = {

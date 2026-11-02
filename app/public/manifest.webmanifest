@@ -1,6 +1,6 @@
 {
-  "name": "Hand roster",
-  "short_name": "Hand roster",
+  "name": "Hand Roster",
+  "short_name": "Hand Roster",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

@@ -3,7 +3,7 @@
 // its pages as .ui-tab-page sections with a tab (its data-tab-id) and a side link each, and keeps the rest.
 // Settings opens on a menu, as the logbook's do: a search box, the tabs taken off the bar (one tap away), then a row per
 // page; Back closes a page. The Tab bar page arranges the tabs (the kit's tabArranger; the tabs option, this device).
-import { startGestures, adaptiveShell, settingsScreen, createTransients, tabArranger, arrangeTabs, applyTabs } from '@core/ui';
+import { startGestures, adaptiveShell, settingsScreen, createTransients, tabArranger, arrangeTabs, applyTabs, icon } from '@core/ui';
 import { themeSwitch } from '@core/theme';
 import { APP } from './config.js';
 import { $ } from './dom.js';
@@ -19,7 +19,7 @@ import { modules } from './modules.js';
 
 // The Settings menu's headings, in this order; a page whose group is not listed goes under 'Other' (last), so a new
 // page is never left out and a recipe never edits this list
-const SETTINGS_GROUPS = ['Tasks', 'Look', 'Sharing', 'Data', 'Advanced', 'Other'];
+const SETTINGS_GROUPS = ['Roster', 'Look', 'Sharing', 'Data', 'Advanced', 'Other'];
 /** @param {import('app-ui/ui/settings-screen.js').SettingSection[]} sections */
 const byGroup = sections => sections
   .map(s => (SETTINGS_GROUPS.includes(s.group ?? '') ? s : { ...s, group: 'Other' }))
@@ -34,6 +34,8 @@ const TAB_RULES = { fixed: ['settings'] };
 // still copy then, so a swipe or a quick flick never brings it in blank (app-ui rc.69 `ahead`, from the logbook).
 // An app that empties its hidden pages must spare the `.is-beside` ones.
 export function startShell() {
+  // the tabs' and the menu button's icons (Lucide, by name in icons.js)
+  for (const el of document.querySelectorAll('[data-icon]')) el.replaceChildren(icon(ICONS[/** @type {HTMLElement} */ (el).dataset.icon ?? '']));
   const kit = startGestures(document, { ahead: page => page.dispatchEvent(new CustomEvent('draw-ahead')) });
   const shell = adaptiveShell(/** @type {HTMLElement} */ (document.querySelector('.ui-shell')), { screens: kit.screens });
   Object.assign(window, { kit, shell });   // for the tests

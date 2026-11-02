@@ -201,11 +201,11 @@ test('arguments', () => {
 
 test('a rename is refused while the current name is a word in the code (it would rename the collection, rules, imports)', () => {
   const dir = copy();
-  fill({ dir, ...ARGS, name: 'tasks', title: 'Tasks' });
-  const before = read(dir, 'app/src/tasks.js');
-  assert.throws(() => fill({ dir, ...ARGS, name: 'pantry', title: 'Tasks' }), /--name: the current name 'tasks' is also a word in the code/);
-  assert.equal(read(dir, 'app/src/tasks.js'), before, 'nothing changed');
-  assert.deepEqual(fill({ dir, ...ARGS, name: 'tasks', title: 'Tasks', check: true }).changed, [], 'same name again: still fine');
+  fill({ dir, ...ARGS, name: 'people', title: 'People' });
+  const before = read(dir, 'app/src/data/people.js');
+  assert.throws(() => fill({ dir, ...ARGS, name: 'pantry', title: 'People' }), /--name: the current name 'people' is also a word in the code/);
+  assert.equal(read(dir, 'app/src/data/people.js'), before, 'nothing changed');
+  assert.deepEqual(fill({ dir, ...ARGS, name: 'people', title: 'People', check: true }).changed, [], 'same name again: still fine');
 });
 
 test("--kit ntf: the NTF kit's origin and its own colour; a chosen colour is kept across a kit change", () => {
