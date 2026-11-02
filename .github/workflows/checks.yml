@@ -85,7 +85,7 @@ jobs:
           devkit-dir: .devkit
       - name: Rules in the emulator
         working-directory: app
-        run: npx -y firebase-tools@15.33.0 emulators:exec --only firestore --project demo-starter-app "node --test test/rules.test.mjs"
+        run: npx -y firebase-tools@15.33.0 emulators:exec --only firestore --project demo-hand-roster "node --test test/rules.test.mjs"
   # }cloud
 
   e2e:
