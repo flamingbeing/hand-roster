@@ -27,9 +27,9 @@ const emu = suite({
     { path: 'spaces/_/requests/q1', read: ['admin', 'member', 'viewer'], write: ['admin', 'member'],
       data: { name: 'Dr Ann Test', date: '2026-11-10', type: 'cannot', updatedAt: 1 }, stamp: 'strict', list: { roles: ['admin', 'member', 'viewer'] } },
     { path: 'spaces/_/rosters/2026-11', read: ['admin', 'member', 'viewer'], write: ['admin', 'member'],
-      data: { calls: [], updatedAt: 1 }, stamp: 'strict', list: { roles: ['admin', 'member', 'viewer'] } },
+      data: { calls: [], updatedAt: 1 }, stamp: 'strict', list: { roles: ['admin', 'member', 'viewer'] }, listOnly: true }, // month/day ids: per-doc rules tested below
     { path: 'spaces/_/weeks/2026-11-02', read: ['admin', 'member', 'viewer'], write: ['admin', 'member'],
-      data: { grid: [], updatedAt: 1 }, stamp: 'strict', list: { roles: ['admin', 'member', 'viewer'] } },
+      data: { grid: [], updatedAt: 1 }, stamp: 'strict', list: { roles: ['admin', 'member', 'viewer'] }, listOnly: true }, // month/day ids: per-doc rules tested below
     ...mods.flatMap(m => m.collections ?? []),
   ],
 });
@@ -150,6 +150,8 @@ test('rosters: named by month; calls, locked, holidays and problems are lists of
   assert.equal((await put({ ...base, seed: -1 })).ok, false);
   assert.equal((await put({ ...base, built: 'today' })).ok, false);
   assert.equal((await put({ ...base, extra: 1 })).ok, false);
+  assert.equal((await as('member').set('spaces/_/rosters/2026-11', base)).ok, false, 'needs the server time stamp');
+  assert.equal((await emu.anon().get('spaces/_/rosters/2026-11')).ok, false, 'signed out: no read');
   assert.equal((await as('viewer').set('spaces/_/rosters/2026-12', base, at)).ok, false, 'a viewer only reads');
   assert.equal((await as('viewer').get('spaces/_/rosters/2026-11')).ok, true);
 });
@@ -166,6 +168,8 @@ test('weeks: named by a day; grid, lists and overrides are lists of a sensible s
   assert.equal((await put({ ...base, overrides: new Array(201).fill({}) })).ok, false);
   assert.equal((await put({ ...base, seed: 2000000 })).ok, false);
   assert.equal((await put({ ...base, owner: 'me' })).ok, false);
+  assert.equal((await as('member').set('spaces/_/weeks/2026-11-02', base)).ok, false, 'needs the server time stamp');
+  assert.equal((await emu.anon().get('spaces/_/weeks/2026-11-02')).ok, false, 'signed out: no read');
   assert.equal((await as('viewer').set('spaces/_/weeks/2026-11-09', base, at)).ok, false, 'a viewer only reads');
   assert.equal((await as('viewer').delete('spaces/_/weeks/2026-11-02')).ok, false);
   assert.equal((await as('member').delete('spaces/_/weeks/2026-11-02')).ok, true);
