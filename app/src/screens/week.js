@@ -7,7 +7,7 @@ import { icon, loadState, confirmModal, emptyState } from '@core/ui';
 import { ICONS } from '../icons.js';
 import { $, sectionScreen, h, fill } from '../dom.js';
 import { REFUSED } from '../items.js';
-import { addDays, mondayOf, rangeDays, shortDay, weekday, weekdayName, MONTHS, todayKey } from '../roster/dates.js';
+import { addDays, mondayOf, nextWorkday, rangeDays, shortDay, weekday, weekdayName, MONTHS, todayKey } from '../roster/dates.js';
 import { TIER_LABEL, DEFAULT_TIER_PLAN, dayType, leaveIndex } from '../roster/model.js';
 import { callsAround } from '../roster/sections.js';
 import { sectionsOf, whyNot } from '../roster/sections.js';
@@ -59,21 +59,70 @@ export function weekScreen(ctx) {
   $('week-today').addEventListener('click', () => { monday = firstWeek(todayKey()); selected = rangeDays(monday, addDays(monday, 4)).includes(todayKey()) ? todayKey() : monday; draw(); });
   $('week-site').addEventListener('change', e => { site = /** @type {HTMLSelectElement} */ (e.target).value; draw(); });
   $('week-print').replaceChildren(icon(ICONS.printer), 'Print');
-  $('week-print').addEventListener('click', () => window.print());
+  $('week-print').addEventListener('click', () => printWeek());
+  $('week-xlsx').replaceChildren(icon(ICONS.download), 'Excel');
+  $('week-xlsx').addEventListener('click', () => exportXlsx());
+  $('week-copy').replaceChildren(icon(ICONS.clipboardCopy), 'Copy for WhatsApp');
+  $('week-copy').addEventListener('click', () => copyTomorrow());
+  // Ctrl+P and the browser's own print draw the same sheet, once the export code has been loaded by a button or the idle load below
+  /** @type {typeof import('./export.js') | null} */
+  let exporter = null;
+  /** @returns {Promise<typeof import('./export.js')>} */
+  const exportCode = async () => (exporter ??= await import('./export.js'));
+  window.addEventListener('beforeprint', () => { if (exporter && !$('week-page').hidden) exporter.renderPrint($('week-print-sheet'), layoutInput(model(), monday)); });
   $('week-build').replaceChildren(icon(ICONS.sparkles), 'Build week');
   $('week-build').addEventListener('click', () => build());
 
-  /** everything a week is drawn from, as of now */
-  function model() {
-    const wk = /** @type {import('../data/plans.js').WeekRow | undefined} */ (store.row('weeks', monday));
+  /** everything a week is drawn from, as of now @param {string} [mon] a Monday (default: the week on screen) */
+  function model(mon = monday) {
+    const wk = /** @type {import('../data/plans.js').WeekRow | undefined} */ (store.row('weeks', mon));
     const templates = /** @type {import('../data/lists.js').ListRow[]} */ (store.get('lists'));
     const built = Array.isArray(wk?.grid);
-    const lists = built && wk?.lists?.length ? wk.lists : slotsFor(templates, monday, wk?.overrides);
+    const lists = built && wk?.lists?.length ? wk.lists : slotsFor(templates, mon, wk?.overrides);
     const grid = wk?.grid ?? [];
     const people = activePeople(/** @type {any} */ (store.get('people')));
     const leave = leaveOf(/** @type {any} */ (store.get('leave')));
-    const calls = callsAround(/** @type {any} */ (store.get('rosters')), monday);
-    return { wk, templates, built, lists, grid, people, leave, calls };
+    const rosters = /** @type {import('../data/plans.js').RosterRow[]} */ (store.get('rosters'));
+    const calls = callsAround(/** @type {any} */ (rosters), mon);
+    const holidays = rosters.flatMap(r => r.holidays ?? []);
+    return { wk, templates, built, lists, grid, people, leave, calls, holidays };
+  }
+
+  /** @param {ReturnType<typeof model>} m @param {string} mon @returns {import('../roster/layout.js').WeekLayoutInput} what the sheet, the print and the chat text are made from */
+  const layoutInput = (m, mon) => ({
+    monday: mon, lists: m.lists, grid: m.grid, people: m.people, leave: m.leave, calls: m.calls, holidays: m.holidays,
+    built: m.built, patients: !!app.settings.get('showPatients'),
+  });
+
+  /** @param {() => Promise<unknown>} job @param {string} failed */
+  async function guarded(job, failed) {
+    try { await job(); } catch (e) { toast(e instanceof Error && e.message ? e.message : failed); }
+  }
+  async function printWeek() {
+    await guarded(async () => {
+      const x = await exportCode();
+      x.renderPrint($('week-print-sheet'), layoutInput(model(), monday));
+      window.print();
+    }, 'Could not prepare the print.');
+  }
+  async function exportXlsx() {
+    await guarded(async () => {
+      const m = model();
+      if (!m.lists.length) { toast('Nothing to export yet.'); return; }
+      const x = await exportCode();
+      toast(`Saved ${await x.exportWeek(layoutInput(m, monday))}`);
+    }, 'Could not make the Excel file.');
+  }
+  /** copies the next working day's roster as chat text */
+  async function copyTomorrow() {
+    await guarded(async () => {
+      const day = nextWorkday(todayKey()), mon = mondayOf(day);
+      const m = model(mon);
+      if (!m.built) { toast(`${shortDay(day)} is not built yet. Build that week first.`); return; }
+      const x = await exportCode();
+      const text = x.whatsappText(day, layoutInput(m, mon));
+      toast(await x.copyText(text) ? `Copied ${weekdayName(day)} ${shortDay(day)}. Paste it into WhatsApp.` : 'Could not copy. Allow the clipboard and try again.');
+    }, 'Could not copy.');
   }
 
   async function build() {
@@ -199,8 +248,7 @@ export function weekScreen(ctx) {
           m.built && sec.free[d].length > 0 && h('div', { class: 'wk-line' }, h('h3', {}, 'Free'),
             h('p', {}, sec.free[d].map(f => `${f.name}${f.why ? ' (on call)' : f.when === 'FULL DAY' ? '' : ` (${f.when})`}`).join(', ')))));
     }));
-    const printed = $('week-print-title');
-    printed.textContent = `Hand & reconstructive microsurgery, ${weekTitle(monday)}`;
+    $('week-print-sheet').classList.remove('is-ready');
   }
 
   return {

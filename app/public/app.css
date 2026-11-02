@@ -111,7 +111,27 @@ input, textarea, select { padding: .5rem; }
   .wk-list { break-inside: avoid; padding: 1mm 2mm; background: none; }
   .wk-chip { border: 0; padding: 0 1mm; background: none; }
   body { background: #fff; color: #000; }
+  /* once the hand-made grid is drawn (Print, or Ctrl+P after one use), it replaces the day cards */
+  #week-view:has(.pr-sheet.is-ready) .wk-grid { display: none !important; }
+  .pr-sheet.is-ready { display: block; }
+  .pr-table thead { display: table-header-group; }
+  .pr-table tr { break-inside: avoid; }
+  .pr-table, .pr-title, .pr-table th, .pr-line { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* ---- the hand-made weekly grid (drawn by screens/export.js, shown only when printing) ---- */
+.pr-sheet { display: none; color: #000; }
+.pr-title { margin: 0 0 3mm; font-size: 12pt; text-align: center; }
+.pr-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 6.5pt; line-height: 1.25; }
+.pr-table th, .pr-table td { border: .3mm solid #444; padding: .6mm 1mm; vertical-align: top; text-align: start; }
+.pr-table thead th { background: #1f3864; color: #fff; text-align: center; }
+.pr-table thead th:first-child, .pr-table tbody th { width: 13mm; }
+.pr-table tbody th { background: #e8eaed; font-size: 7pt; }
+.pr-line { overflow-wrap: anywhere; }
+.pr-head { margin-top: .6mm; padding-inline: .5mm; background: #e2efda; font-weight: 700; }
+.pr-closed { margin-top: .6mm; padding-inline: .5mm; background: #d9d9d9; color: #555; font-style: italic; font-weight: 700; }
+.pr-name { padding-inline-start: 2mm; }
+.pr-copy { position: fixed; inset-block-start: 0; inset-inline-start: -9999px; opacity: 0; }
 
 /* toasts sit above the tab bar on a phone (the page's own room under its last row is the kit's: .ui-screen::after) */
 body { margin: 0; }

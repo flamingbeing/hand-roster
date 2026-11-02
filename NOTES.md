@@ -93,3 +93,17 @@ text changed). Nothing is saved, so there is no format to migrate.
   in `unknown` for a "did you mean" line. A query with no words (only filters, phrases or leave-outs) lists matches
   newest first (`newest(record)`, default `updatedAt`).
 - Later: a `toJSON`/`loadJSON` cache of the index (rebuild at start is cheap below ~10k records).
+
+## Export: one layout, four outputs
+
+`roster/layout.js` builds a week as blocks (a session at a site, each on-call tier, leave, post-call, free), each with its
+lines per day. `coreRows` lays them out like the CORE sheet (DEPARTMENTS column, a header row then a row per junior);
+`handSections` stacks them one row per section like the hand-made grid (headers "Consultant SITE List rooms - patients");
+`whatsapp.js` reads the same blocks for one day. `xlsx.js` takes ExcelJS as a parameter (so tests load the vendored file in node
+and read the workbook back); `screens/export.js` loads ExcelJS with a script tag on first use (`script-src 'self'` allows it),
+saves the file through a blob link, draws the print sheet into `#week-print-sheet` (shown only in print, replacing the day
+cards once drawn; Ctrl+P re-draws it through `beforeprint` after one button use) and copies text.
+
+- ExcelJS is the browser build from the owner's other roster app (MIT, licence beside it); never edit the vendored file.
+- No PDF library: the print sheet is HTML and CSS (`@page` A4 landscape) and the browser saves it as PDF.
+- Post-call in the sheet follows the engine: the PM only; FREE is shown once the week is built.

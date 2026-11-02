@@ -52,6 +52,17 @@ export function create(ctx) {
     return { roster, people, leave, requests, prior, calls: roster?.calls ?? [], holidays: roster?.holidays ?? [], minGap: roster?.minGap ?? 2 };
   }
 
+  /** the month's calls as an Excel file (date rows by the four tiers, then the counts) */
+  async function exportXlsx() {
+    const m = model();
+    if (!m.calls.some(c => TIERS.some(t => c[t]))) { toast('Make the calls first.'); return; }
+    try {
+      const check = checkCalls({ month, calls: m.calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior });
+      const { exportCalls } = await import('./export.js');
+      toast(`Saved ${await exportCalls({ month, calls: m.calls, holidays: m.holidays, counts: check.counts })}`);
+    } catch (e) { toast(e instanceof Error && e.message ? e.message : 'Could not make the Excel file.'); }
+  }
+
   async function make() {
     if (busy || !ctx.canWrite()) return;
     const m = model();
@@ -123,6 +134,7 @@ export function create(ctx) {
     const next = h('button', { type: 'button', 'aria-label': 'Next month', onclick: () => step(1) }, icon(ICONS.chevronRight));
     fill(bar, prev, h('h2', { class: 'cl-title', id: 'calls-title' }, monthTitle(month)), next,
       h('span', { class: 'cl-bar-end' },
+        h('button', { type: 'button', id: 'calls-xlsx', onclick: exportXlsx }, icon(ICONS.download), 'Excel'),
         canWrite && h('button', { type: 'button', onclick: monthSheet }, 'Settings'),
         canWrite && h('button', { type: 'button', class: 'ui-primary', id: 'calls-make', disabled: busy, onclick: make }, icon(ICONS.sparkles), 'Make calls')));
     const byDate = new Map(m.calls.map(c => [c.date, c]));

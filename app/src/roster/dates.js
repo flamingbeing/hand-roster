@@ -33,6 +33,14 @@ export const monthDays = month => Array.from({ length: daysIn(month) }, (_, i) =
 export const mondayOf = day => addDays(day, -((weekday(day) + 6) % 7));
 /** @param {string} from @param {string} to @returns {string[]} from..to inclusive (empty if to < from) */
 export const rangeDays = (from, to) => { const out = []; for (let d = from; d <= to; d = addDays(d, 1)) out.push(d); return out; };
+export const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/** @param {string} day @returns {string} the next Monday to Friday after it ('2026-11-06' gives '2026-11-09') */
+export function nextWorkday(day) {
+  let d = addDays(day, 1);
+  while (isWeekend(d)) d = addDays(d, 1);
+  return d;
+}
 /** @param {string} day @returns {string} '12 Oct' */
 export const shortDay = day => { const [, m, d] = day.split('-').map(Number); return `${d} ${MONTHS[m - 1]}`; };
 
