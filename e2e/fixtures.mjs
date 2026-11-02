@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 // cloud{ the emulators (a static app has none: tools/flavour.mjs)
 import { fsAdmin } from '../.devkit/playwright/helpers.mjs';
 
-export const db = fsAdmin('demo-starter-app');
+export const db = fsAdmin('demo-hand-roster');
 export const APP = '/app/?emulator';
 // }cloud
 /* static{
@@ -80,7 +80,7 @@ async function routeHermetic(context) {
     return route.fulfill({ status: 200, contentType: TYPES[path.extname(file)] || 'application/octet-stream', headers: { 'access-control-allow-origin': '*' }, body: fs.readFileSync(file) });
   });
   if (UI_DIR) await routeUi(context);   // registered later: wins over both routes above
-  await context.route('https://design.flamingbeing.com/**', route => route.fulfill({ status: 200, contentType: 'text/css', body: '' }));
+  await context.route('https://design.anawj.com/**', route => route.fulfill({ status: 200, contentType: 'text/css', body: '' }));
   await context.route(/^https:\/\/(apis|www)\.google\.com\//, route => route.abort('blockedbyclient'));
 }
 
@@ -248,7 +248,7 @@ export async function itemIdOf(text) {
   const host = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
   // (every page: the shared list grows over a long --repeat-each soak, past one page)
   for (let token = ''; ;) {
-    const r = await fetch(`http://${host}/v1/projects/demo-starter-app/databases/(default)/documents/spaces/_/tasks?pageSize=300${token ? `&pageToken=${encodeURIComponent(token)}` : ''}`, { headers: { Authorization: 'Bearer owner' } });
+    const r = await fetch(`http://${host}/v1/projects/demo-hand-roster/databases/(default)/documents/spaces/_/tasks?pageSize=300${token ? `&pageToken=${encodeURIComponent(token)}` : ''}`, { headers: { Authorization: 'Bearer owner' } });
     const j = await r.json();
     const d = (j.documents || []).find(x => x.fields?.text?.stringValue === text);
     if (d) return d.name.split('/').pop();
