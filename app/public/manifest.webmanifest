@@ -1,6 +1,6 @@
 {
-  "name": "Starter app",
-  "short_name": "Starter app",
+  "name": "Hand roster",
+  "short_name": "Hand roster",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
