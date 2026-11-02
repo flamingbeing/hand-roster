@@ -171,10 +171,10 @@ export function coreRows(layout) {
  * @returns {{ title: string, section: string, cells: Line[][] }[]}
  */
 export function handSections(layout) {
-  /** @type {{ title: string, section: string, cells: Line[][] }[]} */
+  /** @param {string} section @returns {{ title: string, section: string, cells: Line[][] }} */
   const row0 = section => ({ title: HAND_NAMES[section] ?? section, section, cells: layout.days.map(() => /** @type {Line[]} */ ([])) });
   // the hand-made grid always has these rows, empty or not; FREE only once built
-  const out = [SECTIONS.am, SECTIONS.pm, SECTIONS.call, SECTIONS.leave, SECTIONS.post].map(row0);
+  const out = [SECTIONS.am, SECTIONS.pm, SECTIONS.call, SECTIONS.leave, SECTIONS.post].map(s => row0(s));
   for (const b of layout.blocks) {
     let row = out.find(r => r.section === b.section);
     if (!row) { row = row0(b.section); out.push(row); }
