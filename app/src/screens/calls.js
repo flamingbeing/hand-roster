@@ -151,7 +151,7 @@ export function create(ctx) {
       const locked = new Set((m.roster?.locked ?? []));
       return h('button', { type: 'button', role: 'listitem', class: `cl-day type-${type}${date === todayKey() ? ' is-today' : ''}`, disabled: !canWrite, dataset: { day: date }, 'aria-label': `${weekdayName(date)} ${shortDay(date)}: edit calls`, onclick: () => daySheet(date) },
         h('span', { class: 'cl-date' }, h('b', {}, String(Number(date.slice(8)))), h('span', { class: 'cl-wd' }, weekdayName(date)), m.holidays.includes(date) && h('span', { class: 'cl-ph small' }, 'PH')),
-        h('span', { class: 'cl-tiers' }, shown.map(t => h('span', { class: `cl-tier${bad.has(`${date}|${t}`) ? ' is-bad' : ''}${locked.has(`${date}|${t}`) ? ' is-hand' : ''}`, title: row?.[t] ?? '' },
+        h('span', { class: 'cl-tiers' }, shown.map(t => h('span', { class: `cl-tier${row?.[t] ? '' : ' is-empty'}${bad.has(`${date}|${t}`) ? ' is-bad' : ''}${locked.has(`${date}|${t}`) ? ' is-hand' : ''}`, title: row?.[t] ?? '' },
           h('i', {}, SHORT[t]), h('span', {}, row?.[t] ?? '–')))));
     };
     fill(cal, monthCells(month).map(d => d ? cell(d) : h('span', { class: 'cl-blank', 'aria-hidden': 'true' })));

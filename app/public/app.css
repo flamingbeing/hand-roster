@@ -2,7 +2,9 @@
    shell, ui/gestures.css and ui/shell/shell.css. */
 .status-line { margin: 0 var(--pad) var(--gap); }
 .ui-screen > :not(.ui-large-title) { max-width: 40rem; margin-inline: auto; padding-inline: var(--pad); }
-input, textarea, select { padding: .5rem; }
+input, textarea { padding: .5rem; }
+/* room on the right for the kit's caret, which a plain padding would cover */
+select { padding: .5rem 2rem .5rem .65rem; }
 #add input { flex: 1; min-width: 10rem; }
 .ui-list { padding: 0; margin: 0; }
 
@@ -13,10 +15,11 @@ input, textarea, select { padding: .5rem; }
 .rl-block { margin-block: 0 var(--pad); }
 .rl-head { display: flex; align-items: baseline; gap: .5rem; font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: var(--gap) 0 .25rem; }
 .rl-list { list-style: none; }
-.rl-row .ui-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: .1rem .6rem; width: 100%; text-align: left; font: inherit; color: inherit; background: none; border: 0; padding: .6rem 0; }
+.rl-row .ui-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: .1rem .6rem; width: 100%; text-align: left; font: inherit; color: inherit; background: none; border: 0; border-radius: 0; padding: .7rem 1rem; }
 .rl-main { flex: 1 1 10rem; min-width: 0; }
 .rl-sub { flex: 1 1 100%; order: 3; color: var(--muted); }
 .rl-tag { order: 2; color: var(--muted); }
+.rl-main + .rl-tag { margin-inline-start: auto; }
 .rl-row.is-dim .rl-main { color: var(--muted); }
 .big .rl-row .ui-row { padding-block: 1rem; font-size: 1.1rem; }
 .rl-more { margin-block: .25rem var(--gap); }
@@ -24,12 +27,33 @@ input, textarea, select { padding: .5rem; }
 
 /* ---- Week ---- */
 .wk-bar { position: relative; }
-.wk-title, .cl-title { margin: 0; font-size: 1.05rem; flex: 1 1 auto; text-align: center; min-width: 8rem; }
+/* the week and month bars: [<] title [>] on top, then This week and Site, then the actions (Build first) */
+.wk-bar, .cl-bar { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "prev title next" "today site site" "end end end"; align-items: center; }
+.cl-bar { grid-template-areas: "prev title next" "end end end"; }
+#week-prev, .cl-bar > button:first-child { grid-area: prev; }
+#week-next, .cl-bar > button:nth-of-type(2) { grid-area: next; }
+.wk-title, .cl-title { grid-area: title; }
+#week-today { grid-area: today; justify-self: start; }
+.wk-site-pick { grid-area: site; justify-self: end; }
+.wk-bar-end, .cl-bar-end { grid-area: end; display: flex; flex-wrap: wrap; gap: .5rem; margin: 0; }
+#week-prev, #week-next, .cl-bar > button:first-child, .cl-bar > button:nth-of-type(2) { width: var(--tap, 2.75rem); height: var(--tap, 2.75rem); padding: 0; justify-content: center; border-radius: 50%; }
+#week-build, #calls-make { order: -1; }
+.wk-bar-end > button, .cl-bar-end > button { flex: 1 1 auto; justify-content: center; }
+@media (min-width: 700px) {
+  .wk-bar { grid-template-columns: auto auto auto auto 1fr; grid-template-areas: "prev title next today site" "end end end end end"; }
+  .cl-bar { grid-template-columns: auto auto auto 1fr; grid-template-areas: "prev title next end"; }
+  .wk-bar .wk-title, .cl-bar .cl-title { min-width: 11rem; }
+  .wk-bar-end, .cl-bar-end { justify-content: flex-end; }
+  .wk-bar-end > button, .cl-bar-end > button { flex: none; }
+  #week-build, #calls-make { order: 9; }
+}
+.wk-title, .cl-title { margin: 0; font-size: 1.05rem; text-align: center; min-width: 0; }
 .wk-site-pick { display: inline-flex; align-items: center; gap: .35rem; }
-.wk-bar-end, .cl-bar-end { margin-inline-start: auto; display: inline-flex; gap: .5rem; }
 .wk-chips { display: flex; gap: .4rem; margin-block: var(--gap); }
-.wk-daychip { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0; padding-block: .4rem; border-radius: var(--pill-r, 1em); }
-.wk-daychip[aria-pressed="true"] { background: var(--accent); color: var(--bg); }
+.wk-daychip { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 0; padding: .35rem 0; border-radius: var(--card-r, .9rem); line-height: 1.2; }
+.wk-daychip .small { font-size: 1.05rem; font-weight: 600; color: inherit; }
+.wk-daychip.is-today:not([aria-pressed="true"]) { border-color: var(--accent); color: var(--accent); }
+.wk-daychip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 .wk-grid { display: block; }
 .wk-day { display: none; }
 .wk-day.is-selected { display: block; }
@@ -38,15 +62,20 @@ input, textarea, select { padding: .5rem; }
 .wk-session h3, .wk-extras h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: var(--gap) 0 .25rem; }
 .wk-site h4 { margin: .5rem 0 .25rem; font-size: .9rem; }
 .wk-lists { list-style: none; padding: 0; margin: 0; display: grid; gap: .5rem; }
-.wk-list { border: 1px solid var(--line); border-radius: var(--card-r, var(--radius)); background: var(--surface); padding: .5rem .65rem; }
+.wk-list { --kind: var(--accent); border: 1px solid var(--line); border-inline-start: 4px solid var(--kind); border-radius: var(--card-r, var(--radius)); background: var(--surface); padding: .55rem .7rem; }
+/* one colour per kind of list, so OT, clinics and HOT tell apart at a glance */
+.wk-list.kind-clinic { --kind: #c98a1b; }
+.wk-list.kind-hot { --kind: #c4475c; }
+.wk-list.kind-msp { --kind: #7259c4; }
 .wk-list.is-off { opacity: .65; }
-.wk-list.is-short { border-color: var(--warn, var(--danger)); }
+.wk-list.is-short { border-color: var(--warn, var(--danger)); border-inline-start-color: var(--kind); }
 .wk-list-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .1rem .5rem; }
 .wk-con { color: var(--muted); font-size: .9rem; }
 .wk-note { color: var(--muted); }
 .wk-juniors { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin-top: .4rem; }
-.wk-chip { border-radius: var(--pill-r, 1em); padding: .3rem .7rem; }
-.wk-add { border-radius: 50%; width: 2rem; height: 2rem; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.wk-chip { border-radius: var(--pill-r, 1em); padding: .3rem .75rem; min-height: 2.25rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-color: transparent; background: color-mix(in srgb, var(--accent) 13%, var(--surface)); color: inherit; }
+.wk-chip:disabled { opacity: 1; cursor: default; }
+.wk-add { flex: none; border-radius: 50%; width: 2.25rem; height: 2.25rem; border-style: dashed; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
 .wk-need { color: var(--warn, var(--danger)); }
 .wk-none { color: var(--muted); margin: 0; }
 .wk-extras { margin-top: var(--gap); }
@@ -54,11 +83,17 @@ input, textarea, select { padding: .5rem; }
 .wk-oncall dt { color: var(--muted); }
 .wk-oncall dd { margin: 0; }
 .wk-line p { margin: 0; }
+.wk-names { display: flex; flex-wrap: wrap; gap: .3rem; }
+.wk-name { border-radius: var(--pill-r, 1em); padding: .15rem .6rem; background: color-mix(in srgb, var(--muted) 16%, transparent); font-size: .9rem; }
+.wk-name i { font-style: normal; color: var(--muted); }
+.wk-session + .wk-session, .wk-extras { border-top: 1px solid var(--line); padding-top: .25rem; }
 @media (min-width: 900px) {
   /* five columns, the whole week; the day chips are not needed */
   .wk-chips { display: none; }
   .wk-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--gap); align-items: start; }
   .wk-day { display: block; }
+  .wk-chip { font-size: .9rem; padding-inline: .6rem; min-height: 2rem; }
+  .wk-add { width: 2rem; height: 2rem; }
   .ui-screen:has(.wk-grid) > :not(.ui-large-title) { max-width: none; }
 }
 
@@ -67,13 +102,16 @@ input, textarea, select { padding: .5rem; }
 .cl-blank { display: none; }
 .cl-day { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .75rem; text-align: left; border: 1px solid var(--line); border-radius: var(--card-r, var(--radius)); background: var(--surface); padding: .45rem .65rem; font: inherit; color: inherit; }
 .cl-day.is-today { border-color: var(--accent); }
-.cl-day.type-weekend, .cl-day.type-holiday { background: var(--fill, var(--surface)); }
+.cl-day.type-sat, .cl-day.type-sun, .cl-day.type-ph { background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
+.cl-day.is-today { box-shadow: inset 0 0 0 1px var(--accent); }
+.cl-day.is-today .cl-date b { color: var(--accent); }
 .cl-date { display: inline-flex; align-items: baseline; gap: .35rem; min-width: 5.5rem; }
 .cl-wd { color: var(--muted); font-size: .8rem; }
 .cl-ph { color: var(--accent); }
 .cl-tiers { display: flex; flex-wrap: wrap; gap: .15rem .75rem; flex: 1; }
 .cl-tier { display: inline-flex; gap: .3rem; font-size: .9rem; }
 .cl-tier i { font-style: normal; color: var(--muted); font-size: .75rem; align-self: center; }
+.cl-tier.is-empty span { color: var(--muted); }
 .cl-tier.is-bad span { color: var(--danger); text-decoration: underline wavy; }
 .cl-tier.is-hand span { font-weight: 600; }
 .cl-counts, .cl-problems { margin-top: var(--pad); overflow-x: auto; }
@@ -86,9 +124,10 @@ input, textarea, select { padding: .5rem; }
 @media (min-width: 700px) {
   .cl-cal { grid-template-columns: repeat(7, minmax(0, 1fr)); }
   .cl-blank { display: block; }
-  .cl-day { flex-direction: column; align-items: stretch; }
+  .cl-day { flex-direction: column; align-items: stretch; justify-content: flex-start; align-content: flex-start; }
+  .cl-tier { display: flex; justify-content: space-between; }
   .cl-date { min-width: 0; }
-  .cl-tiers { flex-direction: column; flex: none; }
+  .cl-tiers { flex-direction: column; flex: none; width: 100%; }
   .ui-screen:has(.cl-cal) > :not(.ui-large-title) { max-width: 70rem; }
 }
 
@@ -135,10 +174,11 @@ input, textarea, select { padding: .5rem; }
 
 /* toasts sit above the tab bar on a phone (the page's own room under its last row is the kit's: .ui-screen::after) */
 body { margin: 0; }
-.toasts { bottom: calc(var(--tap) + var(--pad) * 2 + env(safe-area-inset-bottom, 0px)); }
+.toasts { bottom: calc(var(--tap) + var(--pad) * 3 + 1rem + env(safe-area-inset-bottom, 0px)); }
 @media (min-width: 600px) { .toasts { bottom: var(--pad); } }
 
 
 /* the app's icon beside its name in the side bar */
 .ui-sidebar-name { display: flex; align-items: center; gap: .5rem; }
 .app-mark { flex: none; border-radius: 22%; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
