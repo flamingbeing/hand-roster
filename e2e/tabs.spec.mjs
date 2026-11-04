@@ -1,10 +1,10 @@
 // Arrange tabs (Settings, Tab bar; @core/ui tabArranger): a tab taken off the bar is listed at the top of the Settings
 // menu, one tap away, and stays off after a reload (the tabs option, this device).
-import { test, expect, APP, openSettings } from './fixtures.mjs';
+import { test, expect, openSettings, signIn } from './fixtures.mjs';
 
 test('a tab taken off the bar is one tap away in Settings and stays off', async ({ phone }) => {
   const page = await phone();
-  await page.goto(APP, { waitUntil: 'domcontentloaded' });
+  await signIn(page, 'member');   // (the sign-in screen covers the tab bar while signed out)
   const people = page.locator('.ui-tabbar [data-tab-id="people"]');
   await expect(people).toBeVisible();
 
