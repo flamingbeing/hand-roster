@@ -15,11 +15,11 @@ test('the device value survives sign-out and a reload', async ({ phone }) => {
   await expect(a.locator('.ui-screens')).toHaveClass(/big/);
   await openSettings(a);
   await a.click('#sign-out');
-  await openWeek(a);
   await expect(a.locator('#signed-out .ui-signin')).toBeVisible();
   await a.reload({ waitUntil: 'domcontentloaded' });
   await expect(a.locator('#signed-out .ui-signin')).toBeVisible();
   await a.evaluate(e => window.starter.signInAs(e), email);
+  await openWeek(a);   // (signed back in on the tab left open: Settings)
   await expect(a.locator('#week-view')).toBeVisible();
   await expect(a.locator('.ui-screens')).toHaveClass(/big/);
 });

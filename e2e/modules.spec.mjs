@@ -27,12 +27,12 @@ test('sign-out keeps the phone’s data and unsent saves; the same account carri
   await addList(page, t);
   await openSettings(page);
   await page.click('#sign-out');
-  await openWeek(page);
   await expect(page.locator('#signed-out .ui-signin')).toBeVisible();
   await expect(page.locator('#sign-out-msg')).toContainText('kept on this device');
   expect(await kept(page)).toBeGreaterThan(0);
   await page.context().setOffline(false);
   await page.evaluate(e => window.starter.signInAs(e), email);
+  await openWeek(page);   // (signed back in on the tab left open: Settings)
   await expect(page.locator('#week-view')).toBeVisible();
   await expect(page.locator('#week-grid')).toContainText(t);
   await serverHas(t);
@@ -46,7 +46,6 @@ test('forget this device: refused while unsent, then wipes the phone', async ({ 
   await page.evaluate(() => window.starter.data().lists.add({ site: 'NUH', kind: 'ot', name: 'unsent', wd: 1, session: 'AM', need: 1, status: 'open' }));
   await openSettings(page);
   await page.click('#sign-out');
-  await openWeek(page);
   await page.click('#forget');
   await expect(page.locator('#forget-msg')).toContainText('not sent yet');
   await expect(page.locator('#forget-force')).toBeVisible();
