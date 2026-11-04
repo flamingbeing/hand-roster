@@ -5,7 +5,7 @@ import { test, expect, signIn, openWeek, addList, weekdayShown, synced, serverHa
 test('signed out: the sign-in screen, accessible', { tag: '@smoke' }, async ({ phone }) => {
   const page = await phone();
   await page.goto(APP, { waitUntil: 'domcontentloaded' });
-  await expect(page.locator('#signed-out')).toBeVisible();
+  await expect(page.locator('#signed-out .ui-signin')).toBeVisible();
   expect(await AxeBuilder(page)).toEqual([]);
 });
 

@@ -52,7 +52,7 @@ async function config() {
 }
 async function signIn(page, cfg) {
   await page.goto(`${URL_}/app/?sw`);
-  await page.locator('#signed-out').waitFor({ state: 'visible', timeout: 20_000 });
+  await page.locator('#signed-out .ui-signin').waitFor({ state: 'visible', timeout: 20_000 });
   await page.evaluate(async ({ apiKey, authDomain, email, password }) => {
     const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
       { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password, returnSecureToken: true }) });

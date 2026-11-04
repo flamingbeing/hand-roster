@@ -109,7 +109,7 @@ test('a file that is not a picture is kept as it is; sign-out keeps an unsent up
   await openSettings(page);
   await page.click('#sign-out');
   await openToday(page);
-  await expect(page.locator('#signed-out')).toBeVisible();
+  await expect(page.locator('#signed-out .ui-signin')).toBeVisible();
   const other = `${uniq('u')}@example.com`;
   await page.evaluate(e => window.starter.signInAs(e), other);
   await expect(page.locator('#no-access')).toBeVisible();

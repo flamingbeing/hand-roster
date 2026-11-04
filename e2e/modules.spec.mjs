@@ -28,7 +28,7 @@ test('sign-out keeps the phone’s data and unsent saves; the same account carri
   await openSettings(page);
   await page.click('#sign-out');
   await openWeek(page);
-  await expect(page.locator('#signed-out')).toBeVisible();
+  await expect(page.locator('#signed-out .ui-signin')).toBeVisible();
   await expect(page.locator('#sign-out-msg')).toContainText('kept on this device');
   expect(await kept(page)).toBeGreaterThan(0);
   await page.context().setOffline(false);

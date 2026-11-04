@@ -182,7 +182,7 @@ export async function signIn(page, role = 'member', { path = APP } = {}) {
   const email = `${uniq('u')}@example.com`;
   // (not 'load': that waits on the design kit and core files over the internet, which can stall for a minute; the next line waits for the page itself)
   await page.goto(path, { waitUntil: 'domcontentloaded' });
-  await expect(page.locator('#signed-out')).toBeVisible();
+  await expect(page.locator('#signed-out .ui-signin')).toBeVisible();
   await page.evaluate(e => window.starter.signInAs(e), email);
   await expect(page.locator('#no-access')).toBeVisible();
   const uid = await page.locator('#uid').textContent();
@@ -197,7 +197,7 @@ export async function signIn(page, role = 'member', { path = APP } = {}) {
 // The same account on a second phone (a new context signs in with the same made-up Google credential)
 export async function signInAgain(page, email) {
   await page.goto(APP, { waitUntil: 'domcontentloaded' });
-  await expect(page.locator('#signed-out')).toBeVisible();
+  await expect(page.locator('#signed-out .ui-signin')).toBeVisible();
   await page.evaluate(e => window.starter.signInAs(e), email);
   await expect(page.locator('#week-view')).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.starter.ready)).toBe(true);
