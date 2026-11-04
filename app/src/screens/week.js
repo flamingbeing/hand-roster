@@ -19,6 +19,12 @@ import { editSheet } from './sheet.js';
 
 const SESSIONS = /** @type {const} */ ([['AM', 'Morning'], ['PM', 'Afternoon']]);
 const SITE_ORDER = ['NUH', 'NTFGH'];
+/** names as small chips, each with an optional note (AM, PM, on call); commas kept for copy and screen readers
+ * @param {(string | [string, string])[]} list */
+const names = list => h('p', { class: 'wk-names' }, list.map((x, i) => {
+  const [n, note] = Array.isArray(x) ? x : [x, ''];
+  return h('span', { class: 'wk-name' }, n, note && h('i', {}, ` ${note}`), i < list.length - 1 && h('span', { class: 'visually-hidden' }, ','));
+}));
 
 /** the Monday to show first: this week, or next once the weekend is here @param {string} today */
 export const firstWeek = today => (weekday(today) === 6 || weekday(today) === 0 ? addDays(mondayOf(today), 7) : mondayOf(today));
@@ -223,7 +229,7 @@ export function weekScreen(ctx) {
     $('week-state-note').textContent = !m.lists.length ? '' : m.built ? (m.wk?.built ? `Built ${new Date(m.wk.built).toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })}.` : 'Saved.') : canWrite ? 'Not built yet. Tap Build week.' : 'Not built yet.';
     empty.show(!m.lists.length);
 
-    fill($('week-chips'), days.map(d => h('button', { type: 'button', class: 'wk-daychip', 'aria-pressed': String(d === selected), dataset: { day: d }, onclick: () => { selected = d; draw(); } },
+    fill($('week-chips'), days.map(d => h('button', { type: 'button', class: `wk-daychip${d === todayKey() ? ' is-today' : ''}`, 'aria-pressed': String(d === selected), dataset: { day: d }, onclick: () => { selected = d; draw(); } },
       h('span', {}, weekdayName(d)), h('span', { class: 'small' }, String(Number(d.slice(8)))))));
 
     fill($('week-grid'), days.map(d => {
@@ -243,10 +249,10 @@ export function weekScreen(ctx) {
         h('div', { class: 'wk-extras' },
           h('h3', {}, 'On call'),
           h('dl', { class: 'wk-oncall' }, tiers.map(t => [h('dt', {}, TIER_LABEL[t]), h('dd', {}, sec.onCall[d][t] ?? '–')])),
-          sec.leave[d].length > 0 && h('div', { class: 'wk-line' }, h('h3', {}, 'Leave'), h('p', {}, sec.leave[d].join(', '))),
-          sec.postCall[d].length > 0 && h('div', { class: 'wk-line' }, h('h3', {}, 'Post-call'), h('p', {}, sec.postCall[d].join(', '))),
+          sec.leave[d].length > 0 && h('div', { class: 'wk-line' }, h('h3', {}, 'Leave'), names(sec.leave[d])),
+          sec.postCall[d].length > 0 && h('div', { class: 'wk-line' }, h('h3', {}, 'Post-call'), names(sec.postCall[d])),
           m.built && sec.free[d].length > 0 && h('div', { class: 'wk-line' }, h('h3', {}, 'Free'),
-            h('p', {}, sec.free[d].map(f => `${f.name}${f.why ? ' (on call)' : f.when === 'FULL DAY' ? '' : ` (${f.when})`}`).join(', ')))));
+            names(sec.free[d].map(f => [f.name, f.why ? 'on call' : f.when === 'FULL DAY' ? '' : f.when])))));
     }));
     $('week-print-sheet').classList.remove('is-ready');
   }
