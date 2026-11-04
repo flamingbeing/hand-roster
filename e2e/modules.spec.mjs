@@ -28,7 +28,7 @@ test('sign-out keeps the phone’s data and unsent saves; the same account carri
   await openSettings(page);
   await page.click('#sign-out');
   await openWeek(page);
-  await expect(page.locator('#signed-out')).toBeVisible();
+  await expect(page.locator('#signed-out .ui-signin')).toBeVisible();
   await expect(page.locator('#sign-out-msg')).toContainText('kept on this device');
   expect(await kept(page)).toBeGreaterThan(0);
   await page.context().setOffline(false);
@@ -57,7 +57,7 @@ test('forget this device: refused while unsent, then wipes the phone', async ({ 
 
 test('check for updates: a new version takes over at once', async ({ phone }) => {
   const page = await phone();
-  await page.goto(APP + '&sw', { waitUntil: 'domcontentloaded' });
+  await signIn(page, 'member', { path: APP + '&sw' });   // (the sign-in screen covers the tab bar while signed out)
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 30_000 }).toBe(true);
   await page.evaluate(() => { window.__same = true; });
   await page.request.get('/__test/bump');

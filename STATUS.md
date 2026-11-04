@@ -34,4 +34,5 @@
 
 ## Decisions (dated)
 
-- <date>: <decision>
+- 2026-11-04: the signed-out page is app-ui's `signInScreen` (app-ui rc.90): icon, name, one line, Continue with Google;
+  Forget this device only while this phone keeps a copy.

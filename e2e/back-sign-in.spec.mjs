@@ -20,10 +20,10 @@ const test = base.extend({
 
 test('Back after signing in never shows the sign-in screen again, and Back from the list leaves', async ({ bfPage: page }) => {
   await page.goto(APP, { waitUntil: 'domcontentloaded' });
-  await expect(page.locator('#signed-out')).toBeVisible();
+  await expect(page.locator('#signed-out .ui-signin')).toBeVisible();
   // the redirect: the page leaves while signed out, and the sign-in lands on a new load of the app
   await page.goto(`${APP}&back`, { waitUntil: 'domcontentloaded' });
-  await expect(page.locator('#signed-out')).toBeVisible();
+  await expect(page.locator('#signed-out .ui-signin')).toBeVisible();
   await page.evaluate(e => window.starter.signInAs(e), `${uniq('u')}@example.com`);
   await expect(page.locator('#no-access')).toBeVisible();
   await db.put(`members/${await page.locator('#uid').textContent()}`, { role: 'member', v: 1 });
