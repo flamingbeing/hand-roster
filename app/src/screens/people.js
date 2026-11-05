@@ -1,4 +1,4 @@
-// The People tab (#people-host): the doctors the roster places, by grade or by team (a toggle anyone can use, kept on this
+// The People tab (#people-host): the doctors the roster places, by team (the default) or by grade (a toggle anyone can use, kept on this
 // device). Add, edit and take off (inactive people stay in the
 // data, so old rosters still read; delete sends one to the bin). A name is the key leave, requests and calls use.
 import { icon, emptyState } from '@core/ui';
@@ -21,7 +21,7 @@ export function create(ctx) {
   host.append(bar, body, teamList);
   const VIEW_KEY = 'people-view';
   /** @type {'grade' | 'team'} */
-  let view = (() => { try { return localStorage.getItem(VIEW_KEY) === 'team' ? 'team' : 'grade'; } catch { return 'grade'; } })();
+  let view = (() => { try { return localStorage.getItem(VIEW_KEY) === 'grade' ? 'grade' : 'team'; } catch { return 'team'; } })();
   /** @param {'grade' | 'team'} v */
   const setView = v => { view = v; try { localStorage.setItem(VIEW_KEY, v); } catch { /* private window: not kept */ } draw(); };
   const gradeLabel = Object.fromEntries(GRADES);
@@ -69,7 +69,7 @@ export function create(ctx) {
     fill(teamList, teams.map(t => h('option', { value: t })));
     const chip = (/** @type {'grade' | 'team'} */ v, /** @type {string} */ label) =>
       h('button', { type: 'button', class: 'wk-daychip pp-view', 'aria-pressed': String(view === v), onclick: () => setView(v) }, label);
-    fill(bar, all.length > 0 && h('div', { class: 'pp-views', role: 'group', 'aria-label': 'Group people' }, chip('grade', 'By grade'), chip('team', 'By team')),
+    fill(bar, all.length > 0 && h('div', { class: 'pp-views', role: 'group', 'aria-label': 'Group people' }, chip('team', 'By team'), chip('grade', 'By grade')),
       canWrite && h('button', { type: 'button', class: 'ui-primary', id: 'people-add', onclick: () => open(null) }, icon(ICONS.plus), 'Add person'));
     const sorted = [...all].sort((a, b) => a.name.localeCompare(b.name));
     /** @param {import('../data/people.js').PersonRow} r @param {(string | false | null | undefined)[]} first */

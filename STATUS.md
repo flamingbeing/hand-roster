@@ -34,7 +34,7 @@
 
 ## Decisions (dated)
 
-- 2026-11-05: people have an optional free-text team ("Team 1"); People shows them by grade or by team (a toggle anyone
+- 2026-11-05: people have an optional free-text team ("Team 1"); People shows them by team (the default, owner) or by grade (a toggle anyone
   can use, kept on the device). Teams are not used by the solver.
 
 - 2026-11-04: the signed-out page is app-ui's `signInScreen` (app-ui rc.90): icon, name, one line, Continue with Google;
