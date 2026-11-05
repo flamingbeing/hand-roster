@@ -34,9 +34,20 @@ test('people: name trimmed and required, grade checked, site may be cleared', ()
     { name: 'Dr Alpha Test', grade: 'reg', rank: 'AC', site: 'NUH', active: true });
   assert.deepEqual(people.clean({ name: '   ', grade: 'doctor' }), {});
   assert.equal(people.clean({ site: '' }).site, null);
+  assert.equal(people.clean({ team: ' Team 2 ' }).team, 'Team 2');
+  assert.equal(people.clean({ team: '' }).team, null);
   assert.deepEqual(people.activePeople([
     { id: 'a', name: 'Dr Bravo Test', grade: 'mo', rank: 'Outposter' }, { id: 'b', name: 'Dr Alpha Test', grade: 'con', active: false },
     { id: 'c', name: 'Dr Charlie Test', grade: 'reg', rank: 'Fellow', site: 'NTFGH' }]).map(p => [p.name, !!p.extra]), [['Dr Bravo Test', true], ['Dr Charlie Test', false]]);
+});
+
+test('people by team: teams in natural order, no team last, consultants first in each', () => {
+  const rows = [
+    { id: '1', name: 'Dr Mo Test', grade: 'mo', team: 'Team 10' }, { id: '2', name: 'Dr Con Test', grade: 'con', team: 'Team 10' },
+    { id: '3', name: 'Dr Reg Test', grade: 'reg', team: 'Team 2' }, { id: '4', name: 'Dr Lone Test', grade: 'mo' },
+    { id: '5', name: 'Dr Blank Test', grade: 'reg', team: '  ' }];
+  assert.deepEqual(people.byTeam(/** @type {any} */ (rows)).map(([t, l]) => [t, l.map(r => r.id)]),
+    [['Team 2', ['3']], ['Team 10', ['2', '1']], [people.NO_TEAM, ['5', '4']]]);
 });
 
 test('lists: a template row is one list, one weekday, one session; a week override changes it for that week', () => {

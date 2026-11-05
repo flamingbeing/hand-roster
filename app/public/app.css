@@ -11,6 +11,8 @@ select { padding: .5rem 2rem .5rem .65rem; }
 /* ---- shared by the tabs: a bar of buttons, then blocks of rows ---- */
 .rl-bar, .cl-bar, .wk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-block: 0 var(--gap); }
 .rl-bar:empty { display: none; }
+.pp-views { display: flex; gap: .35rem; margin-inline-end: auto; }
+.pp-view { flex: none; padding: .35rem .8rem; }
 .rl-bar button, .cl-bar button, .wk-bar button, .rl-more { display: inline-flex; align-items: center; gap: .35rem; }
 .rl-block { margin-block: 0 var(--pad); }
 .rl-head { display: flex; align-items: baseline; gap: .5rem; font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: var(--gap) 0 .25rem; }

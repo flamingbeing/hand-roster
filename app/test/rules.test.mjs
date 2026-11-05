@@ -66,6 +66,10 @@ test('people: a name, a grade from the list, a site from the list; no extra fiel
   assert.equal((await put({ ...base, rank: null, site: null })).ok, true, 'null clears');
   assert.equal((await put({ ...base, rank: 'x'.repeat(21) })).ok, false);
   assert.equal((await put({ ...base, site: 'Elsewhere' })).ok, false);
+  assert.equal((await put({ ...base, team: 'Team 2' })).ok, true, 'a team');
+  assert.equal((await put({ ...base, team: null })).ok, true, 'team cleared');
+  assert.equal((await put({ ...base, team: 'x'.repeat(31) })).ok, false);
+  assert.equal((await put({ ...base, team: 2 })).ok, false, 'team is text');
   assert.equal((await put({ ...base, active: 'yes' })).ok, false);
   assert.equal((await put({ ...base, email: 'a@example.com' })).ok, false, 'no field the app did not list');
   assert.equal((await put({ ...base, createdAt: 1 })).ok, true);
