@@ -132,14 +132,20 @@ export function weekLayout(o) {
     return am && pm ? n : `${n} (${am ? 'AM' : 'PM'})`;
   };
   blocks.push({ section: SECTIONS.leave, label: '', lines: days.map(d => (sec.leave[d] ?? []).map(n => /** @type {Line} */ ({ t: leaveText(d, n), k: 'text' }))) });
-  blocks.push({ section: SECTIONS.post, label: '', lines: days.map(d => (sec.postCall[d] ?? []).map(n => /** @type {Line} */ ({ t: n, k: 'text' }))) });
+  // the hand-made grid marks the NTFGH MO's call: "(NTF)" on post call, "(NTF on call)" in the free row
+  /** @param {string} d @param {string} n @returns {boolean} */
+  const ntf = (d, n) => style === 'hand' && map[d]?.moNtf === n;
+  blocks.push({ section: SECTIONS.post, label: '', lines: days.map(d => (sec.postCall[d] ?? []).map(n => /** @type {Line} */ ({ t: `${n}${ntf(addDays(d, -1), n) ? ' (NTF)' : ''}`, k: 'text' }))) });
   if (built) {
     blocks.push({
       section: SECTIONS.free, label: '',
-      lines: days.map(d => (sec.free[d] ?? []).map(f => /** @type {Line} */ ({
-        t: style === 'core' ? `${f.name} (${f.when})` : f.why ? `${f.name} (on call)` : f.when === 'FULL DAY' ? f.name : `${f.name} (${f.when})`, k: 'text',
-        who: f.name, when: f.when, ...(f.why ? { why: f.why } : {}),
-      }))),
+      lines: days.map(d => (sec.free[d] ?? []).map(f => {
+        const why = f.why && ntf(d, f.name) ? `NTF ${f.why}` : f.why;
+        return /** @type {Line} */ ({
+          t: style === 'core' ? `${f.name} (${f.when})` : why ? `${f.name} (${why})` : f.when === 'FULL DAY' ? f.name : `${f.name} (${f.when})`, k: 'text',
+          who: f.name, when: f.when, ...(why ? { why } : {}),
+        });
+      })),
     });
   }
   const [y, m, d] = o.monday.split('-').map(Number);

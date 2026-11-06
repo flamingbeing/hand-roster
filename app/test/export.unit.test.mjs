@@ -185,7 +185,7 @@ test('hand grid workbook: her rows, a band of rows per site and kind, the leave 
   // Monday: Cat and Dan are on call but on AM lists, so free ("on call") only in the PM, as on her sheet; Ann is on call
   // and on the HOT clinic in the PM, so not free at all; Ben, post-call, is free in the AM
   assert.equal(at(g.rowOf.amFree, 2)?.v, 'Dr Ben Test');
-  assert.equal(at(g.rowOf.pmFree, 2)?.v, 'Dr Cat Test (on call), Dr Dan Test (on call)');
+  assert.equal(at(g.rowOf.pmFree, 2)?.v, 'Dr Cat Test (NTF on call), Dr Dan Test (on call)');
   // bands by kind: what each tally column reads
   assert.deepEqual(g.ranges.admin, [[g.rowOf.skills, g.rowOf.skills], [g.rowOf.amResearch, g.rowOf.amResearch], [g.rowOf.pmResearch, g.rowOf.pmResearch]]);
   assert.deepEqual(g.ranges.free, [[g.rowOf.amFree, g.rowOf.amFree], [g.rowOf.pmFree, g.rowOf.pmFree]]);
