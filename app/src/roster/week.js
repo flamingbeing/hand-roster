@@ -10,7 +10,7 @@
 // Registrars are preferred on OT and MSP lists, MOs on clinics; sessions are balanced across the week; a list's PM keeps
 // its AM juniors. Deterministic from the seed. Pure: no page, no clock.
 import { addDays, mondayOf, rangeDays } from './dates.js';
-import { TIERS, callMapOf, canWork, isJunior, leaveIndex, leads, minOf, regLed, settleLists } from './model.js';
+import { TIERS, callMapOf, canWork, isJunior, worksOn, leaveIndex, leads, minOf, regLed, settleLists } from './model.js';
 
 /** @typedef {import('./model.js').Person} Person */
 /** @typedef {import('./model.js').Leave} Leave */
@@ -187,7 +187,7 @@ export function buildWeek(o) {
       if (lv.full(p.name, day)) continue;
       if (today.includes(p.name)) { free[day].push({ name: p.name, when: 'FULL DAY', why: 'on call' }); continue; }
       if (p.byHand) continue;   // around only on the days someone puts them on a list
-      const open = /** @type {Session[]} */ (['AM', 'PM']).filter(s => !taken[s].has(p.name) && !lv.blocks(p.name, day, s)
+      const open = /** @type {Session[]} */ (['AM', 'PM']).filter(s => worksOn(p, day, s) && !taken[s].has(p.name) && !lv.blocks(p.name, day, s)
         && !(prev.includes(p.name) && (s === 'PM' || !postCallAm)));
       if (open.length === 2) free[day].push({ name: p.name, when: 'FULL DAY' });
       else if (open.length === 1) free[day].push({ name: p.name, when: open[0] });

@@ -4,7 +4,7 @@
 // Firestore layout (rules in firestore.app.rules):
 //   members/{uid}              { role: admin | member | viewer, v }   the role doc (source of truth; admins change it
 //                              through the Worker's /api/members/, which revokes a removed person's access)
-//   spaces/_/people/{id}      { name, grade, rank?, site?, active?, noCall?, moCalls?, siteOnly?, byHand?, extra?, createdAt, updatedAt, serverAt, _edits }  the doctors
+//   spaces/_/people/{id}      { name, grade, rank?, site?, active?, noCall?, moCalls?, siteOnly?, byHand?, works?, clinicsOnly?, extra?, createdAt, updatedAt, serverAt, _edits }  the doctors
 //   spaces/_/lists/{id}       { site, kind, name, wd, session, consultant?, rooms?, patients?, need, status, ... }  the weekly template of OT lists and clinics
 //   spaces/_/leave/{id}       { name, from, to, session?, note?, ... }  leave, all day or AM or PM
 //   spaces/_/requests/{id}    { name, date, type: cannot | want, tier?, ... }  call requests

@@ -5,7 +5,11 @@ import { icon, emptyState } from '@core/ui';
 import { ICONS } from '../icons.js';
 import { $, h, fill } from '../dom.js';
 import { REFUSED } from '../items.js';
-import { GRADES, RANKS, SITES, byTeam } from '../data/people.js';
+import { GRADES, RANKS, SITES, WORKS, byTeam } from '../data/people.js';
+
+const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+/** @param {string[]} w @returns {string} 'Mon, Wed AM' */
+const worksText = w => DAY_NAMES.map((d, i) => { const am = w.includes(`${i + 1}AM`), pm = w.includes(`${i + 1}PM`); return am && pm ? d : am ? `${d} AM` : pm ? `${d} PM` : ''; }).filter(Boolean).join(', ');
 import { editSheet } from './sheet.js';
 import { rowList, heading } from './rows.js';
 
@@ -34,10 +38,15 @@ export function create(ctx) {
   /** @param {import('../data/people.js').PersonRow | null} row */
   function open(row) {
     const others = rows().filter(r => r.id !== row?.id && r.active !== false).map(r => r.name.toLowerCase());
+    // "Works on": Mon to Fri, AM and PM; none ticked = every session
+    const ticks = new Map(WORKS.map(k => [k, h('input', { type: 'checkbox', checked: !!row?.works?.includes(k), 'aria-label': `${DAY_NAMES[Number(k[0]) - 1]} ${k.slice(1)}` })]));
+    const works = h('div', { class: 'ep-wrap' }, h('p', { class: 'small' }, 'Works on (none ticked: every day)'),
+      h('table', { class: 'ep-table pp-works' }, h('thead', {}, h('tr', {}, h('th', {}), DAY_NAMES.map(d => h('th', {}, d)))),
+        h('tbody', {}, ['AM', 'PM'].map(s => h('tr', {}, h('th', {}, s), [1, 2, 3, 4, 5].map(d => h('td', {}, ticks.get(`${d}${s}`))))))));
     sheet.open({
       title: row ? 'Edit person' : 'Add person', saveLabel: 'Save',
       note: 'Leave, requests and calls use the name, so changing it does not change what was entered under the old one.',
-      values: { name: row?.name ?? '', grade: row?.grade ?? 'reg', rank: row?.rank ?? '', site: row?.site ?? '', team: row?.team ?? '', active: row?.active !== false, noCall: !!row?.noCall, moCalls: !!row?.moCalls, siteOnly: !!row?.siteOnly, byHand: !!row?.byHand, extra: !!row?.extra },
+      values: { name: row?.name ?? '', grade: row?.grade ?? 'reg', rank: row?.rank ?? '', site: row?.site ?? '', team: row?.team ?? '', active: row?.active !== false, noCall: !!row?.noCall, moCalls: !!row?.moCalls, siteOnly: !!row?.siteOnly, byHand: !!row?.byHand, clinicsOnly: !!row?.clinicsOnly, extra: !!row?.extra },
       fields: [
         { key: 'name', label: 'Name', required: true, max: 60 },
         { key: 'grade', label: 'Grade', type: 'select', options: GRADES },
@@ -51,14 +60,16 @@ export function create(ctx) {
         { key: 'noCall', label: 'Does not take calls', type: 'check' },
         { key: 'moCalls', label: 'MO calls only (a registrar not at REG level for calls)', type: 'check' },
         { key: 'siteOnly', label: 'Works only at their home site (lists and calls)', type: 'check' },
-        { key: 'byHand', label: 'On lists by hand only (some days and clinics); still on call', type: 'check' },
+        { key: 'byHand', label: 'On lists by hand only; still on call', type: 'check' },
+        { key: 'clinicsOnly', label: 'Clinics only (never OT or MSP)', type: 'check' },
         { key: 'extra', label: 'Extra to a list (an outposter or a visitor), only placed when short', type: 'check' },
       ],
+      body: { node: works, read: () => ({ works: WORKS.filter(k => /** @type {HTMLInputElement} */ (ticks.get(k)).checked) }) },
       warn: v => (others.includes(String(v.name).toLowerCase()) ? ['Someone on the roster already has this name.'] : []),
       onDelete: row ? async () => { toast(await app.data.people.remove(row) ? REFUSED : 'Deleted'); } : undefined,
       onSave: async v => {
         if (others.includes(String(v.name).toLowerCase())) { toast('That name is taken.'); return; }
-        const fields = { name: v.name, grade: v.grade, rank: v.rank || null, site: v.site || null, team: v.team || null, active: v.active, noCall: v.noCall, moCalls: v.moCalls, siteOnly: v.siteOnly, byHand: v.byHand, extra: v.extra };
+        const fields = { name: v.name, grade: v.grade, rank: v.rank || null, site: v.site || null, team: v.team || null, active: v.active, noCall: v.noCall, moCalls: v.moCalls, siteOnly: v.siteOnly, byHand: v.byHand, works: v.works?.length ? v.works : null, clinicsOnly: v.clinicsOnly, extra: v.extra };
         toast((row ? await app.data.people.edit(row, fields) : await app.data.people.add(fields)) ? REFUSED : 'Saved');
       },
     });
@@ -78,7 +89,7 @@ export function create(ctx) {
     /** @param {import('../data/people.js').PersonRow} r @param {(string | false | null | undefined)[]} first */
     const row = (r, first) => ({
       main: r.name, dim: r.active === false,
-      sub: [...first, r.rank, r.site, r.noCall && 'no calls', !r.noCall && r.moCalls && r.grade === 'reg' && 'MO calls', r.siteOnly && r.site && `${r.site} only`, r.byHand && 'by hand', r.extra && 'extra'].filter(Boolean).join(' · '),
+      sub: [...first, r.rank, r.site, r.noCall && 'no calls', !r.noCall && r.moCalls && r.grade === 'reg' && 'MO calls', r.siteOnly && r.site && `${r.site} only`, r.byHand && 'by hand', r.works?.length && worksText(r.works), r.clinicsOnly && 'clinics only', r.extra && 'extra'].filter(Boolean).join(' · '),
       tag: r.active === false ? 'Inactive' : '',
       onOpen: canWrite ? () => open(r) : null,
     });

@@ -5,6 +5,8 @@ import { cleaner, text, optText, oneOf, bool } from './ops.js';
 export const COLL = 'people';
 /** @type {[string, string][]} */
 export const GRADES = [['con', 'Consultant'], ['reg', 'Registrar or fellow'], ['mo', 'Medical officer']];
+/** the sessions of People "Works on": '1AM' (Monday morning) .. '5PM' */
+export const WORKS = [1, 2, 3, 4, 5].flatMap(d => [`${d}AM`, `${d}PM`]);
 /** the ranks a grade offers (free text in the data, these are the suggestions) @type {Record<string, string[]>} */
 export const RANKS = { con: ['Consultant'], reg: ['Reg', 'AC', 'Fellow'], mo: ['MO', 'R3', 'HC', 'Locum', 'Outposter'] };
 export const SITES = ['NUH', 'NTFGH'];
@@ -39,16 +41,18 @@ export const clean = cleaner({
   moCalls: bool,
   siteOnly: bool,
   byHand: bool,
+  works: (/** @type {unknown} */ v) => (Array.isArray(v) ? [...new Set(v.filter(s => typeof s === 'string' && WORKS.includes(s)))] : v === null ? null : undefined),
+  clinicsOnly: bool,
   extra: bool,
 });
 
-/** @typedef {import('./ops.js').Row & { name: string, grade: 'con' | 'reg' | 'mo', rank?: string | null, site?: string | null, team?: string | null, active?: boolean, noCall?: boolean, moCalls?: boolean, siteOnly?: boolean, byHand?: boolean, extra?: boolean }} PersonRow */
+/** @typedef {import('./ops.js').Row & { name: string, grade: 'con' | 'reg' | 'mo', rank?: string | null, site?: string | null, team?: string | null, active?: boolean, noCall?: boolean, moCalls?: boolean, siteOnly?: boolean, byHand?: boolean, works?: string[] | null, clinicsOnly?: boolean, extra?: boolean }} PersonRow */
 // moCalls: a registrar who takes the MO call tiers only (owner, 6 Nov 2026: not REG level for calls; still a registrar on lists)
 
 /** @param {PersonRow} r @returns {import('../roster/model.js').Person} the engine's person */
 export const personOf = r => ({
   name: r.name, grade: r.grade, ...(r.rank ? { rank: r.rank } : {}), ...(r.site ? { site: r.site } : {}),
-  ...(r.noCall ? { noCall: true } : {}), ...(r.siteOnly && r.site ? { siteOnly: true } : {}), ...(r.byHand ? { byHand: true } : {}), ...(r.moCalls && r.grade !== 'con' ? { tiers: /** @type {import('../roster/model.js').Tier[]} */ (['moNuh', 'moNtf']) } : {}), ...(r.extra || r.rank === 'Outposter' ? { extra: true } : {}),
+  ...(r.noCall ? { noCall: true } : {}), ...(r.siteOnly && r.site ? { siteOnly: true } : {}), ...(r.byHand ? { byHand: true } : {}), ...(r.works?.length ? { works: r.works } : {}), ...(r.clinicsOnly ? { clinicsOnly: true } : {}), ...(r.moCalls && r.grade !== 'con' ? { tiers: /** @type {import('../roster/model.js').Tier[]} */ (['moNuh', 'moNtf']) } : {}), ...(r.extra || r.rank === 'Outposter' ? { extra: true } : {}),
 });
 /** @param {PersonRow[]} rows @returns {import('../roster/model.js').Person[]} the active people, in name order */
 export const activePeople = rows => rows.filter(r => r.active !== false && !r._deleted).map(personOf).sort((a, b) => a.name.localeCompare(b.name));

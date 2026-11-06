@@ -17,6 +17,8 @@ import { weekday } from './dates.js';
  * @property {boolean} [noCall]  never on call
  * @property {boolean} [siteOnly]  works only at their home site: lists and calls (a locum hired by one hospital)
  * @property {boolean} [byHand]  put on lists by hand only (a locum on some days and clinics); still on call
+ * @property {string[]} [works]  the sessions they work, '1AM' (Monday morning) .. '5PM'; none: every session
+ * @property {boolean} [clinicsOnly]  placed on clinics and HOT clinics only, never OT or MSP
  * @property {Tier[]} [tiers]  call tiers this person may take, overriding the grade default
  *
  * @typedef {object} Leave
@@ -149,7 +151,11 @@ export const minOf = l => Math.min(l.need, l.min ?? (l.need > 0 ? 1 : 0));
 export const regLed = l => (!!l.emergency || l.kind === 'msp' || l.kind === 'hot') && minOf(l) > 0;
 
 /** @param {Person} p @param {ListSlot} l @returns {boolean} the builder may put p on l (by hand anyone goes anywhere) */
-export const canWork = (p, l) => !p.byHand && (!p.siteOnly || !p.site || p.site === l.site);
+export const canWork = (p, l) => !p.byHand && (!p.siteOnly || !p.site || p.site === l.site) && worksOn(p, l.day, l.session)
+  && (!p.clinicsOnly || l.kind === 'clinic' || l.kind === 'hot');
+
+/** @param {Person} p @param {string} day @param {'AM' | 'PM'} session @returns {boolean} the session is one of theirs (People "Works on") */
+export const worksOn = (p, day, session) => !p.works?.length || p.works.includes(`${weekday(day)}${session}`);
 
 /** @param {ListSlot} l @param {Person | undefined} p @returns {boolean} p can lead l: a registrar; a HOT clinic also an R3
  *   (third-year resident, a year before registrar; owner, 6 Nov 2026) */
