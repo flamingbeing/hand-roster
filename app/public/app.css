@@ -55,7 +55,7 @@ select { padding: .5rem 2rem .5rem .65rem; }
 .wk-title, .cl-title { margin: 0; font-size: 1.05rem; text-align: center; min-width: 0; }
 .wk-bar #week-title { display: block; width: 100%; font: inherit; font-weight: 600; color: inherit; background: none; border: 0; padding: .35rem .5rem; justify-content: center; }
 #week-title.is-away { text-decoration: underline dotted; text-underline-offset: .25em; }
-.wk-site-pick { display: inline-flex; align-items: center; gap: .35rem; }
+.wk-site-pick { width: auto; }
 .wk-chips { display: flex; gap: .4rem; margin-block: var(--gap); }
 .wk-daychip { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 0; padding: .35rem 0; border-radius: var(--card-r, .9rem); line-height: 1.2; }
 .wk-daychip .small { font-size: 1.05rem; font-weight: 600; color: inherit; }
