@@ -1,7 +1,7 @@
 // The People tab (#people-host): the doctors the roster places, by team (the default) or by grade (a toggle anyone can use, kept on this
 // device). Add, edit and take off (inactive people stay in the
 // data, so old rosters still read; delete sends one to the bin). A name is the key leave, requests and calls use.
-import { icon, emptyState } from '@core/ui';
+import { icon, emptyState, undoToast } from '@core/ui';
 import { ICONS } from '../icons.js';
 import { $, h, fill } from '../dom.js';
 import { REFUSED } from '../items.js';
@@ -18,6 +18,8 @@ const worksText = w => DAY_NAMES.map((d, i) => { const am = w.includes(`${i + 1}
 export function create(ctx) {
   const { app, store, toast } = ctx;
   const sheet = editSheet();
+  // the kit's Undo toast on the page's toaster (whose show hands back that toast's dismiss)
+  const undo = undoToast({ show: (text, o) => { const gone = toast(text, o); return () => { if (typeof gone === 'function') gone(); }; } }, { ms: 8000 });
   const host = $('people-host');
   const empty = emptyState(host, { title: 'No people yet', hint: 'Add the consultants, registrars and medical officers the roster places.' });
   const bar = h('div', { class: 'rl-bar' });
@@ -67,7 +69,11 @@ export function create(ctx) {
       ],
       body: { node: works, read: () => ({ works: WORKS.filter(k => /** @type {HTMLInputElement} */ (ticks.get(k)).checked) }) },
       warn: v => (others.includes(String(v.name).toLowerCase()) ? ['Someone on the roster already has this name.'] : []),
-      onDelete: row ? async () => { toast(await app.data.people.remove(row) ? REFUSED : 'Deleted'); } : undefined,
+      onDelete: row ? async () => {
+        if (await app.data.people.remove(row)) { toast(REFUSED); return; }
+        // Undo puts the same record back, under its own id
+        undo.show(`Deleted ${row.name}`, async () => { if (await app.data.people.put(row)) toast(REFUSED); });
+      } : undefined,
       onSave: async v => {
         if (others.includes(String(v.name).toLowerCase())) { toast('That name is taken.'); return; }
         const fields = { name: v.name, grade: v.grade, rank: v.rank || null, site: v.site || null, team: v.team || null, active: v.active, noCall: v.noCall, moCalls: v.moCalls, siteOnly: v.siteOnly, byHand: v.byHand, works: v.works?.length ? v.works : null, clinicsOnly: v.clinicsOnly, extra: v.extra };

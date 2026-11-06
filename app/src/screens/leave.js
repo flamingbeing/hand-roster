@@ -1,7 +1,7 @@
 // The Leave and requests tab (#leave-host): who is away (all day, or AM or PM only) and the call days a person cannot do or
 // would like. Leave blocks lists and calls and closes a consultant's clinics; a "cannot" is a rule the call maker keeps, a
 // "would like" something it tries for. Days that have passed are kept out of sight until asked for.
-import { icon, emptyState } from '@core/ui';
+import { icon, emptyState, undoToast } from '@core/ui';
 import { ICONS } from '../icons.js';
 import { $, h, fill } from '../dom.js';
 import { REFUSED } from '../items.js';
@@ -24,6 +24,8 @@ const span = (a, b) => (a === b ? `${weekdayName(a)} ${shortDay(a)}` : `${shortD
 export function create(ctx) {
   const { app, store, toast } = ctx;
   const sheet = editSheet();
+  // the kit's Undo toast on the page's toaster (whose show hands back that toast's dismiss)
+  const undo = undoToast({ show: (text, o) => { const gone = toast(text, o); return () => { if (typeof gone === 'function') gone(); }; } }, { ms: 8000 });
   const host = $('leave-host');
   let showPast = false;
   const empty = emptyState(host, { title: 'No leave or requests', hint: 'Add leave and call requests here. They are used when the week and the calls are made.' });
@@ -51,7 +53,11 @@ export function create(ctx) {
         { key: 'note', label: 'Note', max: 200 },
       ],
       warn: v => (v.from && v.to && v.to < v.from ? ['The last day is before the first.'] : []),
-      onDelete: row ? async () => { toast(await app.data.leave.remove(row) ? REFUSED : 'Deleted'); } : undefined,
+      onDelete: row ? async () => {
+        if (await app.data.leave.remove(row)) { toast(REFUSED); return; }
+        // Undo puts the same record back, under its own id
+        undo.show(`Deleted leave for ${row.name}, ${span(row.from, row.to)}`, async () => { if (await app.data.leave.put(row)) toast(REFUSED); });
+      } : undefined,
       onSave: async v => {
         if (!v.name) { toast('Choose who first.'); return; }
         lastName = v.name;
@@ -72,7 +78,10 @@ export function create(ctx) {
         { key: 'type', label: 'Request', type: 'select', options: TYPES },
         { key: 'tier', label: 'For which call', type: 'select', options: [['', 'Any call'], ...TIERS.map(t => /** @type {[string, string]} */ ([t, TIER_LABEL[t]]))] },
       ],
-      onDelete: row ? async () => { toast(await app.data.requests.remove(row) ? REFUSED : 'Deleted'); } : undefined,
+      onDelete: row ? async () => {
+        if (await app.data.requests.remove(row)) { toast(REFUSED); return; }
+        undo.show(`Deleted the request for ${row.name}, ${span(row.date, row.date)}`, async () => { if (await app.data.requests.put(row)) toast(REFUSED); });
+      } : undefined,
       onSave: async v => {
         if (!v.name) { toast('Choose who first.'); return; }
         lastName = v.name;
