@@ -1,7 +1,7 @@
 // A roster maker's edits to a week, as pure steps (screens/week-edit.js saves them). Each edit is worked out from the
 // week as it is when it is saved, never from the copy a sheet opened with: a change another maker saved in between stays.
 // Undo puts back the fields an edit changed, as they were just before it.
-import { move, place } from './grid.js';
+import { juniorsOn, move, place } from './grid.js';
 import { coOf, minOf } from './model.js';
 
 /** @typedef {import('./grid.js').GridRow} GridRow */
@@ -65,6 +65,28 @@ export function listChange(raw, v) {
   if (!!v.away !== !!raw.away) out.away = !!v.away;
   return out;
 }
+
+/** @typedef {{ type: 'list-person', person: string, list: string, day: string, session: 'AM' | 'PM' }} Ask */
+
+/**
+ * Build again, keeping the hand edits: one ask per placement the grid has now that a build would not make (a junior moved
+ * or added by hand). The ask names the list by id, so two lists of the same name never mix. Someone taken off a list
+ * leaves no ask: the builder may place them again (7 Nov 2026).
+ * @param {GridRow[]} builtRows  what the last build would make now @param {GridRow[]} rows  the grid as it is now
+ * @returns {Ask[]}
+ */
+export function keptAsks(builtRows, rows) {
+  /** @type {Ask[]} */
+  const out = [];
+  for (const r of rows) {
+    const was = juniorsOn(builtRows, r.day, r.session, r.list);
+    for (const person of r.juniors) if (!was.includes(person)) out.push({ type: 'list-person', person, list: r.list, day: r.day, session: r.session });
+  }
+  return out;
+}
+
+/** how many asks the new grid kept: the person is on that list then @param {Ask[]} asks @param {GridRow[]} rows @returns {number} */
+export const keptCount = (asks, rows) => asks.filter(a => juniorsOn(rows, a.day, a.session, a.list).includes(a.person)).length;
 
 const NONE = /** @type {Record<string, unknown>} */ ({ grid: [], lists: [], overrides: [], seed: 0, built: 0 });
 

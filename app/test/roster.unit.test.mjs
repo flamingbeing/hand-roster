@@ -7,9 +7,10 @@ import { solveCalls, prng } from '../src/roster/calls.js';
 import { buildWeek } from '../src/roster/week.js';
 import { parseInfo, formatInfo } from '../src/roster/parse-info.js';
 import { addDays, daysIn, diffDays, isDay, mondayOf, monthDays, weekday } from '../src/roster/dates.js';
+import { gridRows } from '../src/roster/grid.js';
 import { canTake, dayType, DEFAULT_TIER_PLAN, leaveIndex, settleLists, tierPlanOf } from '../src/roster/model.js';
 import { clashesOf, sectionsOf } from '../src/roster/sections.js';
-import { listChange } from '../src/roster/week-edits.js';
+import { keptAsks, keptCount, listChange } from '../src/roster/week-edits.js';
 
 const fx = JSON.parse(readFileSync(new URL('./fixtures/hrm-week.json', import.meta.url), 'utf8'));
 
@@ -469,4 +470,47 @@ test('week clashes: juniors on a list closed this week are flagged and free', ()
   // leave of a junior on a closed list: both said
   const both = clashesOf({ grid, lists, leave: [...leave, { name: 'Dr Ann Test', from: CW, to: CW }], calls: [] });
   assert.deepEqual(both[0].why, ['the list is closed (consultant on leave)', 'on leave then']);
+});
+
+test('build again: hand placements kept as asks, unless the person is away now', () => {
+  const day = '2026-10-12';
+  const lists = [
+    { id: 'ot1', site: 'NUH', kind: 'ot', name: 'OT 1', day, session: 'AM', consultant: 'Dr Con Test', status: 'open', need: 1 },
+    { id: 'ot2', site: 'NUH', kind: 'ot', name: 'OT 1', day, session: 'PM', consultant: 'Dr Con Test', status: 'open', need: 2 },
+    { id: 'cl1', site: 'NTFGH', kind: 'clinic', name: 'CLINIC', day, session: 'AM', consultant: 'Dr Con Two', status: 'open', need: 2 },
+  ];
+  const people = [
+    { name: 'Dr Ann Test', grade: 'reg' }, { name: 'Dr Ben Test', grade: 'mo' }, { name: 'Dr Cy Test', grade: 'mo' }, { name: 'Dr Dee Test', grade: 'reg' },
+  ];
+  const built = [
+    { day, session: 'AM', list: 'ot1', juniors: ['Dr Ann Test'] },
+    { day, session: 'AM', list: 'cl1', juniors: ['Dr Ben Test', 'Dr Cy Test'] },
+    { day, session: 'PM', list: 'ot2', juniors: ['Dr Ann Test'] },
+  ];
+  // by hand: Dr Cy Test moved to OT 1 in the AM (swapped with Dr Ann Test), Dr Dee Test added to the PM; Dr Ben Test unchanged
+  const now = [
+    { day, session: 'AM', list: 'ot1', juniors: ['Dr Cy Test'] },
+    { day, session: 'AM', list: 'cl1', juniors: ['Dr Ben Test', 'Dr Ann Test'] },
+    { day, session: 'PM', list: 'ot2', juniors: ['Dr Ann Test', 'Dr Dee Test'] },
+  ];
+  const asks = keptAsks(built, now);
+  assert.deepEqual(asks, [
+    { type: 'list-person', person: 'Dr Cy Test', list: 'ot1', day, session: 'AM' },
+    { type: 'list-person', person: 'Dr Ann Test', list: 'cl1', day, session: 'AM' },
+    { type: 'list-person', person: 'Dr Dee Test', list: 'ot2', day, session: 'PM' },
+  ]);
+  assert.deepEqual(keptAsks(built, built), [], 'nothing changed by hand');
+  // the builder places them first, on the list by id
+  for (const seed of [1, 2, 3]) {
+    const rows = gridRows(buildWeek({ monday: day, lists, people, seed, requests: asks }).grid);
+    assert.equal(keptCount(asks, rows), 3, `seed ${seed}`);
+  }
+  // a kept person on leave now is not placed, nor counted as kept
+  const leave = [{ name: 'Dr Dee Test', from: day, to: day }];
+  const rows = gridRows(buildWeek({ monday: day, lists, people, leave, seed: 1, requests: asks }).grid);
+  assert.ok(!rows.some(r => r.juniors.includes('Dr Dee Test')));
+  assert.equal(keptCount(asks, rows), 2);
+  // an ask above the list's need is dropped by the builder: not kept
+  const over = [...asks, { type: 'list-person', person: 'Dr Ben Test', list: 'ot1', day, session: 'AM' }];
+  assert.equal(keptCount(over, gridRows(buildWeek({ monday: day, lists, people, seed: 1, requests: /** @type {any} */ (over) }).grid)), 3);
 });

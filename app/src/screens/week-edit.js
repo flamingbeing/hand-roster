@@ -2,15 +2,16 @@
 // moved, swapped, added or taken off, a list changed for this week, Check against Epic and the Short panel's options.
 // week.js loads it on a roster maker's first edit or Build. Each save works from the week as it is when saved
 // (roster/week-edits.js): a change another maker saved while a sheet was open stays. The copy a sheet opened with only
-// words and warns. A Build, a grid edit or a list change can be undone from its toast for a few seconds.
-import { confirmModal, undoToast } from '@core/ui';
+// words and warns. A Build, a grid edit or a list change can be undone from its toast for a few seconds. Build again on a
+// week with hand changes asks to keep them (they go to the builder as asks), replace them, or cancel.
+import { undoToast } from '@core/ui';
 import { $, h } from '../dom.js';
 import { REFUSED } from '../items.js';
 import { shortDay } from '../roster/dates.js';
 import { conText } from '../roster/model.js';
 import { sectionsOf, shortOptions, whyNot } from '../roster/sections.js';
 import { gridRows, juniorsOn } from '../roster/grid.js';
-import { applyEdit, mergeOverrides, undoFields } from '../roster/week-edits.js';
+import { applyEdit, keptCount, keptAsks, mergeOverrides, undoFields } from '../roster/week-edits.js';
 import { slotsFor } from '../data/lists.js';
 import { editSheet } from './sheet.js';
 
@@ -70,22 +71,55 @@ export function weekEdit({ ctx, model, monday }) {
     if (building || !ctx.canWrite()) return;
     const mon = monday(), m = model(mon);
     if (!m.lists.length) { toast('Add the weekly lists first (Lists tab).'); return; }
+    if (!m.built || !m.grid.some(r => r.juniors.length)) { await rebuild(mon, []); return; }
     const { buildWeek } = await import('../roster/week.js');
-    const raw = slotsFor(m.templates, mon, m.wk?.overrides);
-    // ask only when the grid differs from what its last build would make now: a hand change (or leave or calls changed since)
-    const asBuilt = () => JSON.stringify(gridRows(buildWeek({ monday: mon, lists: raw, people: m.people, leave: m.leave, calls: m.calls, holidays: m.holidays, seed: m.wk?.seed ?? 0 }).grid)) === JSON.stringify(m.grid.map(r => ({ day: r.day, session: r.session, list: r.list, juniors: r.juniors })));
-    if (m.built && m.grid.some(r => r.juniors.length) && !asBuilt() && !await confirmModal('Build this week again? Changes made by hand to its grid are replaced.', { title: 'Build week', yes: 'Build again' })) return;
+    if (handChanges(mon, m, buildWeek) === null) { await rebuild(mon, []); return; }
+    // three ways out (app-ui has only yes or no): Keep, Replace, or Cancel (the sheet's own), which changes nothing. Keep
+    // works from the week as it is then, so a hand change another maker saved meanwhile is kept too.
+    sheet.open({
+      title: 'Build week', fields: [], saveLabel: 'Keep my changes', deleteLabel: 'Replace them',
+      note: 'This week has changes made by hand. Build it again around them? Placements you made are kept where still possible; people you took off may be placed again.',
+      onSave: () => rebuild(mon, handChanges(mon, model(mon), buildWeek) ?? []),
+      onDelete: () => rebuild(mon, []),
+    });
+  }
+
+  /**
+   * The week's hand placements, as asks for the builder: null when the grid is just what its last build would make now
+   * (else it has hand changes, or leave or calls changed since).
+   * @param {string} mon @param {Model} m @param {typeof import('../roster/week.js').buildWeek} buildWeek
+   * @returns {import('../roster/week-edits.js').Ask[] | null}
+   */
+  function handChanges(mon, m, buildWeek) {
+    const built = gridRows(buildWeek({ monday: mon, lists: slotsFor(m.templates, mon, m.wk?.overrides), people: m.people, leave: m.leave, calls: m.calls, holidays: m.holidays, seed: m.wk?.seed ?? 0 }).grid);
+    const rows = m.grid.map(r => ({ day: r.day, session: r.session, list: r.list, juniors: r.juniors }));
+    return JSON.stringify(built) === JSON.stringify(rows) ? null : keptAsks(built, rows);
+  }
+
+  /**
+   * Builds the week again with a new seed. Asks go first, where the person is still free and the list still has room.
+   * @param {string} mon @param {import('../roster/week-edits.js').Ask[]} asks  the hand placements to keep
+   */
+  async function rebuild(mon, asks) {
+    if (building) return;
     building = true; $('week-build').setAttribute('disabled', '');
     try {
+      const { buildWeek } = await import('../roster/week.js');
       const now = model(mon);
       const seed = (now.wk?.seed ?? 0) + 1;
       const lists = slotsFor(now.templates, mon, now.wk?.overrides);
-      const res = buildWeek({ monday: mon, lists, people: now.people, leave: now.leave, calls: now.calls, holidays: now.holidays, seed });
+      const res = buildWeek({ monday: mon, lists, people: now.people, leave: now.leave, calls: now.calls, holidays: now.holidays, seed, requests: asks });
+      const grid = gridRows(res.grid);
       const short = res.problems.filter(p => p.got < p.min || p.noReg).length;
-      // the lists are kept as the template stood, unsettled, so a holiday or leave taken away later reopens them
+      // the lists are kept as the template stood, unsettled, so a holiday or leave taken away later reopens them. The asks
+      // are not stored: the grid has the placements kept.
       // the month's calls not made yet: built all the same, but post-call days are not known, so say so
-      const said = [short ? `Built. ${short} list${short === 1 ? ' is' : 's are'} below the minimum: see Short.` : 'Built', !now.callsMade && 'Calls are not made yet: post-call not kept clear.'];
-      await save(mon, now, { grid: gridRows(res.grid), lists, seed, built: Date.now() }, said.filter(Boolean).join(short ? ' ' : '. '));
+      const said = [
+        asks.length && `Kept ${keptCount(asks, grid)} of ${asks.length} hand placement${asks.length === 1 ? '' : 's'}.`,
+        short && `${short} list${short === 1 ? ' is' : 's are'} below the minimum: see Short.`,
+        !now.callsMade && 'Calls are not made yet: post-call not kept clear.',
+      ].filter(Boolean);
+      await save(mon, now, { grid, lists, seed, built: Date.now() }, said.length ? `Built. ${said.join(' ')}` : 'Built');
     } finally { building = false; $('week-build').removeAttribute('disabled'); }
   }
 
