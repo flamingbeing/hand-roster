@@ -3,7 +3,7 @@
 // buildWeek (week.js), so a hand-edited grid is judged the way a built one was. Also here: picking the parts of the stored
 // months that a week or a month needs (callsAround, monthCells, ...). Pure.
 import { addDays, rangeDays, mondayOf, monthDays } from './dates.js';
-import { callMapOf, callRow, isJunior, leads, leaveIndex, minOf, regLed, TIERS } from './model.js';
+import { callMapOf, callRow, canWork, isJunior, leads, leaveIndex, minOf, regLed, TIERS } from './model.js';
 import { juniorsOn } from './grid.js';
 
 /** @typedef {import('./model.js').Person} Person */
@@ -44,6 +44,7 @@ export function sectionsOf({ monday, people, leave, calls, lists, grid, postCall
     for (const p of juniors) {
       if (lv.full(p.name, day)) continue;
       if (today.includes(p.name)) { free[day].push({ name: p.name, when: 'FULL DAY', why: 'on call' }); continue; }
+      if (p.byHand) continue;   // around only on the days someone puts them on a list
       const open = /** @type {('AM' | 'PM')[]} */ (['AM', 'PM']).filter(s => !grid.some(r => r.day === day && r.session === s && r.juniors.includes(p.name))
         && !lv.blocks(p.name, day, s) && !(prev.includes(p.name) && (s === 'PM' || !postCallAm)));
       if (open.length === 2) free[day].push({ name: p.name, when: 'FULL DAY' });
@@ -154,7 +155,7 @@ export function shortOptions({ gap, lists, grid, people, free }) {
   const who = new Map(people.map(p => [p.name, p]));
   // a list without the lead it must have (a registrar; a HOT clinic also an R3) takes only someone who can lead it
   const needsReg = regLed(list) && !juniorsOn(grid, gap.day, gap.session, list.id).some(n => leads(list, who.get(n)));
-  const fits = (/** @type {string} */ n) => !needsReg || leads(list, who.get(n));
+  const fits = (/** @type {string} */ n) => { const p = who.get(n); return !!p && (!needsReg || leads(list, p)) && canWork(p, list); };
   /** @type {ShortOption[]} */
   const out = [];
 
