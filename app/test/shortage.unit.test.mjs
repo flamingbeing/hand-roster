@@ -204,3 +204,13 @@ test('people: a site-only locum stays at their site, a by-hand locum is never pl
   assert.deepEqual(w.grid[MON].AM.find(g => g.list === 'nuh')?.juniors, [], 'neither goes to NUH');
   assert.ok(!w.free[MON].some(f => f.name === 'Dr Loc Hand'), 'not listed free');
 });
+
+test('people: "Works on" days and "Clinics only" limit where the builder puts someone', async () => {
+  const { personOf } = await import('../src/data/people.js');
+  const p = personOf(/** @type {any} */ ({ id: 'x', name: 'Dr Loc Days', grade: 'mo', rank: 'Locum', works: ['1AM'], clinicsOnly: true }));
+  const lists = [L('ot', {}), L('cl', { kind: 'clinic', consultant: 'Dr Con C' }), L('cl2', { kind: 'clinic', session: 'PM' }), L('cl3', { kind: 'clinic', day: '2026-11-10' })];
+  const w = buildWeek({ monday: MON, lists, people: [p], seed: 6 });
+  const on = (/** @type {string} */ day, /** @type {'AM' | 'PM'} */ s, /** @type {string} */ id) => w.grid[day][s].find(g => g.list === id)?.juniors ?? [];
+  assert.deepEqual([on(MON, 'AM', 'cl'), on(MON, 'AM', 'ot'), on(MON, 'PM', 'cl2'), on('2026-11-10', 'AM', 'cl3')], [['Dr Loc Days'], [], [], []]);
+  assert.ok(!w.free['2026-11-10'].some(f => f.name === 'Dr Loc Days'), 'not free on a day off');
+});
