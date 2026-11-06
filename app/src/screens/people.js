@@ -49,7 +49,7 @@ export function create(ctx) {
         { key: 'team', label: 'Team', max: 30, list: 'people-teams' },
         { key: 'active', label: 'On the roster now', type: 'check' },
         { key: 'noCall', label: 'Does not take calls', type: 'check' },
-        { key: 'moCalls', label: 'MO calls only (not REG level for calls)', type: 'check' },
+        { key: 'moCalls', label: 'MO calls only (a registrar not at REG level for calls)', type: 'check' },
         { key: 'extra', label: 'Extra to a list (an outposter or a visitor), only placed when short', type: 'check' },
       ],
       warn: v => (others.includes(String(v.name).toLowerCase()) ? ['Someone on the roster already has this name.'] : []),
@@ -76,7 +76,7 @@ export function create(ctx) {
     /** @param {import('../data/people.js').PersonRow} r @param {(string | false | null | undefined)[]} first */
     const row = (r, first) => ({
       main: r.name, dim: r.active === false,
-      sub: [...first, r.rank, r.site, r.noCall && 'no calls', !r.noCall && r.moCalls && 'MO calls', r.extra && 'extra'].filter(Boolean).join(' · '),
+      sub: [...first, r.rank, r.site, r.noCall && 'no calls', !r.noCall && r.moCalls && r.grade === 'reg' && 'MO calls', r.extra && 'extra'].filter(Boolean).join(' · '),
       tag: r.active === false ? 'Inactive' : '',
       onOpen: canWrite ? () => open(r) : null,
     });

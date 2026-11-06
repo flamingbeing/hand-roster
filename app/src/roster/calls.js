@@ -89,7 +89,8 @@ export function solveCalls(o) {
   const S = slots.length;
 
   // per person: availability (days not on leave), weekend availability, the grade pool they share totals with
-  const poolOf = people.map(p => p.grade);
+  // a registrar on MO call tiers only (People "MO calls only") is balanced with the MOs
+  const poolOf = people.map(p => (p.grade === 'reg' && p.tiers && !p.tiers.some(t => t === 'reg' || t === 'reg2') ? 'mo' : p.grade));
   const avail = people.map(p => days.filter(d => !lv.blocks(p.name, d)).length);
   const availOff = people.map(p => days.filter((d, i) => isOffDay(dayType(d, holidays)) && !lv.blocks(p.name, d)).length);
   const pools = [...new Set(poolOf)];
