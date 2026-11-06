@@ -1,5 +1,5 @@
 // The roster screens: the app loads, the Week tab is the first screen, the other tabs open (lazily), a viewer is read-only.
-import { test, expect, signIn, openTab, openWeek, openSettings, db, uniq } from './fixtures.mjs';
+import { test, expect, signIn, openTab, openWeek, openSettings, clickOpens, db, uniq } from './fixtures.mjs';
 
 test('a member lands on the Week tab and every tab opens', { tag: '@smoke' }, async ({ phone }) => {
   const page = await phone();
@@ -78,4 +78,28 @@ test('calls: a call given to someone off the roster is listed; a tap on the line
   await expect(page.locator('#ef-con')).toHaveValue(gone);
   await expect(page.locator(`#ef-con option[value="${con}"]`)).toHaveText(`${con} · 0 calls`);
   await expect(page.locator('#ef-con option').first()).toHaveText('Nobody');
+});
+
+test('a roster maker moves a junior on the grid and puts them back with Undo', async ({ phone }) => {
+  const page = await phone();
+  await signIn(page, 'member');
+  await openWeek(page);
+  // a week of its own, seven on (the export spec builds five on)
+  for (let i = 0; i < 7; i++) await page.locator('#week-next').click();
+  await expect(page.locator('#week-title')).toHaveClass(/is-away/);
+  const mon = /** @type {string} */ (await page.locator('#week-grid .wk-day').first().getAttribute('data-day'));
+  const [a, b, name] = [uniq('OT A'), uniq('OT B'), uniq('Dr Ann Test')];
+  const list = (/** @type {string} */ id) => ({ id, site: 'NUH', kind: 'ot', name: id, day: mon, session: 'AM', consultant: null, rooms: null, patients: null, status: 'open', need: 2, consultantOnLeave: false });
+  await db.put(`spaces/_/weeks/${mon}`, { lists: [list(a), list(b)], grid: [{ day: mon, session: 'AM', list: a, juniors: [name] }], seed: 1, built: Date.now(), updatedAt: Date.now() });
+  const on = (/** @type {string} */ id) => page.locator(`#week-table .wt-list[data-list="${id}"] .wt-name`, { hasText: name });
+  await expect(on(a)).toBeVisible({ timeout: 15_000 });
+  // the edit code loads on this first tap
+  await clickOpens(on(a), page.locator('#edit-sheet'));
+  await page.locator('#ef-to').selectOption(b);
+  await page.locator('#edit-save').click();
+  await expect(on(b)).toBeVisible();
+  await expect(on(a)).toHaveCount(0);
+  await page.locator('.toast', { hasText: `Moved ${name}` }).getByRole('button', { name: 'Undo' }).click();
+  await expect(on(a)).toBeVisible();
+  await expect(on(b)).toHaveCount(0);
 });

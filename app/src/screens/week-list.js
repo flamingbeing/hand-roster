@@ -9,7 +9,8 @@ import { STATUSES } from '../data/lists.js';
  * @template M
  * @param {{ m: M & { people: { name: string, grade: string, rank?: string }[], wk?: import('../data/plans.js').WeekRow }, l: import('../roster/model.js').ListSlot,
  *   sheet: ReturnType<typeof import('./sheet.js').editSheet>,
- *   saveOverrides: (m: M, changes: [string, Partial<import('../data/lists.js').Override> | null][]) => Promise<void> }} o
+ *   saveOverrides: (changes: [string, Partial<import('../data/lists.js').Override> | null][]) => Promise<void> }} o  saveOverrides: laid
+ *   over the week's changes as they are when saved
  */
 export function weekListSheet({ m, l, sheet, saveOverrides }) {
   const cons = m.people.filter(p => p.grade === 'con' || p.rank === 'AC').map(p => p.name).sort();   // an AC can run a list
@@ -32,11 +33,12 @@ export function weekListSheet({ m, l, sheet, saveOverrides }) {
       { key: 'away', label: 'Consultant away (clinics close; an OT list becomes an emergency slot)', type: 'check' },
     ],
     // (an emergency slot's need and minimum are the rule's: kept out of the change unless typed differently)
-    onSave: v => saveOverrides(m, [[l.id, { consultant: v.consultant || null,
+    onSave: v => saveOverrides([[l.id, { consultant: v.consultant || null,
       // (a sharer is written only when it changes, so the Lists tab's stays the usual)
       ...((([c2, c3]) => ({ consultant2: c2 ?? ((l.consultant2 ?? null) === null ? undefined : null), consultant3: c3 ?? ((l.consultant3 ?? null) === null ? undefined : null) }))(coOf(v.consultant, v.consultant2, v.consultant3))), patients: v.patients, status: v.status, away: v.away,
       need: l.emergency && v.need === l.need ? undefined : v.need ?? l.need,
-      min: v.min == null || v.min === minOf(l) ? had ? m.wk?.overrides?.find(o => o.id === l.id)?.min : undefined : v.min }]]),
-    ...(had ? { deleteLabel: 'Back to the usual', onDelete: () => saveOverrides(m, [[l.id, null]]) } : {}),
+      // (a minimum left as shown keeps whatever change the week has by then)
+      ...(v.min == null || v.min === minOf(l) ? {} : { min: v.min }) }]]),
+    ...(had ? { deleteLabel: 'Back to the usual', onDelete: () => saveOverrides([[l.id, null]]) } : {}),
   });
 }
