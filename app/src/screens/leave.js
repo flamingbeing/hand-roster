@@ -8,6 +8,7 @@ import { REFUSED } from '../items.js';
 import { SESSIONS, TYPES } from '../data/leave.js';
 import { TIER_LABEL, TIERS } from '../roster/model.js';
 import { shortDay, weekdayName, todayKey } from '../roster/dates.js';
+import { leaveClashes, requestClashes } from '../roster/leave-clash.js';
 import { editSheet } from './sheet.js';
 import { rowList, heading } from './rows.js';
 
@@ -39,6 +40,9 @@ export function create(ctx) {
   /** @param {string | undefined} cur @returns {[string, string][]} the names, and a name no longer on the roster if the row has it */
   const nameOptions = cur => { const list = names(); return (cur && !list.includes(cur) ? [cur, ...list] : list).map(n => [n, n]); };
 
+  /** the calls and weeks made so far, read when a sheet's warning runs */
+  const made = () => ({ rosters: /** @type {any[]} */ (store.get('rosters')), weeks: /** @type {any[]} */ (store.get('weeks')) });
+
   /** @param {import('../data/leave.js').LeaveRow | null} row */
   function openLeave(row) {
     const today = todayKey();
@@ -52,7 +56,11 @@ export function create(ctx) {
         { key: 'session', label: 'Which part of the day', type: 'select', options: SESSIONS },
         { key: 'note', label: 'Note', max: 200 },
       ],
-      warn: v => (v.from && v.to && v.to < v.from ? ['The last day is before the first.'] : []),
+      // what the leave clashes with in the calls and built weeks already made: information only, Save still goes ahead
+      warn: v => [
+        ...(v.from && v.to && v.to < v.from ? ['The last day is before the first.'] : []),
+        ...leaveClashes({ name: v.name, from: v.from, to: v.to, session: v.session, ...made(), leave: /** @type {any[]} */ (store.get('leave')) }),
+      ],
       onDelete: row ? async () => {
         if (await app.data.leave.remove(row)) { toast(REFUSED); return; }
         // Undo puts the same record back, under its own id
@@ -78,6 +86,7 @@ export function create(ctx) {
         { key: 'type', label: 'Request', type: 'select', options: TYPES },
         { key: 'tier', label: 'For which call', type: 'select', options: [['', 'Any call'], ...TIERS.map(t => /** @type {[string, string]} */ ([t, TIER_LABEL[t]]))] },
       ],
+      warn: v => requestClashes({ name: v.name, date: v.date, type: v.type, rosters: made().rosters }),
       onDelete: row ? async () => {
         if (await app.data.requests.remove(row)) { toast(REFUSED); return; }
         undo.show(`Deleted the request for ${row.name}, ${span(row.date, row.date)}`, async () => { if (await app.data.requests.put(row)) toast(REFUSED); });
