@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { weekLayout, coreRows, handSections, handGrid, callsLayout, weekRange, weekTitleText, longDay, colName, TALLY, HAND_COLS } from '../src/roster/layout.js';
-import { whatsappText, weekText, DAY_SEPARATOR } from '../src/roster/whatsapp.js';
+import { whatsappText, weekText, callsText, DAY_SEPARATOR } from '../src/roster/whatsapp.js';
 import { buildWeekWorkbook, buildHandWorkbook, buildCallsWorkbook, sheetName } from '../src/roster/xlsx.js';
 import { nextWorkday } from '../src/roster/dates.js';
 import { gridRows } from '../src/roster/grid.js';
@@ -176,6 +176,48 @@ test('whatsapp week text: the five weekdays in order, a blank line and a separat
   // a day with no text (outside the week) is left out: no empty block, no doubled separator
   const some = weekText(base, [MON, '2026-12-01', TUE]);
   assert.equal(some, `${whatsappText(MON, base)}\n\n${DAY_SEPARATOR}\n\n${whatsappText(TUE, base)}`);
+});
+
+// a made-up November: weekdays carry the four tiers, weekends and holidays only CON and REG (a plan a roster may set)
+const callPlan = /** @type {import('../src/roster/model.js').TierPlan} */ ({
+  weekday: ['con', 'reg', 'moNuh', 'moNtf'], sat: ['con', 'reg'], sun: ['con', 'reg'], ph: ['con', 'reg'],
+});
+const monthCalls = [
+  { date: '2026-10-31', con: 'Dr Eve Test', reg: 'Dr Ann Test' },   // October: left out
+  { date: '2026-11-01', con: 'Dr Eve Test', reg: 'Dr Ben Test' },
+  { date: '2026-11-02', con: 'Dr Fay Test', reg: 'Dr Ann Test', moNuh: 'Dr Dan Test', moNtf: null },
+  { date: '2026-11-03', con: 'Dr Eve Test', reg: 'Dr Ben Test', reg2: 'Dr Ann Test', moNuh: 'Dr Cat Test', moNtf: 'Dr Dan Test' },
+  { date: '2026-11-07', con: 'Dr Fay Test', reg: 'Dr Ann Test' },
+  { date: '2026-11-10', con: 'Dr Eve Test', reg: 'Dr Ben Test' },
+  { date: '2026-12-01', con: 'Dr Eve Test', reg: 'Dr Ann Test' },   // December: left out
+];
+const callsIn = { month: '2026-11', calls: monthCalls, holidays: ['2026-11-10'], tierPlan: callPlan };
+
+test('calls text: a line a day with the tiers it uses, "-" for an empty one, PH marked, a blank line before each Monday', () => {
+  const t = callsText(callsIn).split('\n');
+  assert.equal(t[0], 'On call, November 2026');
+  assert.equal(t[1], '');
+  assert.equal(t[2], 'Sun 1 Nov: CON Dr Eve Test · REG Dr Ben Test', 'a weekend: only its tiers');
+  assert.equal(t[3], '', 'a new week');
+  assert.equal(t[4], 'Mon 2 Nov: CON Dr Fay Test · REG Dr Ann Test · MO (NUH) Dr Dan Test · MO (NTFGH) -');
+  assert.equal(t[5], 'Tue 3 Nov: CON Dr Eve Test · REG Dr Ben Test · REG 2 Dr Ann Test · MO (NUH) Dr Cat Test · MO (NTFGH) Dr Dan Test', 'REG 2 shown where entered');
+  assert.equal(t[6], 'Wed 4 Nov: CON - · REG - · MO (NUH) - · MO (NTFGH) -', 'a day with nobody yet');
+  assert.equal(t[9], 'Sat 7 Nov: CON Dr Fay Test · REG Dr Ann Test');
+  assert.equal(t[10], 'Sun 8 Nov: CON - · REG -');
+  assert.equal(t[11], '');
+  assert.equal(t[13], 'Tue 10 Nov (PH): CON Dr Eve Test · REG Dr Ben Test', 'a public holiday: marked, its own tiers');
+  const days = t.filter(l => /^\w{3} \d+ \w{3}/.test(l));
+  assert.equal(days.length, 30, 'every day of November, and only those');
+  assert.equal(t.filter(l => l === '').length, 1 + 5, 'after the heading, and before each of the five Mondays after the 1st');
+  assert.ok(!t.some(l => l.includes('Oct') || l.includes('Dec')) && !/[*_~`]/.test(t.join('\n')), 'no other month, no markup');
+});
+
+test('calls text: only my calls, a line each, counted; none this month', () => {
+  assert.equal(callsText({ ...callsIn, name: 'Dr Ann Test' }),
+    'Your calls, November 2026: 3\n\nMon 2 Nov: REG\nTue 3 Nov: REG 2\nSat 7 Nov: REG');
+  assert.equal(callsText({ ...callsIn, name: 'Dr Ben Test' }).split('\n').at(-1), 'Tue 10 Nov (PH): REG');
+  assert.equal(callsText({ ...callsIn, name: 'Dr Gus Test' }), 'Your calls, November 2026: 0\n\nNone this month');
+  assert.equal(callsText({ ...callsIn, month: '2026-12', name: 'Dr Ann Test' }), 'Your calls, December 2026: 1\n\nTue 1 Dec: REG', 'December\'s row, not November\'s');
 });
 
 /** @param {import('../src/roster/layout.js').HandGrid} g */

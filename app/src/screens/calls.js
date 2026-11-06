@@ -4,8 +4,9 @@
 // and what breaks a rule. A tap on a day sets its calls by hand; a call set by hand is kept when the calls are made again,
 // until the maker taps Release them.
 // A narrow page shows the days as a list, a page about 52rem wide or more as a month grid. Print (or Ctrl+P on this tab)
-// prints the month on one landscape page: the grid and the calls per person (7 Nov 2026).
-import { icon, emptyState, undoToast } from '@core/ui';
+// prints the month on one landscape page: the grid and the calls per person (7 Nov 2026). Copy puts the month's calls on the
+// clipboard as chat text for WhatsApp, or, once "This is me" is set, only that person's calls (7 Nov 2026).
+import { icon, emptyState, openMenu, undoToast } from '@core/ui';
 import { ICONS } from '../icons.js';
 import { $, h, fill } from '../dom.js';
 import { LOADING, REFUSED } from '../items.js';
@@ -14,7 +15,7 @@ import { checkCalls } from '../roster/calls-check.js';
 import { applyDayEdit, handCount, keepGoodCalls, lockedMap, problemLines, callChoices, dayLabel } from '../roster/calls-edit.js';
 import { callMapIn, firstMonth, monthCells, shiftMonth } from '../roster/sections.js';
 import { callRow, callRowsOf, DAY_TYPES, TIERS, TIER_LABEL, dayType, tierPlanOf, tiersShown } from '../roster/model.js';
-import { MONTHS, monthDays, shortDay, weekdayName, todayKey } from '../roster/dates.js';
+import { MONTHS, MONTH_NAMES, monthDays, shortDay, weekdayName, todayKey } from '../roster/dates.js';
 import { holidaysIn, readHolidays } from '../roster/holidays.js';
 import { activePeople, meOf } from '../data/people.js';
 import { leaveOf, requestsOf } from '../data/leave.js';
@@ -92,6 +93,28 @@ export function create(ctx) {
       const { exportCalls } = await import('./export.js');
       toast(`Saved ${await exportCalls({ month, calls: m.calls, holidays: m.holidays, counts: check.counts, tierPlan: m.plan })}`);
     } catch (e) { toast(e instanceof Error && e.message ? e.message : 'Could not make the Excel file.'); }
+  }
+
+  /** copies the month's calls as chat text, or only mine (anyone may: it changes nothing) @param {string} mon @param {boolean} mine */
+  async function copyCalls(mon, mine) {
+    const m = model(mon);
+    if (!m.calls.some(c => TIERS.some(t => c[t]))) { toast(ctx.canWrite() ? 'Make the calls first.' : 'No calls yet.'); return; }
+    const me = mine ? meOf(app.settings.get('me'), m.people) : '';
+    try {
+      const x = await import('./export.js');
+      const text = x.callsText({ month: mon, calls: m.calls, holidays: m.holidays, tierPlan: m.plan, ...(me ? { name: me } : {}) });
+      const what = `${me ? 'your' : 'the'} calls for ${MONTH_NAMES[Number(mon.slice(5)) - 1]}`;
+      toast(await x.copyText(text) ? `Copied ${what}. Paste it into WhatsApp.` : 'Could not copy. Allow the clipboard and try again.');
+    } catch { toast('Could not copy.'); }
+  }
+  /** Copy: the whole month straight away; with "This is me" set, a menu of the whole month or only my calls @param {MouseEvent} e */
+  function copyClick(e) {
+    const mon = month;
+    if (!meOf(app.settings.get('me'), model(mon).people)) { copyCalls(mon, false); return; }
+    openMenu(/** @type {HTMLElement} */ (e.currentTarget), [
+      { label: 'Whole month', icon: ICONS.clipboardCopy, run: () => copyCalls(mon, false) },
+      { label: 'Only my calls', icon: ICONS.userCheck, run: () => copyCalls(mon, true) },
+    ], { label: 'Copy' });
   }
 
   // the print CSS (app.css) prints the Week unless html[data-print="calls"]: set when this tab is the one shown (cleared
@@ -269,6 +292,7 @@ export function create(ctx) {
     const next = h('button', { type: 'button', 'aria-label': 'Next month', onclick: () => step(1) }, icon(ICONS.chevronRight));
     fill(bar, prev, h('h2', { class: 'cl-title', id: 'calls-title' }, monthTitle(month)), next,
       h('span', { class: 'cl-bar-end' },
+        h('button', { type: 'button', id: 'calls-copy', 'aria-haspopup': me ? 'menu' : null, 'aria-expanded': me ? 'false' : null, onclick: copyClick }, icon(ICONS.clipboardCopy), 'Copy'),
         h('button', { type: 'button', id: 'calls-xlsx', onclick: exportXlsx }, icon(ICONS.download), 'Excel'),
         h('button', { type: 'button', id: 'calls-print', onclick: printMonth }, icon(ICONS.printer), 'Print'),
         canWrite && h('button', { type: 'button', onclick: monthSheet }, 'Settings'),

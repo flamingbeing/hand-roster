@@ -6,10 +6,10 @@
 import { h, fill } from '../dom.js';
 import { weekLayout, handSections, handGrid, callsLayout } from '../roster/layout.js';
 import { buildWeekWorkbook, buildHandWorkbook, buildCallsWorkbook } from '../roster/xlsx.js';
-import { whatsappText, weekText } from '../roster/whatsapp.js';
+import { whatsappText, weekText, callsText } from '../roster/whatsapp.js';
 
 /** @typedef {import('../roster/layout.js').WeekLayoutInput} WeekLayoutInput */
-export { whatsappText, weekText };
+export { whatsappText, weekText, callsText };
 
 export const EXCEL_SRC = './vendor/exceljs/4.4.0/exceljs.min.js';
 /** @type {Promise<any> | null} */
