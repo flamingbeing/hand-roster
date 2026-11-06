@@ -1,6 +1,6 @@
 // Hand edits to a month's calls, the day sheet's choices, and what to do with the solver's answer. Pure.
-import { diffDays } from './dates.js';
-import { TIERS, callRowsOf, callMapOf, canTake, leaveIndex } from './model.js';
+import { diffDays, shortDay, weekdayName } from './dates.js';
+import { TIERS, TIER_LABEL, callRowsOf, callMapOf, canTake, leaveIndex } from './model.js';
 
 /** @typedef {import('./model.js').CallDay} CallDay */
 /** @typedef {import('./model.js').Tier} Tier */
@@ -68,9 +68,9 @@ export const problemLines = problems => problems.slice(0, 60).map(p => p.text.sl
 /**
  * The day sheet's choices for one tier: 'Nobody', then who may take it, free people first (those who asked for the day
  * ahead of the rest), each with their calls this month and why they may not be free, as 'Dr Ann Test · 3 calls (on leave)'.
- * The gap is the solver's: another call within `minGap` days, the month before (`prior`) counted. The one holding the
+ * The gap is the solver's: another call within `minGap` days, the month before (`prior`) and after (`after`) counted. The one holding the
  * call now stays a choice even when off the roster. Values are the plain names.
- * @param {{ date: string, tier: Tier, people: import('./model.js').Person[], calls: CallDay[], prior?: import('./model.js').CallMap,
+ * @param {{ date: string, tier: Tier, people: import('./model.js').Person[], calls: CallDay[], prior?: import('./model.js').CallMap, after?: import('./model.js').CallMap,
  *   leave?: import('./model.js').Leave[], requests?: import('./model.js').CallRequest[], minGap?: number, current?: string | null }} o
  * @returns {[string, string][]}
  */
@@ -82,7 +82,7 @@ export function callChoices(o) {
   const total = new Map();
   /** @type {Map<string, number>} days from this date to the person's nearest other call (this slot left out) */
   const near = new Map();
-  for (const [date, row] of [...Object.entries(o.prior ?? {}), ...Object.entries(callMapOf(o.calls))]) {
+  for (const [date, row] of [...Object.entries(o.prior ?? {}), ...Object.entries(callMapOf(o.calls)), ...Object.entries(o.after ?? {})]) {
     for (const t of TIERS) {
       const name = row?.[t];
       if (!name) continue;
@@ -112,3 +112,15 @@ export function callChoices(o) {
   if (o.current && !rows.some(r => r.name === o.current)) out.push([o.current, label(o.current, ['not on the roster for this'])]);
   return out;
 }
+
+/**
+ * What a day of the Calls calendar reads aloud (its label replaces what is inside, so the names, the bold of a call set by
+ * hand and the wavy line of a problem are said as words): 'Mon 2 Nov: CON Dr Ann Test (set by hand), REG Dr Bo Test (problem),
+ * MO (NUH) nobody.'
+ * @param {string} date @param {boolean} ph a public holiday
+ * @param {{ t: Tier, name: string | null, bad: boolean, hand: boolean }[]} tiers
+ * @returns {string}
+ */
+export const dayLabel = (date, ph, tiers) => `${weekdayName(date)} ${shortDay(date)}${ph ? ', public holiday' : ''}: ${tiers.length
+  ? tiers.map(x => `${TIER_LABEL[x.t]} ${x.name ?? 'nobody'}${x.bad ? ' (problem)' : ''}${x.hand ? ' (set by hand)' : ''}`).join(', ')
+  : 'no calls'}.`;

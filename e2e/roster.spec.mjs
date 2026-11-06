@@ -180,6 +180,10 @@ test('calls: a call set by hand is shown as such; Release them unlocks it, Undo 
   await expect.poll(locks, { timeout: 15_000 }).toEqual([`${month}-03|con`]);
   await expect(page.locator('#calls-host .cl-state')).toContainText('1 set by hand.');
   await expect(page.locator('#calls-host .cl-hand-key')).toHaveText('Bold: set by hand, kept when the calls are made again.');
+  // the day reads its calls aloud (its label replaces what is inside), the bold said in words
+  const day3 = page.locator(`#calls-host .cl-day[data-day="${month}-03"]`);
+  await expect.poll(() => day3.getAttribute('aria-label')).toContain(`CON ${con} (set by hand)`);
+  await expect(day3).toHaveAttribute('aria-label', /Tap to edit calls\.$/);
   // Release them: the lock goes, the call stays
   await page.locator('#calls-release').click();
   await expect.poll(locks, { timeout: 15_000 }).toEqual([]);

@@ -145,6 +145,34 @@ test('calls: same seed gives the same roster, locked entries stay, prior calls c
   assert.notEqual(p.assignments['2026-11-01'].reg, 'Dr Reg Cal');
 });
 
+test('calls: next month\'s calls (after) count for the gap at the month\'s end; none, the old roster', () => {
+  const base = solve();
+  // whoever the month gave the last two days is put on call on 1 Dec, as if December were made first
+  const con = base.assignments['2026-11-29'].con, reg = base.assignments['2026-11-30'].reg;   // (29 Nov is a Sunday: CON only)
+  assert.ok(con && reg);
+  const after = { '2026-12-01': { con, reg } };
+  const r = solve({ after });
+  assert.deepEqual(r.problems, []);
+  assert.equal(r.cost.hard, 0);
+  // minGap 2: neither on 29 or 30 Nov (two clear days before the 1st)
+  for (const d of ['2026-11-29', '2026-11-30']) {
+    const names = Object.values(r.assignments[d]);
+    assert.ok(!names.includes(con), `${con} on ${d}`);
+    assert.ok(!names.includes(reg), `${reg} on ${d}`);
+  }
+  // no after, an empty one, or calls far past the month's end: the same roster as before
+  assert.deepEqual(solve({ after: {} }).assignments, base.assignments);
+  assert.deepEqual(solve({ after: { '2026-12-28': { con } } }).assignments, base.assignments);
+  // judged as made (fill false): a call on the 30th with one on the 1st is a gap problem dated the 30th
+  const judged = solveCalls({ month, people, tiers: OLD_PLAN, locked: { '2026-11-30': { con } }, after, fill: false, iterations: 0 });
+  const gap = judged.problems.find(x => x.rule === 'gap');
+  assert.ok(gap);
+  assert.equal(gap.date, '2026-11-30');
+  assert.equal(gap.tier, 'con');
+  assert.equal(gap.name, con);
+  assert.match(gap.text, /on call again on 2026-12-01, 0 clear day\(s\) after 2026-11-30/);
+});
+
 test('calls: an impossible month reports what it could not do instead of breaking a rule silently', () => {
   // one registrar for a 30-day REG tier: the gap rule cannot hold
   const small = [

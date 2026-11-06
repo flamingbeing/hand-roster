@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { matchName } from '../src/roster/names.js';
 import { checkCalls } from '../src/roster/calls-check.js';
-import { applyDayEdit, callChoices, handCount, setCall } from '../src/roster/calls-edit.js';
+import { applyDayEdit, callChoices, dayLabel, handCount, setCall } from '../src/roster/calls-edit.js';
 
 const people = [{ name: 'Ann Test' }, { name: 'Bea Sample' }, { name: 'Bea Other' }, { name: 'Cy Example Long' }];
 
@@ -100,6 +100,32 @@ test('callChoices: free people first, with their month total and why the others 
   assert.equal(label['Dr Gil Test'], 'Dr Gil Test · 0 calls');
   // the one who wants the day, then the free, then the rest, each by name
   assert.deepEqual(out.slice(1).map(([v]) => v), ['Dr Bea Test', 'Dr Gil Test', 'Dr Ann Test', 'Dr Cy Test', 'Dr Di Test', 'Dr Ed Test', 'Dr Fay Test']);
+});
+
+test('checkCalls and callChoices: a call on 30 Nov is checked against December\'s calls once December is made', () => {
+  const calls = [{ date: '2026-11-30', con: 'Dr Ann Test', reg: null, moNuh: null, moNtf: null }];
+  const after = { '2026-12-01': { con: 'Dr Ann Test' } };
+  const r = checkCalls({ month: '2026-11', calls, people: staff, after });
+  const gap = r.problems.find(p => p.rule === 'gap');
+  assert.ok(gap);
+  assert.equal(gap.date, '2026-11-30');
+  assert.equal(gap.name, 'Dr Ann Test');
+  // two clear days needed: 28 Nov is fine, 29 Nov is not
+  assert.ok(checkCalls({ month: '2026-11', calls: [{ ...calls[0], date: '2026-11-29' }], people: staff, after }).problems.some(p => p.rule === 'gap' && p.date === '2026-11-29'));
+  assert.deepEqual(checkCalls({ month: '2026-11', calls: [{ ...calls[0], date: '2026-11-28' }], people: staff, after }).problems, []);
+  // no December yet: nothing to say (the old behaviour)
+  assert.deepEqual(checkCalls({ month: '2026-11', calls, people: staff }).problems, []);
+  // the day sheet: on call the day after, and December's call is not counted in November's total
+  const label = Object.fromEntries(callChoices({ date: '2026-11-30', tier: 'con', people: staff, calls: [], after, minGap: 2 }));
+  assert.equal(label['Dr Ann Test'], 'Dr Ann Test · 0 calls (on call 1 day after)');
+});
+
+test('dayLabel: a calendar day reads its calls aloud, with a problem and a call set by hand said in words', () => {
+  const text = dayLabel('2026-11-02', false, [
+    { t: 'con', name: 'Dr Ann Test', bad: false, hand: true }, { t: 'reg', name: 'Dr Bea Test', bad: true, hand: false },
+    { t: 'moNuh', name: null, bad: false, hand: false }]);
+  assert.equal(text, 'Mon 2 Nov: CON Dr Ann Test (set by hand), REG Dr Bea Test (problem), MO (NUH) nobody.');
+  assert.equal(dayLabel('2026-12-25', true, []), 'Fri 25 Dec, public holiday: no calls.');
 });
 
 test('callChoices: the one holding the call now stays a choice when off the roster', () => {
