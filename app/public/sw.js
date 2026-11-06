@@ -51,6 +51,7 @@ const SHELL = [
   'src/screen-switch.js',
   'src/screens/calls.js',
   'src/screens/context.js',
+  'src/screens/epic.js',
   'src/screens/export.js',
   'src/screens/leave.js',
   'src/screens/lists.js',
