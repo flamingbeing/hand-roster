@@ -11,7 +11,7 @@ import { ICONS } from '../icons.js';
 import { $, sectionScreen, h, fill } from '../dom.js';
 import { REFUSED } from '../items.js';
 import { addDays, mondayOf, nextWorkday, rangeDays, shortDay, weekday, weekdayName, MONTHS, todayKey } from '../roster/dates.js';
-import { TIERS, TIER_LABEL, dayType, minOf, regLed, settleLists, tierPlanOf } from '../roster/model.js';
+import { TIERS, TIER_LABEL, dayType, leads, minOf, regLed, settleLists, tierPlanOf } from '../roster/model.js';
 import { callsAround } from '../roster/sections.js';
 import { listName, sectionsOf, shortOptions, whyNot } from '../roster/sections.js';
 import { gridRows, juniorsOn, move, place } from '../roster/grid.js';
@@ -328,7 +328,7 @@ export function weekScreen(ctx) {
           return saveOverrides(m, [[l.id, { status: 'closed' }]], { grid: m.grid.map(r => (r.list === l.id && r.day === gap.day && r.session === gap.session ? { ...r, juniors: [] } : r)) });
         };
         return h('li', { class: 'sh-item' },
-          h('p', {}, h('b', {}, `${weekdayName(gap.day)} ${gap.session} · ${l.site} ${listName(l)}`), gap.noReg ? (l.emergency ? ' emergency slot with no registrar to lead it' : ' no registrar (an MSP list always needs one)') : ` ${gap.got} of at least ${gap.min}`),
+          h('p', {}, h('b', {}, `${weekdayName(gap.day)} ${gap.session} · ${l.site} ${listName(l)}`), gap.noReg ? (l.emergency ? ' emergency slot with no registrar to lead it' : l.kind === 'hot' ? ' no registrar or R3 to run it' : ' no registrar (an MSP list always needs one)') : ` ${gap.got} of at least ${gap.min}`),
           opts.length > 0 && h('div', { class: 'sh-options' }, opts.map(o => h('button', { type: 'button', class: 'sh-option', onclick: () => apply(o) },
             h('span', {}, o.text), h('span', { class: 'small' }, o.cost)))));
       }))];
@@ -343,7 +343,7 @@ export function weekScreen(ctx) {
       : l.emergency ? 'emergency slot (consultant away): a registrar leads' : l.patients === 0 ? 'no patients booked' : '';
     const noteBits = [l.rooms, l.patients != null && app.settings.get('showPatients') ? `${l.patients} pts` : '', state].filter(Boolean);
     const min = minOf(l);
-    const noReg = open && regLed(l) && !juniors.some(n => m.people.find(p => p.name === n)?.grade === 'reg');
+    const noReg = open && regLed(l) && !juniors.some(n => leads(l, m.people.find(p => p.name === n)));
     const short = open && (juniors.length < min || noReg);
     const under = open && !short && !l.emergency && juniors.length < l.need;
     const canWrite = ctx.canWrite();
@@ -353,7 +353,7 @@ export function weekScreen(ctx) {
       noteBits.length > 0 && h('div', { class: 'wk-note small' }, noteBits.join(' · ')),
       (open || juniors.length > 0) && h('div', { class: 'wk-juniors' },
         juniors.map(n => h('button', { type: 'button', class: 'wk-chip', disabled: !canWrite, dataset: { name: n }, 'aria-label': `${n}: move or take off`, onclick: () => moveSheet(m, l.day, l.session, n, l.id) }, n)),
-        open && short && m.built && h('span', { class: 'wk-need small' }, juniors.length < min ? `needs ${min - juniors.length} more` : 'needs a registrar'),
+        open && short && m.built && h('span', { class: 'wk-need small' }, juniors.length < min ? `needs ${min - juniors.length} more` : l.kind === 'hot' ? 'needs a registrar or R3' : 'needs a registrar'),
         open && under && m.built && h('span', { class: 'wk-want small' }, `could take ${l.need - juniors.length} more`),
         open && canWrite && juniors.length < Math.max(l.need, 1) + 1 && h('button', { type: 'button', class: 'wk-add', 'aria-label': `Add a junior to ${l.name}`, onclick: () => addSheet(m, l.day, l.session, l) }, icon(ICONS.plus))));
   }

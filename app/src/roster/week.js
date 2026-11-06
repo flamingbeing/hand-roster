@@ -10,7 +10,7 @@
 // Registrars are preferred on OT and MSP lists, MOs on clinics; sessions are balanced across the week; a list's PM keeps
 // its AM juniors. Deterministic from the seed. Pure: no page, no clock.
 import { addDays, mondayOf, rangeDays } from './dates.js';
-import { TIERS, callMapOf, isJunior, leaveIndex, minOf, regLed, settleLists } from './model.js';
+import { TIERS, callMapOf, isJunior, leaveIndex, leads, minOf, regLed, settleLists } from './model.js';
 
 /** @typedef {import('./model.js').Person} Person */
 /** @typedef {import('./model.js').Leave} Leave */
@@ -123,13 +123,14 @@ export function buildWeek(o) {
       // 2. the rest in the owner's order, each step: the PM keeps the AM's juniors on the same list (same name, site and
       // consultant), then the hardest lists first
       const plain = order.filter(l => !l.emergency), eot = order.filter(l => l.emergency);
-      const msp = plain.filter(regLed);
-      const isReg = (/** @type {string} */ n) => juniors.find(x => x.name === n)?.grade === 'reg';
-      /** @type {[ListSlot[], (l: ListSlot) => number, (p: Person) => boolean][]} */
+      // MSP lists and HOT clinics: their lead first (a registrar; a HOT clinic also an R3)
+      const led = plain.filter(regLed), msp = led.filter(l => l.kind !== 'hot');
+      const lacksLead = (/** @type {ListSlot} */ x) => !(placed.get(x.id) ?? []).some(n => leads(x, juniors.find(p => p.name === n)));
+      /** @type {[ListSlot[], (l: ListSlot) => number, (p: Person, l: ListSlot) => boolean][]} */
       const steps = [
-        [msp, () => 1, p => p.grade === 'reg'],
+        [led, () => 1, (p, l) => leads(l, p)],
         [plain, minOf, () => true],
-        [eot, minOf, p => p.grade === 'reg'],
+        [eot, minOf, (p, l) => leads(l, p)],
         [plain, l => l.need, () => true],
         [eot, l => l.need, () => true],
       ];
@@ -139,25 +140,24 @@ export function buildWeek(o) {
             const am = grid[day].AM.find(g => { const a = lists.find(x => x.id === g.list); return a && a.name === l.name && a.site === l.site && a.consultant === l.consultant && a.kind === l.kind; });
             for (const name of am?.juniors ?? []) {
               const p = juniors.find(x => x.name === name);
-              if (p && may(p) && available(p, session) && upTo(l) > (placed.get(l.id)?.length ?? 0)) put(l, name);
+              if (p && may(p, l) && available(p, session) && upTo(l) > (placed.get(l.id)?.length ?? 0)) put(l, name);
             }
           }
         }
         for (const l of mine) fillTo(l, upTo(l), may);
       }
 
-      /** @param {ListSlot} l @param {number} upTo @param {(p: Person) => boolean} may */
+      /** @param {ListSlot} l @param {number} upTo @param {(p: Person, l: ListSlot) => boolean} may */
       function fillTo(l, upTo, may) {
         while ((placed.get(l.id)?.length ?? 0) < upTo) {
           let best = null;
           let bestScore = Infinity;
           // registrars go last (the slot is still filled when nobody else is free) while there are no more of them than MSP
           // lists and emergency slots still without one (an MO does elsewhere what only a registrar does there)
-          const lacksReg = (/** @type {ListSlot} */ x) => !(placed.get(x.id) ?? []).some(isReg);
-          const regsLeft = regLed(l) && lacksReg(l) ? Infinity : juniors.filter(p => p.grade === 'reg' && available(p, session)).length;
-          const keepRegs = regsLeft <= [...msp, ...eot].filter(e => regLed(e) && lacksReg(e)).length;
+          const regsLeft = regLed(l) && lacksLead(l) ? Infinity : juniors.filter(p => p.grade === 'reg' && available(p, session)).length;
+          const keepRegs = regsLeft <= [...msp, ...eot].filter(e => regLed(e) && lacksLead(e)).length;
           for (const p of juniors) {
-            if (!may(p) || !available(p, session)) continue;
+            if (!may(p, l) || !available(p, session)) continue;
             const st = stats[p.name];
             const wantsOt = l.kind === 'ot' || l.kind === 'msp';
             let v = st.sessions * 3 + (wantsOt ? st.ot : st.clinic) * 1.5 + rnd() * 0.5;
@@ -175,7 +175,7 @@ export function buildWeek(o) {
       for (const l of todays) {
         const got = placed.get(l.id) ?? [], min = minOf(l);
         grid[day][session].push({ list: l.id, juniors: got });
-        const noReg = regLed(l) && !got.some(isReg);
+        const noReg = regLed(l) && lacksLead(l);
         if (got.length < (l.emergency ? min : l.need) || noReg) problems.push({ list: l.id, day, session, need: l.need, min, got: got.length, ...(noReg ? { noReg } : {}) });
       }
     }
