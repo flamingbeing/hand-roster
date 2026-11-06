@@ -172,6 +172,11 @@ export const worksOn = (p, day, session) => !p.works?.length || p.works.includes
  *   (third-year resident, a year before registrar; owner, 6 Nov 2026) */
 export const leads = (l, p) => !!p && (p.grade === 'reg' || (l.kind === 'hot' && p.rank === 'R3'));
 
+/** @param {ListSlot} l  a settled list (settleLists) @returns {string} why it is not open this week ('' when open): 'public holiday',
+ *   'consultant away' (the Epic check), 'consultant on leave', else its status ('closed', 'consultant only', ...) */
+export const shutBy = l => (l.status === 'open' ? '' : l.holiday ? 'public holiday'
+  : l.consultantOnLeave ? (l.away ? 'consultant away' : 'consultant on leave') : l.status.replace('-', ' '));
+
 /**
  * @param {ListSlot[]} lists
  * @param {{ leave?: Leave[], holidays?: string[] }} o

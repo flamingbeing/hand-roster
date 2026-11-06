@@ -130,9 +130,10 @@ export function weekEdit({ ctx, model, monday }) {
   /** A list's changes for this week only (screens/week-list.js, loaded when first used) @param {import('../roster/model.js').ListSlot} l */
   async function weekListSheet(l) {
     const { weekListSheet: open } = await import('./week-list.js');
-    // the week as it is now, not as last drawn: a change saved a moment ago may not be drawn yet
-    const mon = monday(), now = model(mon);
-    open({ m: now, l: now.lists.find(x => x.id === l.id) ?? l, sheet, saveOverrides: changes => saveOverrides(mon, changes) });
+    // the week as it is now, not as last drawn: a change saved a moment ago may not be drawn yet. The sheet starts from the
+    // list unsettled; the settled one only says why it is closed this week
+    const mon = monday(), now = model(mon), settled = now.lists.find(x => x.id === l.id) ?? l;
+    open({ m: now, l: now.raw.find(x => x.id === l.id) ?? settled, settled, sheet, saveOverrides: changes => saveOverrides(mon, changes) });
   }
 
   /** "Check against Epic" (screens/epic.js, loaded when first used) */
