@@ -18,6 +18,8 @@ export function createStore() {
     row: (kind, id) => rows[kind]?.find(r => r.id === id),
     /** whether the first rows of a kind have arrived @param {Kind} kind */
     loaded: kind => heard.has(kind),
+    /** whether the first rows of every one of these kinds have arrived (a kind with no rows counts once heard) @param {Kind[]} kinds */
+    ready: kinds => kinds.every(k => heard.has(k)),
     /** @param {Kind} kind @param {Row[]} list @param {Set<string>} [changed] */
     set(kind, list, changed = new Set()) { rows[kind] = list; heard.add(kind); for (const fn of [...subs]) fn(kind, changed); },
     /** tell me when any of these kinds changes -> stop @param {Kind[]} kinds @param {(kind: Kind, changed: Set<string>) => void} fn */

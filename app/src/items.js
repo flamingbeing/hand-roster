@@ -2,6 +2,8 @@
 // start() has the data).
 /** what the page says when the server refused a save at once (its copy waits in the refused list) */
 export const REFUSED = 'The server refused that. A copy is kept in the refused list.';
+/** what the page says when a make, build or save is tapped before the records it works from have all arrived */
+export const LOADING = 'Still loading. Try again in a moment.';
 
 /** @typedef {{ uid: string, email: string, name: string }} User */
 /** @typedef {'not-set-up' | 'signed-out' | 'no-access' | 'ready'} Phase */
