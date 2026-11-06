@@ -7,13 +7,14 @@
 //   Mon 12 Oct (Dr C / Dr D / Dr E)
 //
 // parseInfo turns it into leave rows and call rows; formatInfo writes the same text back from data. Forgiving: bullets,
-// blank lines and case are ignored, a line it cannot read is reported in `problems`, never thrown. Pure.
+// blank lines and case are ignored, a line it cannot read is reported in `problems` (with the heading it was under), never
+// thrown. Pure.
 import { MONTHS, WEEKDAYS, isDay, rangeDays, weekdayName } from './dates.js';
 
 /** @typedef {import('./model.js').Leave} Leave */
 /** @typedef {import('./model.js').CallDay} CallDay */
 /** @typedef {import('./model.js').Tier} Tier */
-/** @typedef {{ leave: Leave[], calls: CallDay[], problems: { line: number, text: string, reason: string }[] }} Info */
+/** @typedef {{ leave: Leave[], calls: CallDay[], problems: { line: number, text: string, reason: string, section: '' | 'leave' | 'calls' }[] }} Info */
 
 const pad = (/** @type {number} */ n) => String(n).padStart(2, '0');
 const MON = '((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*)';
@@ -24,14 +25,15 @@ const HEAD_TIER = { con: 'con', consultant: 'con', reg: 'reg', registrar: 'reg',
 
 /**
  * @param {string} text
- * @param {{ year: number }} opts  the year the dates are in (a range running past December rolls into the next)
+ * @param {{ year: number, start?: '' | 'leave' }} opts  year: the year the dates are in (a range running past December rolls
+ *   into the next); start 'leave': lines before any heading are read as leave (a plain list pasted on the Leave tab)
  * @returns {Info}
  */
-export function parseInfo(text, { year }) {
+export function parseInfo(text, { year, start = '' }) {
   /** @type {Info} */
   const out = { leave: [], calls: [], problems: [] };
   /** @type {'' | 'leave' | 'calls'} */
-  let section = '';
+  let section = start;
   /** @type {Tier[]} */
   let order = ['reg', 'moNuh', 'moNtf'];
   const lines = text.split(/\r?\n/);
@@ -49,11 +51,11 @@ export function parseInfo(text, { year }) {
     }
     if (section === 'leave') {
       const r = leaveLine(line, year);
-      if (typeof r === 'string') out.problems.push({ line: i + 1, text: line, reason: r }); else out.leave.push(r);
+      if (typeof r === 'string') out.problems.push({ line: i + 1, text: line, reason: r, section }); else out.leave.push(r);
     } else if (section === 'calls') {
       const r = callLine(line, year, order);
-      if (typeof r === 'string') out.problems.push({ line: i + 1, text: line, reason: r }); else out.calls.push(r);
-    } else out.problems.push({ line: i + 1, text: line, reason: 'before a Leave or Calls heading' });
+      if (typeof r === 'string') out.problems.push({ line: i + 1, text: line, reason: r, section }); else out.calls.push(r);
+    } else out.problems.push({ line: i + 1, text: line, reason: 'before a Leave or Calls heading', section });
   });
   return out;
 }

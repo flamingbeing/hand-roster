@@ -8,8 +8,8 @@ import { REFUSED } from '../items.js';
 import { SESSIONS, TYPES } from '../data/leave.js';
 import { TIER_LABEL, TIERS } from '../roster/model.js';
 import { shortDay, weekdayName, todayKey } from '../roster/dates.js';
-import { leaveClashes, MAX_DAYS } from '../roster/leave-clash.js';
-import { expandDays, groupByMonth, requestRangeClashes } from '../roster/leave-view.js';
+import { leaveClashes, MAX_DAYS, MAX_LINES } from '../roster/leave-clash.js';
+import { expandDays, groupByMonth, requestRangeClashes, leaveKey, newLeaveRows, pastePreview } from '../roster/leave-view.js';
 import { editSheet } from './sheet.js';
 import { rowList, heading } from './rows.js';
 
@@ -98,6 +98,49 @@ export function create(ctx) {
     });
   }
 
+  /**
+   * Leave lines pasted from a message ("Dr Ann Test 12 to 16 Oct (away Mon to Fri)"), read by roster/parse-info.js (loaded
+   * on first use) with a live count under the box. Save adds the rows not there yet; one Undo removes the rows it added.
+   */
+  async function openPaste() {
+    let parseInfo;
+    try { ({ parseInfo } = await import('../roster/parse-info.js')); } catch { toast('Could not open the paste box.'); return; }
+    // the dates are this year's; a range running past December rolls into the next
+    const year = Number(todayKey().slice(0, 4));
+    const leaveRows = () => /** @type {import('../data/leave.js').LeaveRow[]} */ (/** @type {any} */ (store.get('leave')));
+    /** @param {string} text */
+    const read = text => {
+      const info = parseInfo(text, { year, start: 'leave' });
+      return { info, picked: newLeaveRows(info.leave, leaveRows()) };
+    };
+    sheet.open({
+      title: 'Paste leave', saveLabel: 'Add leave',
+      fields: [{ key: 'text', label: 'Leave lines', type: 'area', rows: 6, hint: 'One person a line, as in the roster message: Dr Ann Test 12 to 16 Oct (away Mon to Fri), or Dr Bo Test 14 Oct (away Wed AM).' }],
+      warn: v => {
+        const { info, picked } = read(v.text ?? '');
+        // what the new rows clash with in the calls and built weeks already made: information only
+        const clashes = picked.rows.flatMap(r => leaveClashes({ ...r, ...made() }));
+        return [...pastePreview(info, picked), ...clashes.slice(0, MAX_LINES), ...(clashes.length > MAX_LINES ? [`And ${clashes.length - MAX_LINES} more.`] : [])];
+      },
+      onSave: async v => {
+        const { rows } = read(v.text ?? '').picked;
+        if (!rows.length) { toast('No new leave to add.'); return; }
+        const before = new Set(leaveRows().map(r => r.id));
+        let refused = 0;
+        for (const r of rows) if (await app.data.leave.add(r)) refused++;
+        if (refused) { toast(REFUSED); return; }
+        const want = new Set(rows.map(leaveKey));
+        // Undo removes the rows this paste added (found again in the store, as an add does not hand back its id)
+        undo.show(`Added ${rows.length} leave ${rows.length === 1 ? 'row' : 'rows'}`, async () => {
+          const added = leaveRows().filter(r => !before.has(r.id) && !r._deleted && want.has(leaveKey(r)));
+          let failed = false;
+          for (const r of added) if (await app.data.leave.remove(r)) failed = true;
+          if (failed) toast(REFUSED);
+        });
+      },
+    });
+  }
+
   /** @param {import('../data/leave.js').RequestRow | null} row */
   function openRequest(row) {
     const day = row?.date ?? todayKey();
@@ -152,6 +195,7 @@ export function create(ctx) {
     const past = pastLeave.length + pastReq.length;
     fill(bar,
       canWrite && h('button', { type: 'button', class: 'ui-primary', id: 'leave-add', onclick: () => openLeave(null) }, icon(ICONS.plus), 'Add leave'),
+      canWrite && h('button', { type: 'button', id: 'leave-paste', onclick: () => openPaste() }, icon(ICONS.clipboardPaste), 'Paste leave'),
       canWrite && h('button', { type: 'button', id: 'request-add', onclick: () => openRequest(null) }, icon(ICONS.plus), 'Add request'),
       withRows.length > 0 && h('label', { class: 'rl-who' }, h('span', { class: 'small' }, 'Who'),
         h('select', { id: 'leave-who', onchange: (/** @type {Event} */ e) => { who = /** @type {HTMLSelectElement} */ (e.target).value; draw(); } },

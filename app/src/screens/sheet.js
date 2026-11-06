@@ -15,6 +15,7 @@ import { $, dialog, h, fill } from '../dom.js';
  * @property {number} [max]  text length, or the largest number
  * @property {number} [min]
  * @property {string} [hint]  a line under the field
+ * @property {number} [rows]  how tall a text area is, in lines (default 3)
  * @property {string} [list]  suggestions for a text field
  * @property {string} [follows]  a date field that moves with this other date field while it was not set later than it
  *   (the last day of leave follows the first, so one day away is one date to pick)
@@ -88,7 +89,7 @@ function make() {
         const want = values[f.key] ?? '';
         if ([...control.querySelectorAll('option')].some(o => o.value === String(want))) /** @type {HTMLSelectElement} */ (control).value = String(want);
       } else if (type === 'area') {
-        control = h('textarea', { id: `ef-${f.key}`, rows: 3, maxlength: f.max, value: values[f.key] ?? '' });
+        control = h('textarea', { id: `ef-${f.key}`, rows: f.rows ?? 3, maxlength: f.max, value: values[f.key] ?? '' });
       } else if (type === 'check') {
         control = h('input', { id: `ef-${f.key}`, type: 'checkbox', checked: !!values[f.key] });
       } else {
