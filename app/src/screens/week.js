@@ -10,20 +10,20 @@
 // settled each time too (roster/settle.js): a public holiday closes them, a consultant away closes their clinics and turns
 // their OT into an emergency slot. "Check against Epic" takes the week's booked patients and who is away, consultant by
 // consultant (their leave is not in the junior leave calendar); the Short panel offers ways to fill a list below its minimum.
-import { icon, loadState, confirmModal, emptyState, openMenu } from '@core/ui';
+// The edits (screens/week-edit.js) load on the roster maker's first edit or Build, so a viewer never loads them; each
+// saves from the week as it is then and can be undone from its toast (6 Nov 2026).
+import { icon, loadState, emptyState, openMenu } from '@core/ui';
 import { ICONS } from '../icons.js';
 import { $, sectionScreen, h, fill } from '../dom.js';
-import { REFUSED } from '../items.js';
 import { addDays, mondayOf, nextWorkday, rangeDays, shortDay, weekday, weekdayName, MONTHS, todayKey } from '../roster/dates.js';
 import { TIERS, TIER_LABEL, conText, dayType, leads, minOf, regLed, settleLists, tierPlanOf } from '../roster/model.js';
 import { callsAround } from '../roster/sections.js';
-import { listName, sectionsOf, shortOptions, whyNot } from '../roster/sections.js';
-import { gridRows, juniorsOn, move, place } from '../roster/grid.js';
+import { listName, sectionsOf } from '../roster/sections.js';
+import { juniorsOn, weekBuilt } from '../roster/grid.js';
 import { firstWeek, makerWeek } from '../roster/sections.js';
 import { slotsFor } from '../data/lists.js';
 import { activePeople } from '../data/people.js';
 import { leaveOf } from '../data/leave.js';
-import { editSheet } from './sheet.js';
 
 const SESSIONS = /** @type {const} */ ([['AM', 'Morning'], ['PM', 'Afternoon']]);
 const SITE_ORDER = ['NUH', 'NTFGH'];
@@ -40,6 +40,23 @@ export function weekTitle(monday) {
   return m === fm ? `${d} – ${fd} ${MONTHS[fm - 1]} ${fy}` : `${d} ${MONTHS[m - 1]}${y === fy ? '' : ` ${y}`} – ${fd} ${MONTHS[fm - 1]} ${fy}`;
 }
 
+/** everything a week is drawn from, as of now @param {import('../store.js').Store} store @param {string} mon a Monday */
+export function weekModel(store, mon) {
+  const wk = /** @type {import('../data/plans.js').WeekRow | undefined} */ (store.row('weeks', mon));
+  const templates = /** @type {import('../data/lists.js').ListRow[]} */ (store.get('lists'));
+  const built = weekBuilt(wk);
+  const grid = wk?.grid ?? [];
+  const people = activePeople(/** @type {any} */ (store.get('people')));
+  const leave = leaveOf(/** @type {any} */ (store.get('leave')));
+  const rosters = /** @type {import('../data/plans.js').RosterRow[]} */ (store.get('rosters'));
+  const calls = callsAround(/** @type {any} */ (rosters), mon);
+  const holidays = rosters.flatMap(r => r.holidays ?? []);
+  const lists = settleLists(built && wk?.lists?.length ? wk.lists : slotsFor(templates, mon, wk?.overrides), { leave, holidays });
+  /** @param {string} day @returns {import('../roster/model.js').TierPlan} the call tiers of that day's month */
+  const planOn = day => tierPlanOf(rosters.find(r => r.id === day.slice(0, 7))?.tierPlan);
+  return { wk, templates, built, lists, grid, people, leave, calls, holidays, planOn };
+}
+
 /**
  * @param {import('./context.js').Context} ctx
  */
@@ -48,9 +65,16 @@ export function weekScreen(ctx) {
   let monday = firstWeek(todayKey());
   let selected = rangeDays(monday, addDays(monday, 4)).includes(todayKey()) ? todayKey() : monday;
   let site = 'all';
-  let building = false;
   let placed = false;   // the roster maker's first week chosen (makerWeek), or the person has moved off the first week
-  const sheet = editSheet();
+  // the roster maker's edits (screens/week-edit.js), loaded on the first edit or Build: a viewer never loads them
+  /** @type {Promise<ReturnType<typeof import('./week-edit.js').weekEdit>> | null} */
+  let editing = null;
+  /** @type {ReturnType<typeof import('./week-edit.js').weekEdit> | null} */
+  let editor = null;
+  const editCode = () => (editing ??= import('./week-edit.js').then(x => (editor = x.weekEdit({ ctx, model, monday: () => monday })),
+    e => { editing = null; throw e; }));   // (offline before it was ever loaded: the next tap tries again)
+  /** @param {(e: NonNullable<typeof editor>) => unknown} job */
+  const edit = job => guarded(async () => { await job(await editCode()); }, 'Could not open that. Try again.');
   $('week-state').replaceChildren();   // the frame app.js painted at start (its own load state, which nothing else clears)
   const loading = loadState($('week-state'));
   const VIEW_KEY = 'week-view';
@@ -88,8 +112,8 @@ export function weekScreen(ctx) {
       { label: 'Excel (CORE)', icon: ICONS.download, run: () => exportXlsx('core') },
       { label: 'Excel (hand grid)', icon: ICONS.download, run: () => exportXlsx('hand') },
       { label: 'Print', icon: ICONS.printer, run: () => printWeek() },
-      ...(canWrite && m.built && m.lists.length ? [null, { label: 'Check against Epic', icon: ICONS.listChecks, run: () => epicSheet(model()) },
-        { label: 'Build again', icon: ICONS.refreshCw, run: () => build() }] : []),
+      ...(canWrite && m.built && m.lists.length ? [null, { label: 'Check against Epic', icon: ICONS.listChecks, run: () => edit(e => e.epicSheet()) },
+        { label: 'Build again', icon: ICONS.refreshCw, run: () => edit(e => e.build()) }] : []),
     ], { label: 'More' });
   });
   // Ctrl+P and the browser's own print draw the same sheet, once the export code has been loaded by a button or the idle load below
@@ -99,26 +123,12 @@ export function weekScreen(ctx) {
   const exportCode = async () => (exporter ??= await import('./export.js'));
   window.addEventListener('beforeprint', () => { if (exporter && !$('week-page').hidden) exporter.renderPrint($('week-print-sheet'), layoutInput(model(), monday)); });
   $('week-epic').replaceChildren(icon(ICONS.listChecks), 'Check against Epic');
-  $('week-epic').addEventListener('click', () => epicSheet(model()));
+  $('week-epic').addEventListener('click', () => edit(e => e.epicSheet()));
   $('week-build').replaceChildren(icon(ICONS.sparkles), 'Build week');
-  $('week-build').addEventListener('click', () => build());
+  $('week-build').addEventListener('click', () => edit(e => e.build()));
 
   /** everything a week is drawn from, as of now @param {string} [mon] a Monday (default: the week on screen) */
-  function model(mon = monday) {
-    const wk = /** @type {import('../data/plans.js').WeekRow | undefined} */ (store.row('weeks', mon));
-    const templates = /** @type {import('../data/lists.js').ListRow[]} */ (store.get('lists'));
-    const built = Array.isArray(wk?.grid);
-    const grid = wk?.grid ?? [];
-    const people = activePeople(/** @type {any} */ (store.get('people')));
-    const leave = leaveOf(/** @type {any} */ (store.get('leave')));
-    const rosters = /** @type {import('../data/plans.js').RosterRow[]} */ (store.get('rosters'));
-    const calls = callsAround(/** @type {any} */ (rosters), mon);
-    const holidays = rosters.flatMap(r => r.holidays ?? []);
-    const lists = settleLists(built && wk?.lists?.length ? wk.lists : slotsFor(templates, mon, wk?.overrides), { leave, holidays });
-    /** @param {string} day @returns {import('../roster/model.js').TierPlan} the call tiers of that day's month */
-    const planOn = day => tierPlanOf(rosters.find(r => r.id === day.slice(0, 7))?.tierPlan);
-    return { wk, templates, built, lists, grid, people, leave, calls, holidays, planOn };
-  }
+  function model(mon = monday) { return weekModel(store, mon); }
 
   /** @param {ReturnType<typeof model>} m @param {string} mon @returns {import('../roster/model.js').TierPlan} both months' tiers when the week crosses a month end */
   const weekPlan = (m, mon) => {
@@ -164,130 +174,22 @@ export function weekScreen(ctx) {
     }, 'Could not copy.');
   }
 
-  async function build() {
-    if (building || !ctx.canWrite()) return;
-    const m = model();
-    if (!m.lists.length) { toast('Add the weekly lists first (Lists tab).'); return; }
-    const { buildWeek } = await import('../roster/week.js');
-    const raw = slotsFor(m.templates, monday, m.wk?.overrides);
-    // ask only when the grid differs from what its last build would make now: a hand change (or leave or calls changed since)
-    const asBuilt = () => JSON.stringify(gridRows(buildWeek({ monday, lists: raw, people: m.people, leave: m.leave, calls: m.calls, holidays: m.holidays, seed: m.wk?.seed ?? 0 }).grid)) === JSON.stringify(m.grid.map(r => ({ day: r.day, session: r.session, list: r.list, juniors: r.juniors })));
-    if (m.built && m.grid.some(r => r.juniors.length) && !asBuilt() && !await confirmModal('Build this week again? Changes made by hand to its grid are replaced.', { title: 'Build week', yes: 'Build again' })) return;
-    building = true; $('week-build').setAttribute('disabled', '');
-    try {
-      const seed = (m.wk?.seed ?? 0) + 1;
-      const res = buildWeek({ monday, lists: raw, people: m.people, leave: m.leave, calls: m.calls, holidays: m.holidays, seed });
-      // the lists are kept as the template stood, unsettled, so a holiday or leave taken away later reopens them
-      const refused = await app.data.weeks.upsert(monday, m.wk, { grid: gridRows(res.grid), lists: raw, seed, built: Date.now() });
-      const short = res.problems.filter(p => p.got < p.min || p.noReg).length;
-      toast(refused ? REFUSED : short ? `Built. ${short} list${short === 1 ? ' is' : 's are'} below the minimum: see Short.` : 'Built');
-    } finally { building = false; $('week-build').removeAttribute('disabled'); }
-  }
-
-  /** @param {Record<string, unknown>} fields the week's grid and lists, saved */
-  async function saveGrid(fields) {
-    const m = model();
-    toast(await app.data.weeks.upsert(monday, m.wk, { lists: m.built && m.wk?.lists?.length ? m.wk.lists : slotsFor(m.templates, monday, m.wk?.overrides), ...fields }) ? REFUSED : 'Saved');
-  }
-
-  /** @param {ReturnType<typeof model>} m @param {string} day @param {'AM' | 'PM'} session @param {string} name @param {string} list */
-  function moveSheet(m, day, session, name, list) {
-    const here = m.lists.filter(l => l.day === day && l.session === session && l.status === 'open');
-    const label = (/** @type {any} */ l) => `${l.site} ${l.name}${l.consultant ? ` – ${conText(l)}` : ''}`;
-    sheet.open({
-      title: name, note: `${shortDay(day)}, ${session === 'AM' ? 'morning' : 'afternoon'}. Now on ${label(m.lists.find(l => l.id === list) ?? { site: '', name: 'no list' })}.`,
-      values: { to: list }, saveLabel: 'Move', deleteLabel: 'Take off the list', 
-      fields: [
-        { key: 'to', label: 'Move to', type: 'select', options: () => [['', 'Free (no list)'], ...here.map(l => /** @type {[string, string]} */ ([l.id, `${label(l)} (${juniorsOn(m.grid, day, session, l.id).length}/${l.need})`]))] },
-        { key: 'swap', label: 'Swap with', type: 'select', hint: 'The other person goes to the list this one leaves.',
-          options: v => [['', 'Nobody'], ...(v.to ? juniorsOn(m.grid, day, session, v.to).filter(n => n !== name).map(n => /** @type {[string, string]} */ ([n, n])) : [])] },
-      ],
-      warn: v => (v.to && v.to !== list ? whyNot({ name, day, session, leave: m.leave, calls: m.calls, grid: m.grid, list: v.to }).filter(w => !w.includes('already on another')) : []),
-      onSave: v => saveGrid({ grid: move(m.grid, { day, session, name, to: v.to || null, swapWith: v.swap || null }) }),
-      onDelete: () => saveGrid({ grid: move(m.grid, { day, session, name, to: null }) }),
-    });
-  }
-
-  /** @param {ReturnType<typeof model>} m @param {string} day @param {'AM' | 'PM'} session @param {import('../roster/model.js').ListSlot} l */
-  function addSheet(m, day, session, l) {
-    const juniors = m.people.filter(p => p.grade !== 'con');
-    const sec = sectionsOf({ monday, people: m.people, leave: m.leave, calls: m.calls, lists: m.lists, grid: m.grid, holidays: m.holidays });
-    const freeNames = new Set((sec.free[day] ?? []).filter(f => f.when === 'FULL DAY' || f.when === session).map(f => f.name));
-    const ordered = [...juniors.filter(p => freeNames.has(p.name)), ...juniors.filter(p => !freeNames.has(p.name))];
-    if (!ordered.length) { toast('Add people first (People tab).'); return; }
-    sheet.open({
-      title: `Add to ${l.name}`, note: `${l.site}${l.consultant ? ` – ${conText(l)}` : ''}, ${shortDay(day)} ${session === 'AM' ? 'morning' : 'afternoon'}. Free people are listed first.`,
-      values: { name: ordered[0].name }, saveLabel: 'Add',
-      fields: [{ key: 'name', label: 'Junior', type: 'select', options: ordered.map(p => /** @type {[string, string]} */ ([p.name, `${p.name}${freeNames.has(p.name) ? '' : ' (not free)'}`])) }],
-      warn: v => whyNot({ name: v.name, day, session, leave: m.leave, calls: m.calls, grid: m.grid, list: l.id }).filter(w => !w.includes('already on another')),
-      onSave: v => saveGrid({ grid: place(m.grid, day, session, l.id, v.name) }),
-    });
-  }
-
-  /** A list's changes for this week only (screens/week-list.js, loaded when first used) @param {import('../roster/model.js').ListSlot} l */
-  async function weekListSheet(l) {
-    const { weekListSheet: open } = await import('./week-list.js');
-    // the week as it is now, not as last drawn: a change saved a moment ago may not be drawn yet
-    const now = model();
-    open({ m: now, l: now.lists.find(x => x.id === l.id) ?? l, sheet, saveOverrides });
-  }
   /**
-   * Changes lists for this week only. Each change is laid over the list's earlier change (a key set to undefined drops it);
-   * null drops the list's change altogether. A built week is drawn from its lists as built, so they change too.
-   * @param {ReturnType<typeof model>} m @param {[string, Partial<import('../data/lists.js').Override> | null][]} changes  list id, change
-   * @param {Record<string, unknown>} [more]  other fields saved with it (the grid)
-   */
-  async function saveOverrides(m, changes, more = {}) {
-    const by = new Map((m.wk?.overrides ?? []).map(o => [o.id, o]));
-    for (const [id, c] of changes) {
-      if (!c) { by.delete(id); continue; }
-      /** @type {Record<string, unknown>} */
-      const next = { ...by.get(id), ...c, id };
-      for (const k of Object.keys(next)) if (next[k] === undefined || (k === 'away' && next[k] === false)) delete next[k];
-      if (Object.keys(next).length > 1) by.set(id, /** @type {any} */ (next)); else by.delete(id);
-    }
-    const overrides = [...by.values()];
-    /** @type {Record<string, unknown>} */
-    const fields = { overrides, ...more };
-    if (m.built && m.wk?.lists?.length) {
-      const ids = new Set(changes.map(([id]) => id));
-      const now = new Map(slotsFor(m.templates, monday, overrides).filter(x => ids.has(x.id)).map(x => [x.id, x]));
-      fields.lists = m.wk.lists.map(x => now.get(x.id) ?? x);
-    }
-    toast(await app.data.weeks.upsert(monday, m.wk, fields) ? REFUSED : 'Saved');
-  }
-
-  /** "Check against Epic" (screens/epic.js, loaded when first used) @param {ReturnType<typeof model>} m */
-  async function epicSheet(m) {
-    if (!ctx.canWrite()) return;
-    const { epicSheet: open } = await import('./epic.js');
-    open({ m, monday, sheet, toast, saveOverrides });
-  }
-
-
-  /**
-   * The Short panel: each list below its minimum, with the ways to fill it and what each costs (roster/short.js).
+   * The Short panel: each list below its minimum; for the roster maker, the ways to fill it and what each costs
+   * (roster/short.js), as buttons from the edit code (drawn again once it has loaded).
    * @param {ReturnType<typeof model>} m @param {ReturnType<typeof sectionsOf>} sec
    */
   function shortPanel(m, sec) {
     if (!m.built || !sec.short.length) return null;
     const canWrite = ctx.canWrite();
+    if (canWrite && !editing) editCode().then(() => draw(), () => { /* no buttons until a later draw loads it */ });
     return [h('h2', {}, `Short: ${sec.short.length} list${sec.short.length === 1 ? '' : 's'} below the minimum`),
       h('ul', { class: 'sh-list' }, sec.short.map(gap => {
         const l = m.lists.find(x => x.id === gap.list);
         if (!l) return null;
-        const opts = canWrite ? shortOptions({ gap, lists: m.lists, grid: m.grid, people: m.people, free: sec.free[gap.day] ?? [] }) : [];
-        /** @param {import('../roster/sections.js').ShortOption} o */
-        const apply = o => {
-          if (o.kind === 'add') return saveGrid({ grid: place(m.grid, gap.day, gap.session, l.id, o.name) });
-          if (o.kind === 'move') return saveGrid({ grid: move(m.grid, { day: gap.day, session: gap.session, name: o.name, to: l.id }) });
-          if (o.kind === 'fewer') return saveOverrides(m, [[l.id, { min: o.min }]]);
-          return saveOverrides(m, [[l.id, { status: 'closed' }]], { grid: m.grid.map(r => (r.list === l.id && r.day === gap.day && r.session === gap.session ? { ...r, juniors: [] } : r)) });
-        };
         return h('li', { class: 'sh-item' },
           h('p', {}, h('b', {}, `${weekdayName(gap.day)} ${gap.session} · ${l.site} ${listName(l)}`), gap.noReg ? (l.emergency ? ' emergency slot with no registrar to lead it' : l.kind === 'hot' ? ' no registrar or R3 to run it' : ' no registrar (an MSP list always needs one)') : ` ${gap.got} of at least ${gap.min}`),
-          opts.length > 0 && h('div', { class: 'sh-options' }, opts.map(o => h('button', { type: 'button', class: 'sh-option', onclick: () => apply(o) },
-            h('span', {}, o.text), h('span', { class: 'small' }, o.cost)))));
+          canWrite && editor && editor.shortButtons(m, sec, gap, l));
       }))];
   }
 
@@ -314,12 +216,12 @@ export function weekScreen(ctx) {
       const flag = l.holiday ? 'PH' : l.status === 'closed' ? 'closed' : l.emergency ? `${con || 'consultant'} away` : !open ? l.status.replace('-', ' ') : l.patients === 0 ? 'no patients' : '';
       return h('div', { class: `wt-list kind-${l.kind}${off ? ' is-off' : ''}${l.emergency ? ' is-eot' : ''}${short ? ' is-short' : ''}`, dataset: { list: l.id } },
         canWrite ? h('button', { type: 'button', class: 'wt-head', 'aria-haspopup': 'menu', 'aria-expanded': 'false', onclick: (/** @type {MouseEvent} */ e) => openMenu(/** @type {HTMLElement} */ (e.currentTarget), [
-          ...(open ? [{ label: 'Add a junior', icon: ICONS.plus, run: () => addSheet(m, l.day, l.session, l) }] : []),
-          { label: 'Change for this week', icon: ICONS.pencil, run: () => weekListSheet(l) },
+          ...(open ? [{ label: 'Add a junior', icon: ICONS.plus, run: () => edit(e => e.addSheet(m, l.day, l.session, l)) }] : []),
+          { label: 'Change for this week', icon: ICONS.pencil, run: () => edit(e => e.weekListSheet(l)) },
         ], { label: head }) }, head) : h('span', { class: 'wt-head' }, head),
         (flag || l.rooms) && h('span', { class: 'wt-flag' }, [l.rooms, flag].filter(Boolean).join(' · ')),
         (juniors.length > 0 || short) && h('div', { class: 'wt-names' },
-          juniors.flatMap((n, i) => [i > 0 && ', ', canWrite ? h('button', { type: 'button', class: 'wt-name', dataset: { name: n }, 'aria-label': `${n}: move or take off`, onclick: () => moveSheet(m, l.day, l.session, n, l.id) }, n)
+          juniors.flatMap((n, i) => [i > 0 && ', ', canWrite ? h('button', { type: 'button', class: 'wt-name', dataset: { name: n }, 'aria-label': `${n}: move or take off`, onclick: () => edit(e => e.moveSheet(m, l.day, l.session, n, l.id)) }, n)
             : h('span', { class: 'wt-name' }, n)]),
           short && h('span', { class: 'wt-need' }, juniors.length < min ? `needs ${min - juniors.length}` : l.kind === 'hot' ? 'needs a reg or R3' : 'needs a reg')));
     };
@@ -360,13 +262,13 @@ export function weekScreen(ctx) {
     const canWrite = ctx.canWrite();
     return h('li', { class: `wk-list kind-${l.kind}${open && (l.need > 0 || juniors.length) ? '' : ' is-off'}${l.emergency ? ' is-eot' : ''}${short && m.built ? ' is-short' : ''}`, dataset: { list: l.id } },
       h('div', { class: 'wk-list-head' }, h('b', {}, l.name, l.emergency && ' (EOT)'), l.consultant && h('span', { class: 'wk-con' }, conText(l)),
-        canWrite && h('button', { type: 'button', class: 'wk-edit', 'aria-label': `Change ${l.name} for this week`, onclick: () => weekListSheet(l) }, icon(ICONS.pencil))),
+        canWrite && h('button', { type: 'button', class: 'wk-edit', 'aria-label': `Change ${l.name} for this week`, onclick: () => edit(e => e.weekListSheet(l)) }, icon(ICONS.pencil))),
       noteBits.length > 0 && h('div', { class: 'wk-note small' }, noteBits.join(' · ')),
       (open || juniors.length > 0) && h('div', { class: 'wk-juniors' },
-        juniors.map(n => h('button', { type: 'button', class: 'wk-chip', disabled: !canWrite, dataset: { name: n }, 'aria-label': `${n}: move or take off`, onclick: () => moveSheet(m, l.day, l.session, n, l.id) }, n)),
+        juniors.map(n => h('button', { type: 'button', class: 'wk-chip', disabled: !canWrite, dataset: { name: n }, 'aria-label': `${n}: move or take off`, onclick: () => edit(e => e.moveSheet(m, l.day, l.session, n, l.id)) }, n)),
         open && short && m.built && h('span', { class: 'wk-need small' }, juniors.length < min ? `needs ${min - juniors.length} more` : l.kind === 'hot' ? 'needs a registrar or R3' : 'needs a registrar'),
         open && under && m.built && h('span', { class: 'wk-want small' }, `could take ${l.need - juniors.length} more`),
-        open && canWrite && juniors.length < Math.max(l.need, 1) + 1 && h('button', { type: 'button', class: 'wk-add', 'aria-label': `Add a junior to ${l.name}`, onclick: () => addSheet(m, l.day, l.session, l) }, icon(ICONS.plus))));
+        open && canWrite && juniors.length < Math.max(l.need, 1) + 1 && h('button', { type: 'button', class: 'wk-add', 'aria-label': `Add a junior to ${l.name}`, onclick: () => edit(e => e.addSheet(m, l.day, l.session, l)) }, icon(ICONS.plus))));
   }
 
   function draw() {
@@ -374,7 +276,7 @@ export function weekScreen(ctx) {
     loading.done();
     if (!placed && store.loaded('weeks') && ctx.canWrite()) {
       placed = true;
-      const mon = makerWeek(todayKey(), d => Array.isArray(/** @type {any} */ (store.row('weeks', d))?.grid));
+      const mon = makerWeek(todayKey(), d => weekBuilt(/** @type {any} */ (store.row('weeks', d))));
       if (mon !== monday) { monday = mon; selected = mon; }
     }
     const m = model();

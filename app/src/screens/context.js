@@ -4,7 +4,8 @@
  * @typedef {object} Context
  * @property {import('../cloud.js').Started} app
  * @property {import('../store.js').Store} store
- * @property {(message: string) => unknown} toast
+ * @property {(message: string, o?: { ms?: number, action?: { label: string, run: () => void } }) => unknown} toast  (an action: a button
+ *   such as Undo)
  * @property {() => boolean} canWrite  admin or member (the roster maker); a viewer (a junior on a phone) only reads
  * @property {(fn: () => void) => void} onRole  told when the role changes
  */

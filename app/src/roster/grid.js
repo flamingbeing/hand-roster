@@ -14,6 +14,9 @@ export function gridRows(grid) {
   return out;
 }
 
+/** a week is built once it has a grid; an empty grid with no build time is a build undone @param {{ grid?: unknown[], built?: number } | undefined} wk */
+export const weekBuilt = wk => Array.isArray(wk?.grid) && (wk.grid.length > 0 || !!wk.built);
+
 /** @param {GridRow[]} rows @param {string} day @param {'AM' | 'PM'} session @param {string} list @returns {string[]} */
 export const juniorsOn = (rows, day, session, list) => rows.find(r => r.day === day && r.session === session && r.list === list)?.juniors ?? [];
 

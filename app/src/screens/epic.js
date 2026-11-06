@@ -11,7 +11,8 @@ import { weekTitle } from './week.js';
  * @template M
  * @param {{ m: M & { templates: import('../data/lists.js').ListRow[], wk?: import('../data/plans.js').WeekRow }, monday: string,
  *   sheet: ReturnType<typeof import('./sheet.js').editSheet>, toast: (text: string) => void,
- *   saveOverrides: (m: M, changes: [string, Partial<import('../data/lists.js').Override> | null][]) => Promise<void> }} o
+ *   saveOverrides: (changes: [string, Partial<import('../data/lists.js').Override> | null][]) => Promise<void> }} o  saveOverrides: laid
+ *   over the week's changes as they are when saved
  */
 export function epicSheet({ m, monday, sheet, toast, saveOverrides }) {
   const raw = slotsFor(m.templates, monday, m.wk?.overrides);
@@ -51,7 +52,7 @@ export function epicSheet({ m, monday, sheet, toast, saveOverrides }) {
         const away = /^a(way)?$/.test(t), n = /^\d{1,3}$/.test(t) ? Math.min(200, Number(t)) : undefined;
         for (const l of b.lists) changes.push([l.id, { away, patients: n }]);
       }
-      return saveOverrides(m, changes);
+      return saveOverrides(changes);
     },
   });
 }
