@@ -55,3 +55,27 @@ test('a laptop: the side bar with icons and a hide button, the pages use the wid
   await expect(page.locator('#calls-title')).toBeVisible();
   await expect(page.locator('#calls-host .cl-day').first()).toBeVisible();
 });
+
+test('calls: a call given to someone off the roster is listed; a tap on the line opens its day, the holder kept', async ({ phone }) => {
+  const page = await phone();
+  await signIn(page, 'member');
+  // a month well ahead, so no other test's calls are in it
+  const now = new Date();
+  const ahead = new Date(now.getFullYear(), now.getMonth() + 7, 1);
+  const month = `${ahead.getFullYear()}-${String(ahead.getMonth() + 1).padStart(2, '0')}`;
+  const title = `${ahead.toLocaleString('en-GB', { month: 'long' })} ${ahead.getFullYear()}`;
+  const [con, gone] = [uniq('Dr Ann Test'), uniq('Dr Gone Test')];
+  await db.put(`spaces/_/people/${con}`, { name: con, grade: 'con', rank: 'Consultant', active: true, updatedAt: Date.now() });
+  await db.put(`spaces/_/rosters/${month}`, { calls: [{ date: `${month}-03`, con: gone, reg: null, moNuh: null, moNtf: null }], updatedAt: Date.now() });
+  await openTab(page, 'calls');
+  for (let i = 0; i < 12 && (await page.locator('#calls-title').textContent()) !== title; i++) await page.getByRole('button', { name: 'Next month' }).click();
+  await expect(page.locator('#calls-title')).toHaveText(title);
+  await expect(page.locator('#calls-host .cl-table')).toContainText(`${gone} (not on roster)`, { timeout: 15_000 });
+  const line = page.locator('#calls-host .cl-problem', { hasText: gone });
+  await expect(line).toContainText('is not on the roster for calls');
+  await line.click();
+  await expect(page.locator('#edit-sheet')).toBeVisible();
+  await expect(page.locator('#ef-con')).toHaveValue(gone);
+  await expect(page.locator(`#ef-con option[value="${con}"]`)).toHaveText(`${con} · 0 calls`);
+  await expect(page.locator('#ef-con option').first()).toHaveText('Nobody');
+});

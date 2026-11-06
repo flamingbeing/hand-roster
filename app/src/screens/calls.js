@@ -9,9 +9,9 @@ import { $, h, fill } from '../dom.js';
 import { REFUSED } from '../items.js';
 import { solveCalls } from '../roster/calls.js';
 import { checkCalls } from '../roster/calls-check.js';
-import { setCall, lockedMap, problemLines } from '../roster/calls-edit.js';
+import { setCall, lockedMap, problemLines, callChoices } from '../roster/calls-edit.js';
 import { callMapIn, firstMonth, monthCells, shiftMonth } from '../roster/sections.js';
-import { callRow, callRowsOf, DAY_TYPES, TIERS, TIER_LABEL, canTake, dayType, tierPlanOf, tiersShown } from '../roster/model.js';
+import { callRow, callRowsOf, DAY_TYPES, TIERS, TIER_LABEL, dayType, tierPlanOf, tiersShown } from '../roster/model.js';
 import { MONTHS, monthDays, shortDay, weekdayName, todayKey } from '../roster/dates.js';
 import { activePeople } from '../data/people.js';
 import { leaveOf, requestsOf } from '../data/leave.js';
@@ -20,6 +20,10 @@ import { editSheet } from './sheet.js';
 /** @param {string} month @returns {string} 'November 2026' */
 export const monthTitle = month => `${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][Number(month.slice(5)) - 1]} ${month.slice(0, 4)}`;
 const SHORT = /** @type {Record<string, string>} */ ({ con: 'CON', reg: 'REG', reg2: 'REG2', moNuh: 'NUH', moNtf: 'NTF' });
+/** @param {string} day @returns {string} 'Mon 2 Nov' */
+const dayName = day => `${weekdayName(day)} ${shortDay(day)}`;
+/** @param {string} text @returns {string} the checker's text with its YYYY-MM-DD days read as 'Mon 2 Nov' */
+const readDays = text => text.replace(/\d{4}-\d{2}-\d{2}/g, dayName);
 /** the usual choices of tiers for a kind of day (Settings) */
 const PLAN_CHOICES = /** @type {import('../roster/model.js').Tier[][]} */ ([
   ['con', 'reg', 'moNuh', 'moNtf'], ['con', 'reg', 'reg2', 'moNuh', 'moNtf'], ['con', 'reg', 'moNuh'], ['con', 'reg'], ['con'],
@@ -97,17 +101,17 @@ export function create(ctx) {
     // (REG 2 is offered every day: the roster has one on a few days, entered by hand)
     const tiers = TIERS.filter(t => plan.includes(t) || t === 'reg2' || m.calls.find(c => c.date === date)?.[t]);
     const row = m.calls.find(c => c.date === date);
-    const eligible = (/** @type {import('../roster/model.js').Tier} */ t) => /** @type {[string, string][]} */ ([['', 'Nobody'], ...m.people.filter(p => canTake(p, t)).map(p => /** @type {[string, string]} */ ([p.name, p.name]))]);
     sheet.open({
       title: `${weekdayName(date)} ${shortDay(date)}`, note: 'A call set here is kept when the calls are made again.', saveLabel: 'Save',
       values: Object.fromEntries(tiers.map(t => [t, row?.[t] ?? ''])),
       fields: tiers.map(t => ({ key: t, label: TIER_LABEL[t], type: /** @type {const} */ ('select'),
-        options: () => { const o = eligible(t); const cur = row?.[t]; return cur && !o.some(([v]) => v === cur) ? [...o, /** @type {[string, string]} */ ([cur, cur])] : o; } })),
+        // free people first, each with their calls this month and why they may not be free
+        options: () => callChoices({ date, tier: t, people: m.people, calls: m.calls, prior: m.prior, leave: m.leave, requests: m.requests, minGap: m.minGap, current: row?.[t] }) })),
       warn: v => {
         const next = Object.fromEntries(tiers.map(t => [t, v[t] || null]));
         const calls = [...m.calls.filter(c => c.date !== date), { date, ...callRow({ ...row, ...next }) }];
         return checkCalls({ month, calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, tiers: m.plan })
-          .problems.filter(p => p.date === date || (next[p.tier] === p.name && Math.abs(Date.parse(p.date) - Date.parse(date)) <= 4 * 864e5)).map(p => p.text);
+          .problems.filter(p => p.date === date || (next[p.tier] === p.name && Math.abs(Date.parse(p.date) - Date.parse(date)) <= 4 * 864e5)).map(p => readDays(p.text));
       },
       onSave: async v => {
         let state = { calls: m.calls, locked: m.roster?.locked ?? [] };
@@ -175,11 +179,16 @@ export function create(ctx) {
       h('h3', {}, 'Calls per person'),
       h('table', { class: 'cl-table' },
         h('thead', {}, h('tr', {}, h('th', {}, 'Name'), h('th', {}, 'Total'), h('th', {}, 'Off days'), shownTiers.map(t => h('th', {}, SHORT[t])))),
-        h('tbody', {}, check.counts.map(c => h('tr', {}, h('th', { scope: 'row' }, c.name), h('td', {}, String(c.total)), h('td', {}, String(c.weekend)), shownTiers.map(t => h('td', {}, c.tiers[t] ? String(c.tiers[t]) : '·'))))))]);
+        h('tbody', {}, check.counts.map(c => h('tr', {}, h('th', { scope: 'row' }, c.name, c.offRoster && h('span', { class: 'cl-off small' }, ' (not on roster)')), h('td', {}, String(c.total)), h('td', {}, String(c.weekend)), shownTiers.map(t => h('td', {}, c.tiers[t] ? String(c.tiers[t]) : '·'))))))]);
 
-    const lines = [...check.problems.map(p => p.text), ...check.empty.map(e => `${TIER_LABEL[e.tier]} on ${shortDay(e.date)} has nobody`)];
+    // in date order; the maker taps a line to open its day (a viewer reads them)
+    const lines = [...check.problems.map(p => ({ date: p.date, text: readDays(p.text) })),
+      ...check.empty.map(e => ({ date: e.date, text: `${TIER_LABEL[e.tier]} on ${dayName(e.date)} has nobody` }))]
+      .sort((a, b) => a.date.localeCompare(b.date));
     fill(problemsBox, any && (lines.length
-      ? [h('h3', {}, 'To look at'), h('ul', { class: 'cl-problem-list' }, lines.slice(0, 40).map(t => h('li', {}, t))), lines.length > 40 && h('p', { class: 'small' }, `and ${lines.length - 40} more`)]
+      ? [h('h3', {}, 'To look at'), h('ul', { class: 'cl-problem-list' }, lines.slice(0, 40).map(l => h('li', {}, canWrite
+        ? h('button', { type: 'button', class: 'cl-problem', onclick: () => daySheet(l.date) }, l.text)
+        : l.text))), lines.length > 40 && h('p', { class: 'small' }, `and ${lines.length - 40} more`)]
       : [h('p', { class: 'small ok' }, 'No rule is broken.')]));
   }
   // drawn now as well: the data may all be in before this tab first opens, and then no change comes to draw it
