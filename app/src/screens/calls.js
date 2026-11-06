@@ -10,7 +10,7 @@ import { REFUSED } from '../items.js';
 import { solveCalls } from '../roster/calls.js';
 import { checkCalls } from '../roster/calls-check.js';
 import { setCall, lockedMap, problemLines } from '../roster/calls-edit.js';
-import { callMapIn, monthCells, shiftMonth } from '../roster/sections.js';
+import { callMapIn, firstMonth, monthCells, shiftMonth } from '../roster/sections.js';
 import { callRow, callRowsOf, DAY_TYPES, TIERS, TIER_LABEL, canTake, dayType, tierPlanOf, tiersShown } from '../roster/model.js';
 import { MONTHS, monthDays, shortDay, weekdayName, todayKey } from '../roster/dates.js';
 import { activePeople } from '../data/people.js';
@@ -30,7 +30,8 @@ const planLabel = tiers => tiers.map(t => SHORT[t]).join(' + ');
 /** @param {import('./context.js').Context} ctx */
 export function create(ctx) {
   const { app, store, toast } = ctx;
-  let month = todayKey().slice(0, 7);
+  // the roster maker starts on next month from the 20th (when its calls are made); everyone else on this month
+  let month = firstMonth(todayKey(), ctx.canWrite());
   let busy = false;
   const sheet = editSheet();
   const host = $('calls-host');
@@ -77,7 +78,8 @@ export function create(ctx) {
     const locked = lockedMap(m.roster?.locked ?? [], m.calls);
     const hand = Object.keys(locked).length;
     const anyCalls = m.calls.some(c => TIERS.some(t => c[t]));
-    if (anyCalls && !await confirmModal(`Make the calls for ${monthTitle(month)} again? ${hand ? `The ${hand} you set by hand stay; the rest` : 'They'} will be made new.`, { title: 'Make calls', yes: 'Make calls' })) return;
+    // asked only once calls were set by hand (the month is being worked on); a month only made by the app is made again
+    if (anyCalls && hand > 0 && !await confirmModal(`Make the calls for ${monthTitle(month)} again? The ${hand} you set by hand stay; the rest will be made new.`, { title: 'Make calls', yes: 'Make calls' })) return;
     busy = true; $('calls-make').setAttribute('disabled', ''); stateNote.textContent = 'Making the calls…';
     try {
       await new Promise(r => setTimeout(r, 30));   // let the note paint before the solver holds the page

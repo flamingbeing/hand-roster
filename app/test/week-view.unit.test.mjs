@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { gridRows, juniorsOn, listOf, move, place, unplace } from '../src/roster/grid.js';
 import { sectionsOf, whyNot } from '../src/roster/sections.js';
-import { callsAround, monthCells, shiftMonth, callMapIn } from '../src/roster/sections.js';
+import { callsAround, monthCells, shiftMonth, callMapIn, firstWeek, makerWeek, firstMonth } from '../src/roster/sections.js';
 import { setCall, lockedMap, lockKey, mergeCalls } from '../src/roster/calls-edit.js';
 import { buildWeek } from '../src/roster/week.js';
 import { solveCalls } from '../src/roster/calls.js';
@@ -102,4 +102,18 @@ test('calls-edit: a hand edit is locked, the solver keeps it, emptying unlocks',
   assert.equal(merged.length, 31);
   state = setCall(state.calls, state.locked, '2026-11-03', 'reg', null);
   assert.deepEqual(state.locked, []);
+});
+
+test('the roster maker opens on the next job: next week once this one is built, next month from the 20th', () => {
+  const built = new Set(['2026-11-02']);
+  const isBuilt = (/** @type {string} */ d) => built.has(d);
+  assert.equal(firstWeek('2026-11-04'), '2026-11-02');
+  assert.equal(firstWeek('2026-11-07'), '2026-11-09');
+  assert.equal(makerWeek('2026-11-04', isBuilt), '2026-11-09');
+  assert.equal(makerWeek('2026-11-11', isBuilt), '2026-11-09');
+  assert.equal(makerWeek('2026-11-07', isBuilt), '2026-11-09');
+  assert.equal(firstMonth('2026-11-19', true), '2026-11');
+  assert.equal(firstMonth('2026-11-20', true), '2026-12');
+  assert.equal(firstMonth('2026-12-25', true), '2027-01');
+  assert.equal(firstMonth('2026-11-25', false), '2026-11');
 });

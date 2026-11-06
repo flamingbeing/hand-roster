@@ -16,6 +16,8 @@ import { $, dialog, h, fill } from '../dom.js';
  * @property {number} [min]
  * @property {string} [hint]  a line under the field
  * @property {string} [list]  suggestions for a text field
+ * @property {string} [follows]  a date field that moves with this other date field while it was not set later than it
+ *   (the last day of leave follows the first, so one day away is one date to pick)
  *
  * @typedef {object} Spec
  * @property {string} title
@@ -91,6 +93,17 @@ function make() {
           min: type === 'number' ? f.min : null, max: type === 'number' ? f.max : null, autocomplete: 'off', list: f.list || null, inputmode: type === 'number' ? 'numeric' : null });
       }
       controls[f.key] = /** @type {any} */ (control);
+      if (type === 'date') {
+        const date = /** @type {HTMLInputElement} */ (control);
+        let was = date.value;
+        date.addEventListener('change', () => {
+          for (const g of spec.fields) if (g.follows === f.key) {
+            const c = controls[g.key];
+            if (c && (c.value <= was || c.value < date.value)) c.value = date.value;
+          }
+          was = date.value;
+        });
+      }
       control.addEventListener(type === 'select' || type === 'check' || type === 'date' ? 'change' : 'input', redrawOptions);
       return h('label', { class: type === 'check' ? 'field field-check' : 'field', for: `ef-${f.key}` },
         type === 'check' ? [control, h('span', {}, f.label)] : [h('span', {}, f.label), control],

@@ -15,6 +15,7 @@ import { TIERS, TIER_LABEL, dayType, leads, minOf, regLed, settleLists, tierPlan
 import { callsAround } from '../roster/sections.js';
 import { listName, sectionsOf, shortOptions, whyNot } from '../roster/sections.js';
 import { gridRows, juniorsOn, move, place } from '../roster/grid.js';
+import { firstWeek, makerWeek } from '../roster/sections.js';
 import { slotsFor, STATUSES } from '../data/lists.js';
 import { activePeople } from '../data/people.js';
 import { leaveOf } from '../data/leave.js';
@@ -29,8 +30,6 @@ const names = list => h('p', { class: 'wk-names' }, list.map((x, i) => {
   return h('span', { class: 'wk-name' }, n, note && h('i', {}, ` ${note}`), i < list.length - 1 && h('span', { class: 'visually-hidden' }, ','));
 }));
 
-/** the Monday to show first: this week, or next once the weekend is here @param {string} today */
-export const firstWeek = today => (weekday(today) === 6 || weekday(today) === 0 ? addDays(mondayOf(today), 7) : mondayOf(today));
 /** @param {string} monday @returns {string} '2 – 6 Nov 2026' */
 export function weekTitle(monday) {
   const fri = addDays(monday, 4), [y, m, d] = monday.split('-').map(Number), [fy, fm, fd] = fri.split('-').map(Number);
@@ -46,6 +45,7 @@ export function weekScreen(ctx) {
   let selected = rangeDays(monday, addDays(monday, 4)).includes(todayKey()) ? todayKey() : monday;
   let site = 'all';
   let building = false;
+  let placed = false;   // the roster maker's first week chosen (makerWeek), or the person has moved off the first week
   const sheet = editSheet();
   const loading = loadState($('week-state'));
   const empty = emptyState($('week-empty'), { title: 'No lists yet', hint: 'Add the weekly lists on the Lists tab, then build the week.' });
@@ -61,11 +61,11 @@ export function weekScreen(ctx) {
   site = String(app.settings.get('defaultSite') || 'all');
 
   /** @param {number} n */
-  const step = n => { monday = addDays(monday, 7 * n); selected = monday; draw(); };
+  const step = n => { placed = true; monday = addDays(monday, 7 * n); selected = monday; draw(); };
   $('week-prev').replaceChildren(icon(ICONS.chevronLeft)); $('week-next').replaceChildren(icon(ICONS.chevronRight));
   $('week-prev').addEventListener('click', () => step(-1));
   $('week-next').addEventListener('click', () => step(1));
-  $('week-today').addEventListener('click', () => { monday = firstWeek(todayKey()); selected = rangeDays(monday, addDays(monday, 4)).includes(todayKey()) ? todayKey() : monday; draw(); });
+  $('week-today').addEventListener('click', () => { placed = true; monday = firstWeek(todayKey()); selected = rangeDays(monday, addDays(monday, 4)).includes(todayKey()) ? todayKey() : monday; draw(); });
   $('week-site').addEventListener('change', e => { site = /** @type {HTMLSelectElement} */ (e.target).value; draw(); });
   $('week-print').replaceChildren(icon(ICONS.printer), 'Print');
   $('week-print').addEventListener('click', () => printWeek());
@@ -151,12 +151,14 @@ export function weekScreen(ctx) {
     if (building || !ctx.canWrite()) return;
     const m = model();
     if (!m.lists.length) { toast('Add the weekly lists first (Lists tab).'); return; }
-    if (m.built && m.grid.some(r => r.juniors.length) && !await confirmModal('Build this week again? Changes made by hand to its grid are replaced.', { title: 'Build week', yes: 'Build again' })) return;
+    const { buildWeek } = await import('../roster/week.js');
+    const raw = slotsFor(m.templates, monday, m.wk?.overrides);
+    // ask only when the grid differs from what its last build would make now: a hand change (or leave or calls changed since)
+    const asBuilt = () => JSON.stringify(gridRows(buildWeek({ monday, lists: raw, people: m.people, leave: m.leave, calls: m.calls, holidays: m.holidays, seed: m.wk?.seed ?? 0 }).grid)) === JSON.stringify(m.grid.map(r => ({ day: r.day, session: r.session, list: r.list, juniors: r.juniors })));
+    if (m.built && m.grid.some(r => r.juniors.length) && !asBuilt() && !await confirmModal('Build this week again? Changes made by hand to its grid are replaced.', { title: 'Build week', yes: 'Build again' })) return;
     building = true; $('week-build').setAttribute('disabled', '');
     try {
-      const { buildWeek } = await import('../roster/week.js');
       const seed = (m.wk?.seed ?? 0) + 1;
-      const raw = slotsFor(m.templates, monday, m.wk?.overrides);
       const res = buildWeek({ monday, lists: raw, people: m.people, leave: m.leave, calls: m.calls, holidays: m.holidays, seed });
       // the lists are kept as the template stood, unsettled, so a holiday or leave taken away later reopens them
       const refused = await app.data.weeks.upsert(monday, m.wk, { grid: gridRows(res.grid), lists: raw, seed, built: Date.now() });
@@ -361,6 +363,11 @@ export function weekScreen(ctx) {
   function draw() {
     if (!store.loaded('lists') && !store.loaded('weeks')) return;
     loading.done();
+    if (!placed && store.loaded('weeks') && ctx.canWrite()) {
+      placed = true;
+      const mon = makerWeek(todayKey(), d => Array.isArray(/** @type {any} */ (store.row('weeks', d))?.grid));
+      if (mon !== monday) { monday = mon; selected = mon; }
+    }
     const m = model();
     const sec = sectionsOf({ monday, people: m.people, leave: m.leave, calls: m.calls, lists: m.lists, grid: m.grid, holidays: m.holidays });
     const days = sec.days;

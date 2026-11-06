@@ -2,7 +2,7 @@
 // post-call, on call and free each day, what each list is short of, and why a placement is a problem. The same rules as
 // buildWeek (week.js), so a hand-edited grid is judged the way a built one was. Also here: picking the parts of the stored
 // months that a week or a month needs (callsAround, monthCells, ...). Pure.
-import { addDays, rangeDays, mondayOf, monthDays } from './dates.js';
+import { addDays, rangeDays, mondayOf, monthDays, weekday } from './dates.js';
 import { callMapOf, callRow, canWork, isJunior, worksOn, leads, leaveIndex, minOf, regLed, TIERS } from './model.js';
 import { juniorsOn } from './grid.js';
 
@@ -189,3 +189,16 @@ export function shortOptions({ gap, lists, grid, people, free }) {
   out.push({ kind: 'close', text: 'Close it', cost: list.emergency ? 'no emergency slot that session' : list.kind === 'ot' || list.kind === 'msp' ? 'its cases move to another day' : 'its patients are rebooked' });
   return out;
 }
+
+// Where the Week and Calls tabs open
+/** the Monday to show first: this week, or next once the weekend is here @param {string} today */
+export const firstWeek = today => (weekday(today) === 6 || weekday(today) === 0 ? addDays(mondayOf(today), 7) : mondayOf(today));
+/** the Monday the roster maker starts on: as firstWeek, but next week once this one is built (the next job is there)
+ * @param {string} today @param {(monday: string) => boolean} isBuilt */
+export const makerWeek = (today, isBuilt) => {
+  const mon = firstWeek(today);
+  return mon === mondayOf(today) && isBuilt(mon) ? addDays(mon, 7) : mon;
+};
+/** the month (YYYY-MM) the Calls tab opens on: the roster maker's is next month from the 20th, when its calls are made
+ * @param {string} today @param {boolean} maker */
+export const firstMonth = (today, maker) => (maker && Number(today.slice(8)) >= 20 ? shiftMonth(today.slice(0, 7), 1) : today.slice(0, 7));
