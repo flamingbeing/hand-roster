@@ -11,8 +11,8 @@
   requests. Anything it cannot meet is listed as a problem, never broken silently. Hand edits are checked the same way.
 - Week: built from the weekly lists (OT lists and clinics, consultant, juniors needed): AM and PM per site, leave, post-call
   (PM; whole day if set), free (AM, PM or full day), on-call. A clinic closes when its consultant is on leave.
-- Export: the week and the calls as Excel in the CORE sheet's layout, a landscape A4 print of the week like the hand-made
-  grid, and "Copy for WhatsApp" (the next working day, plain text). All from one layout (`roster/layout.js`), loaded only
+- Export: the week and the calls as Excel in the CORE sheet's layout, the week as Excel in the hand-made grid's layout
+  with its tally and check formulas live, a landscape A4 print of the week like the hand-made grid, and "Copy for WhatsApp" (the next working day, plain text). All from one layout (`roster/layout.js`), loaded only
   when a button is used; ExcelJS 4.4.0 is vendored.
 - Checks run here: type check, 147 unit tests, modules, devkit, proofread, links, rules build, startup budget (48 requests,
   279 KiB gzip, at the budget) and the Week smoke browser test. A real browser run fixed one start-up crash (the kit's shell

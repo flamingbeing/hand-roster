@@ -47,6 +47,7 @@ const cleanWeek = cleaner({
   overrides: rows(200, r => (r && typeof r.id === 'string' ? {
     id: r.id.slice(0, 64), ...(r.consultant !== undefined ? { consultant: optText(60)(r.consultant) ?? null } : {}),
     ...(int(0, 10)(r.need) !== undefined ? { need: int(0, 10)(r.need) } : {}),
+    ...(r.patients !== undefined && optInt(0, 200)(r.patients) !== undefined ? { patients: optInt(0, 200)(r.patients) } : {}),
     ...(oneOf(['open', 'closed', 'template', 'empty', 'consultant-only'])(r.status) ? { status: r.status } : {}),
   } : null)),
   built: int(0, Number.MAX_SAFE_INTEGER),

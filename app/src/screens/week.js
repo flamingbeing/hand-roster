@@ -12,7 +12,7 @@ import { TIER_LABEL, DEFAULT_TIER_PLAN, dayType, leaveIndex } from '../roster/mo
 import { callsAround } from '../roster/sections.js';
 import { sectionsOf, whyNot } from '../roster/sections.js';
 import { gridRows, juniorsOn, listOf, move, place } from '../roster/grid.js';
-import { slotsFor } from '../data/lists.js';
+import { slotsFor, STATUSES } from '../data/lists.js';
 import { activePeople } from '../data/people.js';
 import { leaveOf } from '../data/leave.js';
 import { editSheet } from './sheet.js';
@@ -66,8 +66,10 @@ export function weekScreen(ctx) {
   $('week-site').addEventListener('change', e => { site = /** @type {HTMLSelectElement} */ (e.target).value; draw(); });
   $('week-print').replaceChildren(icon(ICONS.printer), 'Print');
   $('week-print').addEventListener('click', () => printWeek());
-  $('week-xlsx').replaceChildren(icon(ICONS.download), 'Excel');
-  $('week-xlsx').addEventListener('click', () => exportXlsx());
+  $('week-xlsx').replaceChildren(icon(ICONS.download), 'Excel (CORE)');
+  $('week-xlsx').addEventListener('click', () => exportXlsx('core'));
+  $('week-hand-xlsx').replaceChildren(icon(ICONS.download), 'Excel (hand grid)');
+  $('week-hand-xlsx').addEventListener('click', () => exportXlsx('hand'));
   $('week-copy').replaceChildren(icon(ICONS.clipboardCopy), 'Copy for WhatsApp');
   $('week-copy').addEventListener('click', () => copyTomorrow());
   // Ctrl+P and the browser's own print draw the same sheet, once the export code has been loaded by a button or the idle load below
@@ -111,12 +113,14 @@ export function weekScreen(ctx) {
       window.print();
     }, 'Could not prepare the print.');
   }
-  async function exportXlsx() {
+  /** @param {'core' | 'hand'} style  the CORE sheet, or the hand-made grid with its formulas */
+  async function exportXlsx(style) {
     await guarded(async () => {
       const m = model();
       if (!m.lists.length) { toast('Nothing to export yet.'); return; }
       const x = await exportCode();
-      toast(`Saved ${await x.exportWeek(layoutInput(m, monday))}`);
+      const o = layoutInput(m, monday);
+      toast(`Saved ${await (style === 'hand' ? x.exportHandGrid(o) : x.exportWeek(o))}`);
     }, 'Could not make the Excel file.');
   }
   /** copies the next working day's roster as chat text */
@@ -186,6 +190,44 @@ export function weekScreen(ctx) {
     });
   }
 
+  /**
+   * A list's changes for this week only (consultant, patients, juniors needed, status): kept in the week's `overrides`, so
+   * the Lists tab keeps the usual pattern; "Back to the usual" drops them.
+   * @param {ReturnType<typeof model>} m @param {import('../roster/model.js').ListSlot} l
+   */
+  function weekListSheet(m, l) {
+    const cons = m.people.filter(p => p.grade === 'con').map(p => p.name).sort();
+    const had = (m.wk?.overrides ?? []).some(o => o.id === l.id);
+    sheet.open({
+      title: `${l.name}, this week`, saveLabel: 'Save',
+      note: `${l.site}, ${shortDay(l.day)} ${l.session === 'AM' ? 'morning' : 'afternoon'}. For this week only; the Lists tab keeps the usual.`,
+      values: { consultant: l.consultant ?? '', patients: l.patients ?? null, need: l.need, status: l.status },
+      fields: [
+        { key: 'consultant', label: 'Consultant', type: 'select',
+          options: [['', 'Nobody'], ...(l.consultant && !cons.includes(l.consultant) ? [l.consultant, ...cons] : cons).map(n => /** @type {[string, string]} */ ([n, n]))] },
+        { key: 'patients', label: 'Patients', type: 'number', min: 0, max: 200, hint: 'Shown on the print and the hand grid as "(21 pts)". Leave empty when not known.' },
+        { key: 'need', label: 'Juniors needed', type: 'number', min: 0, max: 10 },
+        { key: 'status', label: 'Status', type: 'select', options: STATUSES },
+      ],
+      onSave: v => saveOverride(m, l, { id: l.id, consultant: v.consultant || null, patients: v.patients, need: v.need ?? l.need, status: v.status }),
+      ...(had ? { deleteLabel: 'Back to the usual', onDelete: () => saveOverride(m, l, null) } : {}),
+    });
+  }
+  /** @param {ReturnType<typeof model>} m @param {import('../roster/model.js').ListSlot} l @param {import('../data/lists.js').Override | null} o  null: drop the change */
+  async function saveOverride(m, l, o) {
+    const overrides = [...(m.wk?.overrides ?? []).filter(x => x.id !== l.id), ...(o ? [o] : [])];
+    /** @type {Record<string, unknown>} */
+    const fields = { overrides };
+    // a built week is drawn from its lists as built, so the change goes into them too
+    if (m.built && m.wk?.lists?.length) {
+      const now = slotsFor(m.templates, monday, overrides).find(x => x.id === l.id);
+      fields.lists = m.wk.lists.map(x => (x.id !== l.id ? x : now
+        ? { ...x, consultant: now.consultant ?? null, patients: now.patients ?? null, need: now.need, status: now.status }
+        : o ? { ...x, consultant: o.consultant ?? null, patients: o.patients ?? null, need: o.need ?? x.need, status: /** @type {any} */ (o.status ?? x.status) } : x));
+    }
+    toast(await app.data.weeks.upsert(monday, m.wk, fields) ? REFUSED : 'Saved');
+  }
+
   /** @param {ReturnType<typeof model>} m @param {import('../roster/model.js').ListSlot} l @param {ReturnType<typeof sectionsOf>} sec @param {Set<string>} gone consultants away */
   function listCard(m, l, sec, gone) {
     const juniors = juniorsOn(m.grid, l.day, l.session, l.id);
@@ -197,7 +239,8 @@ export function weekScreen(ctx) {
     const short = open && juniors.length < l.need;
     const canWrite = ctx.canWrite();
     return h('li', { class: `wk-list kind-${l.kind}${open ? '' : ' is-off'}${short && m.built ? ' is-short' : ''}`, dataset: { list: l.id } },
-      h('div', { class: 'wk-list-head' }, h('b', {}, l.name), l.consultant && h('span', { class: 'wk-con' }, l.consultant)),
+      h('div', { class: 'wk-list-head' }, h('b', {}, l.name), l.consultant && h('span', { class: 'wk-con' }, l.consultant),
+        canWrite && h('button', { type: 'button', class: 'wk-edit', 'aria-label': `Change ${l.name} for this week`, onclick: () => weekListSheet(m, l) }, icon(ICONS.pencil))),
       noteBits.length > 0 && h('div', { class: 'wk-note small' }, noteBits.join(' · ')),
       (open || juniors.length > 0) && h('div', { class: 'wk-juniors' },
         juniors.map(n => h('button', { type: 'button', class: 'wk-chip', disabled: !canWrite, dataset: { name: n }, 'aria-label': `${n}: move or take off`, onclick: () => moveSheet(m, l.day, l.session, n, l.id) }, n)),

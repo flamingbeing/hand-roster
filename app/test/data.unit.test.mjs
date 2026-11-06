@@ -64,6 +64,11 @@ test('lists: a template row is one list, one weekday, one session; a week overri
   assert.equal(plain[0].rooms, 'G03');
   const over = lists.slotsFor(/** @type {any} */ (t), '2026-11-02', [{ id: 'l1', consultant: null, need: 3, status: 'closed' }]);
   assert.deepEqual(over.find(s => s.id === 'l1'), { id: 'l1', site: 'NUH', kind: 'ot', name: 'OT 3', day: '2026-11-03', session: 'AM', consultant: null, status: 'closed', need: 3 });
+  // a week's patient count replaces the template's; null clears it for that week; no patients in the override keeps the template's
+  assert.equal(lists.slotsFor(/** @type {any} */ (t), '2026-11-02', [{ id: 'l2', patients: 21 }]).find(s => s.id === 'l2')?.patients, 21);
+  assert.equal('patients' in /** @type {object} */ (lists.slotsFor(/** @type {any} */ (t), '2026-11-02', [{ id: 'l2', patients: null }]).find(s => s.id === 'l2')), false);
+  const kept = lists.slotsFor(/** @type {any} */ ([{ ...t[0], patients: 9 }]), '2026-11-02', [{ id: t[0].id, need: 1 }])[0];
+  assert.equal(kept.patients, 9);
 });
 
 test('leave and requests: days checked, an end before the start is mended', () => {
@@ -93,11 +98,11 @@ test('weeks: grid rows, the lists snapshot and overrides are cleaned', () => {
   const c = weeks.clean({
     grid: [{ day: '2026-11-02', session: 'AM', list: 'l1', juniors: ['Dr A', 5] }, { day: 'nope', session: 'AM', list: 'l1', juniors: [] }],
     lists: [{ id: 'l1', site: 'NUH', kind: 'ot', name: 'OT 3', day: '2026-11-02', session: 'AM', need: 2, status: 'open', consultant: 'Dr B' }],
-    overrides: [{ id: 'l1', need: 3, consultant: '' }, { nope: 1 }],
+    overrides: [{ id: 'l1', need: 3, consultant: '' }, { nope: 1 }, { id: 'l2', patients: '21' }, { id: 'l3', patients: null }, { id: 'l4', patients: 900 }],
   });
   assert.deepEqual(c.grid, [{ day: '2026-11-02', session: 'AM', list: 'l1', juniors: ['Dr A'] }]);
   assert.equal(/** @type {any} */ (c.lists)[0].consultant, 'Dr B');
-  assert.deepEqual(c.overrides, [{ id: 'l1', consultant: null, need: 3 }]);
+  assert.deepEqual(c.overrides, [{ id: 'l1', consultant: null, need: 3 }, { id: 'l2', patients: 21 }, { id: 'l3', patients: null }, { id: 'l4' }]);
 });
 
 test('kindOps: add stamps createdAt and an id, edit lays the patch over the copy it started from, remove writes a delete', async () => {
