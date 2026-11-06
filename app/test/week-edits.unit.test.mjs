@@ -2,7 +2,7 @@
 // change made while a sheet was open stays; and what Undo puts back. Invented names only.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyEdit, mergeOverrides, undoFields } from '../src/roster/week-edits.js';
+import { applyEdit, epicBoxText, epicChanges, mergeOverrides, readEpicBox, undoFields } from '../src/roster/week-edits.js';
 import { juniorsOn, weekBuilt } from '../src/roster/grid.js';
 import { weeks } from '../src/data/plans.js';
 
@@ -63,4 +63,31 @@ test('Undo puts back the fields an edit saves, as they were; an unbuilt week com
   assert.equal(weekBuilt(built), true);
   assert.equal(weekBuilt(undefined), false);
   assert.equal(weekBuilt({ grid: [], built: 1_700_000_000_000 }), true, 'a built week whose lists are all closed');
+});
+
+test('Epic check: a box reads as patients, away or empty; anything else can\'t be read', () => {
+  assert.deepEqual(readEpicBox('12'), { away: false, patients: 12 });
+  assert.deepEqual(readEpicBox('0'), { away: false, patients: 0 });
+  assert.deepEqual(readEpicBox('200'), { away: false, patients: 200 });
+  for (const t of ['a', ' A ', 'away', 'Away']) assert.deepEqual(readEpicBox(t), { away: true, patients: undefined }, t);
+  assert.deepEqual(readEpicBox(''), { away: false, patients: undefined });
+  assert.deepEqual(readEpicBox('  '), { away: false, patients: undefined });
+  for (const t of ['1.5', 'O', '250', 'Aw', '-1', '1 2']) assert.equal(readEpicBox(t), null, t);
+});
+
+test('Epic check: only the boxes typed in are saved; a box that can\'t be read stops the save', () => {
+  // a list set to "patients not known" this week opens empty: left alone it keeps that change
+  assert.equal(epicBoxText([{ patients: null }]), '');
+  assert.equal(epicBoxText([{ patients: 12 }]), '12');
+  assert.equal(epicBoxText([{ patients: 12 }, { away: true }]), 'A');
+  // two lists in one session with different numbers: empty, and left alone unless typed in
+  assert.equal(epicBoxText([{ patients: 12 }, { patients: 8 }]), '');
+  assert.equal(epicBoxText([{ patients: 12 }, {}]), '');
+  const box = (/** @type {string} */ was, /** @type {string} */ now, lists = ['ot1']) => ({ label: 'Mon 9 AM, Dr Ann Test', was, now, lists });
+  assert.deepEqual(epicChanges([box('', ''), box('12', '12'), box('A', ' A '), box('', '', ['ot2', 'clinic2'])]), { changes: [], bad: [] });
+  assert.deepEqual(epicChanges([box('12', '9'), box('', '7', ['ot2', 'clinic2'])]).changes,
+    [['ot1', { away: false, patients: 9 }], ['ot2', { away: false, patients: 7 }], ['clinic2', { away: false, patients: 7 }]]);
+  // cleared by hand: back to the usual
+  assert.deepEqual(epicChanges([box('12', '')]).changes, [['ot1', { away: false, patients: undefined }]]);
+  assert.deepEqual(epicChanges([box('A', 'O'), box('', '1.5')]).bad, ['Mon 9 AM, Dr Ann Test: type a number or A', 'Mon 9 AM, Dr Ann Test: type a number or A']);
 });

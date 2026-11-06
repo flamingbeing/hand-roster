@@ -86,6 +86,18 @@ export function whyNot({ name, day, session, leave, calls, grid, list = null, po
   return out;
 }
 
+/**
+ * Juniors a built grid has on a list while on leave, on call or post-call (leave or calls changed since the build), with
+ * why ('on leave then'). Not a double booking, nor on a public holiday.
+ * @param {{ grid: GridRow[], leave: Leave[], calls: CallDay[], holidays?: string[], postCallAm?: boolean }} o
+ * @returns {{ day: string, session: 'AM' | 'PM', list: string, name: string, why: string[] }[]}
+ */
+export function clashesOf({ grid, leave, calls, holidays = [], postCallAm = true }) {
+  return grid.flatMap(r => holidays.includes(r.day) ? [] : r.juniors.map(name => ({ day: r.day, session: r.session, list: r.list, name,
+    why: whyNot({ name, day: r.day, session: r.session, leave, calls, grid: [], postCallAm }).map(w => w.slice(name.length + 4)) })))
+    .filter(c => c.why.length);
+}
+
 // ---- the months a week or a month needs ----
 /**
  * The calls that touch a week: the day before it (for post-call) to its Sunday, from whichever months' rosters hold them.
@@ -94,6 +106,15 @@ export function whyNot({ name, day, session, leave, calls, grid, list = null, po
 export function callsAround(rosters, monday) {
   const from = addDays(monday, -1), to = addDays(monday, 6);
   return rosters.flatMap(r => r.calls ?? []).filter(c => c.date >= from && c.date <= to).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * The months (YYYY-MM) of a week's Monday and Friday whose calls are not made (no one on any tier): its post-call is not known.
+ * @param {{ id: string, calls?: CallDay[] }[]} rosters @param {string} monday @returns {string[]}
+ */
+export function callsUnmade(rosters, monday) {
+  return [...new Set([monday, addDays(monday, 4)].map(d => d.slice(0, 7)))]
+    .filter(mo => !rosters.find(r => r.id === mo)?.calls?.some(c => TIERS.some(t => c[t])));
 }
 
 /** @param {string} month YYYY-MM @returns {string} the month before */

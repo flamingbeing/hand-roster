@@ -117,6 +117,7 @@ function make() {
     });
     $('edit-title').textContent = spec.title;
     fill($('edit-body'), spec.note && h('p', { class: 'small' }, spec.note), rows, spec.body?.node, warnBox);
+    spec.body?.node.addEventListener('input', warnNow);   // its own boxes warn as they are typed in too
     $('edit-save').textContent = spec.saveLabel ?? 'Save';
     $('edit-delete').hidden = !spec.onDelete;
     $('edit-delete').textContent = spec.deleteLabel ?? 'Delete';

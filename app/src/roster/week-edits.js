@@ -52,3 +52,48 @@ export function undoFields(wk, keys) {
   return was;
 }
 
+
+// "Check against Epic" (screens/epic.js): a box per consultant and session, over that consultant's lists then.
+
+/**
+ * What a box says: the patients Epic has booked (a whole number 0 to 200), away (A or away, any case), or nothing typed
+ * (keep the usual). null when it can't be read ('O', '1.5', '250'): never taken as "keep the usual", which would drop an away.
+ * @param {string} text @returns {{ away: boolean, patients: number | undefined } | null}
+ */
+export function readEpicBox(text) {
+  const t = String(text ?? '').trim().toLowerCase();
+  if (t === 'a' || t === 'away') return { away: true, patients: undefined };
+  if (!/^\d{0,3}$/.test(t) || Number(t) > 200) return null;
+  return { away: false, patients: t ? Number(t) : undefined };
+}
+
+/**
+ * The text a box opens with: A when a list is away; the patients when the lists agree; else empty (lists that differ
+ * are left alone unless the box is typed in).
+ * @param {{ away?: boolean, patients?: number | null }[]} lists @returns {string}
+ */
+export function epicBoxText(lists) {
+  if (lists.some(l => l.away)) return 'A';
+  const ps = new Set(lists.map(l => l.patients ?? null));
+  const [p] = ps;
+  return ps.size === 1 && p != null ? String(p) : '';
+}
+
+/**
+ * The changes to save: only the boxes typed in (trimmed text not as it opened), so an untouched box keeps its lists' week
+ * changes. `bad` names each box that can't be read ('Mon 9 AM, Dr Ann Test: type a number or A'); nothing is saved then.
+ * @param {{ label: string, was: string, now: string, lists: string[] }[]} boxes  label: 'Mon 9 AM, Dr Ann Test'; lists: their ids
+ * @returns {{ changes: [string, { away: boolean, patients: number | undefined }][], bad: string[] }}
+ */
+export function epicChanges(boxes) {
+  /** @type {[string, { away: boolean, patients: number | undefined }][]} */
+  const changes = [];
+  /** @type {string[]} */
+  const bad = [];
+  for (const b of boxes) {
+    const v = readEpicBox(b.now);
+    if (!v) { bad.push(`${b.label}: type a number or A`); continue; }
+    if (b.now.trim() !== b.was.trim()) for (const id of b.lists) changes.push([id, v]);
+  }
+  return { changes, bad };
+}
