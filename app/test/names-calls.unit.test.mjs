@@ -3,7 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { matchName } from '../src/roster/names.js';
 import { checkCalls } from '../src/roster/calls-check.js';
-import { applyDayEdit, callChoices, dayLabel, handCount, setCall } from '../src/roster/calls-edit.js';
+import { applyDayEdit, callChoices, dayLabel, handCount, keepGoodCalls, setCall } from '../src/roster/calls-edit.js';
+import { solveCalls } from '../src/roster/calls.js';
 
 const people = [{ name: 'Ann Test' }, { name: 'Bea Sample' }, { name: 'Bea Other' }, { name: 'Cy Example Long' }];
 
@@ -156,4 +157,32 @@ test('handCount: counts the calls set by hand that still hold a name', () => {
   const calls = [{ date: '2026-12-02', con: 'Dr Ann Test', reg: 'Dr Bea Test', moNuh: null }];
   assert.equal(handCount(['2026-12-02|con', '2026-12-02|reg', '2026-12-02|moNuh', '2026-12-03|con'], calls), 2);
   assert.equal(handCount([], calls), 0);
+});
+
+test('keepGoodCalls: keeps the fine calls and the hand-set ones, frees the problem calls; empty tiers and other months stay out', () => {
+  const month = '2026-12';
+  const cons = [{ name: 'Dr Ann Test', grade: 'con' }, { name: 'Dr Dan Test', grade: 'con' }, { name: 'Dr Eve Test', grade: 'con' }];
+  const only = /** @type {any} */ ({ weekday: ['con'], sat: ['con'], sun: ['con'], ph: ['con'] });
+  const calls = [
+    { date: '2026-11-30', con: 'Dr Eve Test' },   // last month's row: left out
+    { date: '2026-12-01', con: 'Dr Ann Test' },
+    { date: '2026-12-02', con: 'Dr Ann Test' },   // too soon after the 1st: a problem
+    { date: '2026-12-05', con: 'Dr Dan Test' },
+    { date: '2026-12-09', con: 'Dr Eve Test' },   // set by hand, and on leave: still kept
+  ];
+  const locked = ['2026-12-09|con'];
+  const leave = [{ name: 'Dr Eve Test', from: '2026-12-09', to: '2026-12-09' }];
+  const check = checkCalls({ month, calls, people: cons, leave, tiers: only });
+  assert.ok(check.problems.some(p => p.date === '2026-12-02' && p.tier === 'con'));
+  assert.ok(check.problems.some(p => p.date === '2026-12-09' && p.rule === 'leave'));
+  assert.ok(check.empty.some(e => e.date === '2026-12-03'));
+  const keep = keepGoodCalls(month, calls, locked, check);
+  assert.deepEqual(keep, { '2026-12-01': { con: 'Dr Ann Test' }, '2026-12-05': { con: 'Dr Dan Test' }, '2026-12-09': { con: 'Dr Eve Test' } });
+  // nothing broken: every call kept
+  assert.deepEqual(keepGoodCalls(month, calls, [], { problems: [] })['2026-12-02'], { con: 'Dr Ann Test' });
+  // the solver keeps those exactly and fills the rest around them (the freed 2nd goes to someone else)
+  const res = solveCalls({ month, people: cons, leave, tiers: only, locked: keep, seed: 3, iterations: 2000 });
+  for (const [date, row] of Object.entries(keep)) assert.equal(res.assignments[date].con, row.con);
+  assert.notEqual(res.assignments['2026-12-02'].con, 'Dr Ann Test');
+  assert.ok(res.assignments['2026-12-03'].con);
 });

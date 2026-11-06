@@ -57,6 +57,31 @@ export function lockedMap(locked, calls) {
 }
 
 /**
+ * What "Fix the problems only" keeps when the calls are made again: every call set by hand, and every other call of the month
+ * the check does not name as a problem. The rest (the problem calls, and the empty tiers, which are free anyway) is for the
+ * solver to fill. A call set by hand stays even when it is a problem, as it does today (7 Nov 2026).
+ * @param {string} month 'YYYY-MM' (rows of other months are left out) @param {CallDay[]} calls @param {string[]} locked
+ * @param {{ problems: { date: string, tier: Tier }[] }} check the month's checkCalls answer
+ * @returns {import('./model.js').CallMap}
+ */
+export function keepGoodCalls(month, calls, locked, check) {
+  const bad = new Set(check.problems.map(p => lockKey(p.date, p.tier)));
+  /** @type {import('./model.js').CallMap} */
+  const out = {};
+  for (const [date, row] of Object.entries(callMapOf(calls))) {
+    if (!date.startsWith(`${month}-`)) continue;
+    for (const t of TIERS) {
+      const name = row?.[t];
+      if (name && !bad.has(lockKey(date, t))) (out[date] ??= {})[t] = name;
+    }
+  }
+  for (const [date, row] of Object.entries(lockedMap(locked, calls))) {
+    if (date.startsWith(`${month}-`)) out[date] = { ...out[date], ...row };
+  }
+  return out;
+}
+
+/**
  * The month's rows from a solver answer, laid over the other months' rows already stored (they stay).
  * @param {CallDay[]} others calls outside the month @param {import('./model.js').CallMap} assignments @returns {CallDay[]}
  */
