@@ -192,3 +192,15 @@ test('week: a HOT clinic is run by a registrar or an R3, never an MO alone', () 
   const opts = shortOptions({ gap: /** @type {any} */ (gap), lists, grid, people: [...people, r3], free: [{ name: 'Dr Mo Two', when: 'FULL DAY' }, { name: 'Dr Res Three', when: 'FULL DAY' }] });
   assert.deepEqual(opts.filter(o => o.kind === 'add').map(o => o.name), ['Dr Res Three']);
 });
+
+test('people: a site-only locum stays at their site, a by-hand locum is never placed but still on call', async () => {
+  const { canTake } = await import('../src/roster/model.js');
+  const ntf = { name: 'Dr Loc Ntf', grade: 'mo', rank: 'Locum', site: 'NTFGH', siteOnly: true };
+  const hand = { name: 'Dr Loc Hand', grade: 'mo', rank: 'Locum', site: 'NUH', byHand: true };
+  assert.deepEqual([canTake(/** @type {any} */ (ntf), 'moNuh'), canTake(/** @type {any} */ (ntf), 'moNtf'), canTake(/** @type {any} */ (hand), 'moNuh')], [false, true, true]);
+  const lists = [L('nuh', {}), L('ntf', { site: 'NTFGH', day: MON })];
+  const w = buildWeek({ monday: MON, lists, people: /** @type {any} */ ([ntf, hand]), seed: 5 });
+  assert.deepEqual(w.grid[MON].AM.find(g => g.list === 'ntf')?.juniors, ['Dr Loc Ntf']);
+  assert.deepEqual(w.grid[MON].AM.find(g => g.list === 'nuh')?.juniors, [], 'neither goes to NUH');
+  assert.ok(!w.free[MON].some(f => f.name === 'Dr Loc Hand'), 'not listed free');
+});

@@ -15,6 +15,8 @@ import { weekday } from './dates.js';
  * @property {string} [site]  home site, 'NUH' or 'NTFGH' (a soft preference)
  * @property {boolean} [extra]  outposter: shown on a list when added by hand, never placed or put on call
  * @property {boolean} [noCall]  never on call
+ * @property {boolean} [siteOnly]  works only at their home site: lists and calls (a locum hired by one hospital)
+ * @property {boolean} [byHand]  put on lists by hand only (a locum on some days and clinics); still on call
  * @property {Tier[]} [tiers]  call tiers this person may take, overriding the grade default
  *
  * @typedef {object} Leave
@@ -91,6 +93,7 @@ export const isJunior = p => p.grade !== 'con' && !p.extra;
  */
 export function canTake(p, tier) {
   if (p.noCall || p.extra) return false;
+  if (p.siteOnly && ((tier === 'moNuh' && p.site === 'NTFGH') || (tier === 'moNtf' && p.site === 'NUH'))) return false;
   if (p.tiers) return p.tiers.includes(tier);
   if (tier === 'con') return p.grade === 'con';
   if (tier === 'reg' || tier === 'reg2') return p.grade === 'reg' && p.rank !== 'Fellow';
@@ -144,6 +147,9 @@ export const minOf = l => Math.min(l.need, l.min ?? (l.need > 0 ? 1 : 0));
 /** @param {ListSlot} l @returns {boolean} someone able to lead it must be among its juniors (leads): an emergency slot, every MSP
  *   list and every HOT clinic (owner, 6 Nov 2026), unless the week lets it run with none */
 export const regLed = l => (!!l.emergency || l.kind === 'msp' || l.kind === 'hot') && minOf(l) > 0;
+
+/** @param {Person} p @param {ListSlot} l @returns {boolean} the builder may put p on l (by hand anyone goes anywhere) */
+export const canWork = (p, l) => !p.byHand && (!p.siteOnly || !p.site || p.site === l.site);
 
 /** @param {ListSlot} l @param {Person | undefined} p @returns {boolean} p can lead l: a registrar; a HOT clinic also an R3
  *   (third-year resident, a year before registrar; owner, 6 Nov 2026) */

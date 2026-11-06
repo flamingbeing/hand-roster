@@ -10,7 +10,7 @@
 // Registrars are preferred on OT and MSP lists, MOs on clinics; sessions are balanced across the week; a list's PM keeps
 // its AM juniors. Deterministic from the seed. Pure: no page, no clock.
 import { addDays, mondayOf, rangeDays } from './dates.js';
-import { TIERS, callMapOf, isJunior, leaveIndex, leads, minOf, regLed, settleLists } from './model.js';
+import { TIERS, callMapOf, canWork, isJunior, leaveIndex, leads, minOf, regLed, settleLists } from './model.js';
 
 /** @typedef {import('./model.js').Person} Person */
 /** @typedef {import('./model.js').Leave} Leave */
@@ -140,7 +140,7 @@ export function buildWeek(o) {
             const am = grid[day].AM.find(g => { const a = lists.find(x => x.id === g.list); return a && a.name === l.name && a.site === l.site && a.consultant === l.consultant && a.kind === l.kind; });
             for (const name of am?.juniors ?? []) {
               const p = juniors.find(x => x.name === name);
-              if (p && may(p, l) && available(p, session) && upTo(l) > (placed.get(l.id)?.length ?? 0)) put(l, name);
+              if (p && may(p, l) && canWork(p, l) && available(p, session) && upTo(l) > (placed.get(l.id)?.length ?? 0)) put(l, name);
             }
           }
         }
@@ -157,7 +157,7 @@ export function buildWeek(o) {
           const regsLeft = regLed(l) && lacksLead(l) ? Infinity : juniors.filter(p => p.grade === 'reg' && available(p, session)).length;
           const keepRegs = regsLeft <= [...msp, ...eot].filter(e => regLed(e) && lacksLead(e)).length;
           for (const p of juniors) {
-            if (!may(p, l) || !available(p, session)) continue;
+            if (!may(p, l) || !canWork(p, l) || !available(p, session)) continue;
             const st = stats[p.name];
             const wantsOt = l.kind === 'ot' || l.kind === 'msp';
             let v = st.sessions * 3 + (wantsOt ? st.ot : st.clinic) * 1.5 + rnd() * 0.5;
@@ -186,6 +186,7 @@ export function buildWeek(o) {
     for (const p of juniors) {
       if (lv.full(p.name, day)) continue;
       if (today.includes(p.name)) { free[day].push({ name: p.name, when: 'FULL DAY', why: 'on call' }); continue; }
+      if (p.byHand) continue;   // around only on the days someone puts them on a list
       const open = /** @type {Session[]} */ (['AM', 'PM']).filter(s => !taken[s].has(p.name) && !lv.blocks(p.name, day, s)
         && !(prev.includes(p.name) && (s === 'PM' || !postCallAm)));
       if (open.length === 2) free[day].push({ name: p.name, when: 'FULL DAY' });
