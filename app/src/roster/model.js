@@ -150,6 +150,10 @@ export const consOf = l => (l.consultant ? [l.consultant, l.consultant2, l.consu
 export const conText = l => consOf(l).join(' / ');
 /** @param {string} lead @param {...(string | null | undefined)} more @returns {string[]} the others sharing a list: no blanks, no repeats, not the lead */
 export const coOf = (lead, ...more) => (lead ? [...new Set(more.filter(isName).filter(n => n !== lead))] : []);
+/** "This is me" on a list: one of its juniors, or running it while it runs (not a list closed or turned into an emergency slot by
+ * their being away) (7 Nov 2026)
+ * @param {ListSlot} l  settled @param {string[]} juniors  on it @param {string} me  '' for nobody @returns {boolean} */
+export const hasMe = (l, juniors, me) => !!me && (juniors.includes(me) || (l.status === 'open' && !l.emergency && consOf(l).includes(me)));
 
 /** an emergency slot: one registrar, and an MO when spare */
 export const EOT = { need: 2, min: 1 };

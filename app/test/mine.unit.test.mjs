@@ -1,10 +1,12 @@
-// "This is me": one person's week (roster/mine.js) and the name check the Week and Calls marks use (data/people.js meOf).
+// "This is me": one person's week (roster/mine.js), the name check the Week and Calls marks use (data/people.js meOf) and
+// which lists are marked as theirs (roster/model.js hasMe).
 // Invented names only.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { dayLabel, myWeek, nextCall } from '../src/roster/mine.js';
 import { sectionsOf } from '../src/roster/sections.js';
 import { activePeople, meOf } from '../src/data/people.js';
+import { hasMe } from '../src/roster/model.js';
 
 const people = [
   { name: 'Dr Ann Test', grade: 'reg' }, { name: 'Dr Ben Test', grade: 'mo' }, { name: 'Dr Cat Test', grade: 'mo' },
@@ -91,4 +93,17 @@ test('this is me: only an active person counts, so a renamed or deleted name dro
   assert.equal(meOf('Dr Nobody Test', active), '');
   assert.equal(meOf(42, active), '');
   assert.equal(meOf('', active), '');
+});
+
+test('this is me on a list: a junior on it or a consultant running it; not a list their being away closed', () => {
+  const [ot, clinic, none] = lists;
+  assert.equal(hasMe(ot, ['Dr Ann Test'], 'Dr Ann Test'), true);
+  assert.equal(hasMe(ot, ['Dr Ann Test'], 'Dr Ben Test'), false);
+  assert.equal(hasMe(ot, [], 'Dr Eve Test'), true);   // the consultant, with nobody placed yet
+  assert.equal(hasMe({ ...clinic, consultant: 'Dr Fay Test', consultant2: 'Dr Eve Test' }, [], 'Dr Eve Test'), true);   // shared
+  assert.equal(hasMe(none, ['Dr Cat Test'], 'Dr Eve Test'), false);
+  assert.equal(hasMe(ot, ['Dr Ann Test'], ''), false);   // nobody set
+  assert.equal(hasMe({ ...clinic, status: 'closed', consultantOnLeave: true }, [], 'Dr Eve Test'), false);
+  assert.equal(hasMe({ ...ot, emergency: true }, [], 'Dr Eve Test'), false);   // an emergency slot: the consultant is away
+  assert.equal(hasMe({ ...ot, emergency: true }, ['Dr Ann Test'], 'Dr Ann Test'), true);   // the registrar leading it
 });
