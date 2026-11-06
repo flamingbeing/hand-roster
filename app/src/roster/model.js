@@ -11,7 +11,7 @@ import { weekday } from './dates.js';
  * @typedef {object} Person
  * @property {string} name  unique; the key for leave, requests and calls
  * @property {'con' | 'reg' | 'mo'} grade  juniors are 'reg' (registrars, ACs, fellows) and 'mo'
- * @property {string} [rank]  'Reg', 'AC', 'Fellow', 'MO', 'HC', 'Locum', 'Outposter', 'Consultant'
+ * @property {string} [rank]  'Reg', 'AC', 'Fellow', 'MO', 'R3' (third-year resident: an MO who can run a HOT clinic), 'HC', 'Locum', 'Outposter', 'Consultant'
  * @property {string} [site]  home site, 'NUH' or 'NTFGH' (a soft preference)
  * @property {boolean} [extra]  outposter: shown on a list when added by hand, never placed or put on call
  * @property {boolean} [noCall]  never on call
@@ -131,7 +131,7 @@ export const callRow = c => Object.fromEntries(TIERS.filter(t => t !== 'reg2' ||
 // that day. A consultant away (on leave, or marked Away in the Epic check) closes their clinics, but their OT list stays as
 // an emergency (EOT) slot: a registrar must lead it, an MO joins only when nobody else needs them (owner, 6 Nov 2026). A
 // list with no patients booked (Epic says 0) needs nobody, except an emergency slot, which is there for cases not booked;
-// an MSP list runs as usual, as if it had no consultant (it always needs a registrar: regLed). Each list wants `need` juniors and cannot run with fewer than its minimum (an emergency
+// an MSP list runs as usual, as if it had no consultant (it always needs a registrar, and a HOT clinic a registrar or an R3: regLed). Each list wants `need` juniors and cannot run with fewer than its minimum (an emergency
 // slot's is 1 unless the week sets it lower). Pure, and the same answer when run again on its own output.
 
 
@@ -141,9 +141,13 @@ export const EOT = { need: 2, min: 1 };
 /** @param {ListSlot} l @returns {number} the juniors a list cannot run without: its own `min`, else 1 when it wants any; never above `need` */
 export const minOf = l => Math.min(l.need, l.min ?? (l.need > 0 ? 1 : 0));
 
-/** @param {ListSlot} l @returns {boolean} a registrar must be among its juniors: an emergency slot and every MSP list (owner, 6 Nov
- *   2026), unless the week lets it run with none */
-export const regLed = l => (!!l.emergency || l.kind === 'msp') && minOf(l) > 0;
+/** @param {ListSlot} l @returns {boolean} someone able to lead it must be among its juniors (leads): an emergency slot, every MSP
+ *   list and every HOT clinic (owner, 6 Nov 2026), unless the week lets it run with none */
+export const regLed = l => (!!l.emergency || l.kind === 'msp' || l.kind === 'hot') && minOf(l) > 0;
+
+/** @param {ListSlot} l @param {Person | undefined} p @returns {boolean} p can lead l: a registrar; a HOT clinic also an R3
+ *   (third-year resident, a year before registrar; owner, 6 Nov 2026) */
+export const leads = (l, p) => !!p && (p.grade === 'reg' || (l.kind === 'hot' && p.rank === 'R3'));
 
 /**
  * @param {ListSlot[]} lists

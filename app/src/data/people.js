@@ -6,7 +6,7 @@ export const COLL = 'people';
 /** @type {[string, string][]} */
 export const GRADES = [['con', 'Consultant'], ['reg', 'Registrar or fellow'], ['mo', 'Medical officer']];
 /** the ranks a grade offers (free text in the data, these are the suggestions) @type {Record<string, string[]>} */
-export const RANKS = { con: ['Consultant'], reg: ['Reg', 'AC', 'Fellow'], mo: ['MO', 'HC', 'Locum', 'Outposter'] };
+export const RANKS = { con: ['Consultant'], reg: ['Reg', 'AC', 'Fellow'], mo: ['MO', 'R3', 'HC', 'Locum', 'Outposter'] };
 export const SITES = ['NUH', 'NTFGH'];
 /** the label for people with no team in the by-team view */
 export const NO_TEAM = 'No team';

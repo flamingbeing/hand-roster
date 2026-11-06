@@ -3,7 +3,7 @@
 // buildWeek (week.js), so a hand-edited grid is judged the way a built one was. Also here: picking the parts of the stored
 // months that a week or a month needs (callsAround, monthCells, ...). Pure.
 import { addDays, rangeDays, mondayOf, monthDays } from './dates.js';
-import { callMapOf, callRow, isJunior, leaveIndex, minOf, regLed, TIERS } from './model.js';
+import { callMapOf, callRow, isJunior, leads, leaveIndex, minOf, regLed, TIERS } from './model.js';
 import { juniorsOn } from './grid.js';
 
 /** @typedef {import('./model.js').Person} Person */
@@ -51,7 +51,7 @@ export function sectionsOf({ monday, people, leave, calls, lists, grid, postCall
     }
     free[day].sort((a, b) => a.name.localeCompare(b.name));
   }
-  const regs = new Set(people.filter(p => p.grade === 'reg').map(p => p.name));
+  const byName = new Map(people.map(p => [p.name, p]));
   /** @type {Gap[]} */ const short = [];
   /** @type {Gap[]} */ const under = [];
   for (const l of lists) {
@@ -59,8 +59,8 @@ export function sectionsOf({ monday, people, leave, calls, lists, grid, postCall
     const on = grid.find(r => r.day === l.day && r.session === l.session && r.list === l.id)?.juniors ?? [], got = on.length;
     /** @type {Gap} */
     const gap = { list: l.id, day: l.day, session: l.session, need: l.need, min: minOf(l), got };
-    // an MSP list or emergency slot must have a registrar, whoever else is on it
-    if (regLed(l) && !on.some(n => regs.has(n))) gap.noReg = true;
+    // an MSP list or emergency slot must have a registrar (a HOT clinic a registrar or an R3), whoever else is on it
+    if (regLed(l) && !on.some(n => leads(l, byName.get(n)))) gap.noReg = true;
     if (got < gap.min || gap.noReg) short.push(gap);
     else if (got < l.need && !l.emergency) under.push(gap);
   }
@@ -151,9 +151,10 @@ export function shortOptions({ gap, lists, grid, people, free }) {
   const list = lists.find(l => l.id === gap.list);
   if (!list) return [];
   const grade = new Map(people.map(p => [p.name, p.grade]));
-  // an MSP list or emergency slot without its registrar takes a registrar only
-  const needsReg = regLed(list) && !juniorsOn(grid, gap.day, gap.session, list.id).some(n => grade.get(n) === 'reg');
-  const fits = (/** @type {string} */ n) => !needsReg || grade.get(n) === 'reg';
+  const who = new Map(people.map(p => [p.name, p]));
+  // a list without the lead it must have (a registrar; a HOT clinic also an R3) takes only someone who can lead it
+  const needsReg = regLed(list) && !juniorsOn(grid, gap.day, gap.session, list.id).some(n => leads(list, who.get(n)));
+  const fits = (/** @type {string} */ n) => !needsReg || leads(list, who.get(n));
   /** @type {ShortOption[]} */
   const out = [];
 
@@ -171,8 +172,8 @@ export function shortOptions({ gap, lists, grid, people, free }) {
     const spare = on.length - minOf(l);
     if (spare <= 0) continue;
     // from an MSP list or emergency slot only an MO: it keeps its registrar
-    const regs = on.filter(n => grade.get(n) === 'reg');
-    const movable = regLed(l) ? on.filter(n => grade.get(n) !== 'reg' || regs.length > 1) : on;
+    const regs = on.filter(n => leads(l, who.get(n)));
+    const movable = regLed(l) ? on.filter(n => !leads(l, who.get(n)) || regs.length > 1) : on;
     for (const n of movable.filter(fits)) {
       const cost = l.emergency ? `the emergency slot ${listName(l)} loses ${grade.get(n) === 'reg' ? 'a registrar' : 'its MO'}` : `${listName(l)} drops to ${on.length - 1} of the ${l.need} it wants`;
       moves.push({ o: { kind: 'move', name: n, from: l.id, text: `Move ${n} from ${l.name}`, cost }, rank: l.emergency ? 0 : 1 });

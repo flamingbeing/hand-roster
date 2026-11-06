@@ -175,3 +175,20 @@ test('people: "MO calls only" keeps a registrar on lists but off the REG call ti
   assert.equal(p.grade, 'reg');
   assert.deepEqual(['con', 'reg', 'reg2', 'moNuh', 'moNtf'].map(t => canTake(p, /** @type {any} */ (t))), [false, false, false, true, true]);
 });
+
+test('week: a HOT clinic is run by a registrar or an R3, never an MO alone', () => {
+  const r3 = { name: 'Dr Res Three', grade: 'mo', rank: 'R3' };
+  const lists = [L('hot', { kind: 'hot' }), L('cl', { kind: 'clinic', consultant: 'Dr Con C' })];
+  const mos = people.filter(p => p.grade !== 'reg');
+  const w = buildWeek({ monday: MON, lists, people: [...mos, r3], seed: 4 });
+  assert.deepEqual(w.grid[MON].AM.find(g => g.list === 'hot')?.juniors, ['Dr Res Three'], 'the R3 runs it, an MO takes the clinic');
+  assert.deepEqual(w.problems, []);
+  const bare = buildWeek({ monday: MON, lists, people: mos, seed: 4 });
+  assert.deepEqual(bare.problems.filter(p => p.list === 'hot').map(p => p.noReg), [true], 'MOs only: short of a lead');
+  const grid = [{ day: MON, session: 'AM', list: 'hot', juniors: ['Dr Mo One'] }];
+  const sec = sectionsOf({ monday: MON, people: [...people, r3], leave: [], calls: [], lists, grid });
+  const gap = sec.short.find(g => g.list === 'hot');
+  assert.equal(gap?.noReg, true);
+  const opts = shortOptions({ gap: /** @type {any} */ (gap), lists, grid, people: [...people, r3], free: [{ name: 'Dr Mo Two', when: 'FULL DAY' }, { name: 'Dr Res Three', when: 'FULL DAY' }] });
+  assert.deepEqual(opts.filter(o => o.kind === 'add').map(o => o.name), ['Dr Res Three']);
+});
