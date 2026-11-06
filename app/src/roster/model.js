@@ -131,7 +131,7 @@ export const callRow = c => Object.fromEntries(TIERS.filter(t => t !== 'reg2' ||
 // that day. A consultant away (on leave, or marked Away in the Epic check) closes their clinics, but their OT list stays as
 // an emergency (EOT) slot: a registrar must lead it, an MO joins only when nobody else needs them (owner, 6 Nov 2026). A
 // list with no patients booked (Epic says 0) needs nobody, except an emergency slot, which is there for cases not booked;
-// an MSP list runs as usual. Each list wants `need` juniors and cannot run with fewer than its minimum (an emergency
+// an MSP list runs as usual, as if it had no consultant (it always needs a registrar: regLed). Each list wants `need` juniors and cannot run with fewer than its minimum (an emergency
 // slot's is 1 unless the week sets it lower). Pure, and the same answer when run again on its own output.
 
 
@@ -140,6 +140,10 @@ export const EOT = { need: 2, min: 1 };
 
 /** @param {ListSlot} l @returns {number} the juniors a list cannot run without: its own `min`, else 1 when it wants any; never above `need` */
 export const minOf = l => Math.min(l.need, l.min ?? (l.need > 0 ? 1 : 0));
+
+/** @param {ListSlot} l @returns {boolean} a registrar must be among its juniors: an emergency slot and every MSP list (owner, 6 Nov
+ *   2026), unless the week lets it run with none */
+export const regLed = l => (!!l.emergency || l.kind === 'msp') && minOf(l) > 0;
 
 /**
  * @param {ListSlot[]} lists

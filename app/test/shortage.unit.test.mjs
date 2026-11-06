@@ -62,6 +62,22 @@ test('week: the minimums first, then the emergency slot\'s registrar, then the e
   assert.deepEqual(more.problems, [], 'an emergency slot without its MO is no problem');
 });
 
+test('week: an MSP list always gets a registrar, and is short without one', () => {
+  const lists = [L('ot', { consultant: 'Dr Con B' }), L('msp', { kind: 'msp', consultant: 'Dr Con C' })];
+  const w = buildWeek({ monday: MON, lists, people, seed: 3 });
+  const on = (/** @type {string} */ id) => w.grid[MON].AM.find(g => g.list === id)?.juniors ?? [];
+  assert.deepEqual(on('msp'), ['Dr Reg One'], 'the only registrar goes to the MSP list; an MO takes the OT');
+  assert.deepEqual(w.problems, []);
+  const noRegs = people.filter(p => p.grade !== 'reg');
+  const bare = buildWeek({ monday: MON, lists, people: noRegs, seed: 3 });
+  assert.deepEqual(bare.problems.filter(p => p.list === 'msp').map(p => p.noReg), [true], 'an MSP with MOs only is short');
+  const grid = [{ day: MON, session: 'AM', list: 'msp', juniors: ['Dr Mo One'] }];
+  const sec = sectionsOf({ monday: MON, people, leave: [], calls: [], lists, grid });
+  assert.deepEqual(sec.short.map(g => [g.list, g.noReg]), [['ot', undefined], ['msp', true]]);
+  const opts = shortOptions({ gap: sec.short[1], lists, grid, people, free: [{ name: 'Dr Mo Two', when: 'FULL DAY' }, { name: 'Dr Reg One', when: 'FULL DAY' }] });
+  assert.deepEqual(opts.filter(o => o.kind === 'add').map(o => o.name), ['Dr Reg One'], 'only a registrar is offered');
+});
+
 test('week: a public holiday closes its lists and nobody is free that day', () => {
   const lists = [L('a', {}), L('b', { day: '2026-11-10' })];
   const w = buildWeek({ monday: MON, lists, people, holidays: [MON], seed: 1 });
