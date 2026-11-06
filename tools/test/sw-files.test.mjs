@@ -34,7 +34,7 @@ const engine = () => tree({
 test('lists the page, its own files (public/ as served at the root) and the files each core entry loads', () => {
   const sync = engine();
   const dir = tree({
-    'index.html': page({ '@core/app': CORE + 'app.js', '@core/sync': CORE + 'sync.js', 'reg': 'https://core.anawj.com/ui/1.0.0-rc.108/update/register.js', 'firebase/app': './vendor/fb/firebase-app.js' }),
+    'index.html': page({ '@core/app': CORE + 'app.js', '@core/sync': CORE + 'sync.js', 'reg': 'https://core.anawj.com/ui/1.0.0-rc.109/update/register.js', 'firebase/app': './vendor/fb/firebase-app.js' }),
     'src/app.js': '', 'src/config.js': '',
     'public/sw.js': SW, 'public/app.css': '', 'public/icons/icon.svg': '', 'public/vendor/fb/firebase-app.js': '',
     'test/x.unit.test.mjs': '', 'firestore.rules': '', 'firestore.app.rules': '', 'firebase.json': '', 'src/globals.d.ts': '', '.hidden': '', 'firestore-debug.log': '',
@@ -42,7 +42,7 @@ test('lists the page, its own files (public/ as served at the root) and the file
   assert.deepEqual(shellFiles({ dir, sync }), [
     './', 'app.css', 'icons/icon.svg', 'src/app.js', 'src/config.js', 'vendor/fb/firebase-app.js',
     CORE + 'app.js', CORE + 'src/runner.js', CORE + 'src/shared.js', CORE + 'sync.js', CORE + 'src/module-sync.js',
-    'https://core.anawj.com/ui/1.0.0-rc.108/update/register.js',
+    'https://core.anawj.com/ui/1.0.0-rc.109/update/register.js',
   ]);
 });
 
