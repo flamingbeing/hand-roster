@@ -194,6 +194,49 @@ test('calls: a call set by hand is shown as such; Release them unlocks it, Undo 
   await expect(page.locator('#calls-release')).toBeVisible();
 });
 
+test('Make calls on a month with calls: Cancel changes nothing, Fix the problems only keeps the good calls, Undo', async ({ phone }) => {
+  const page = await phone();
+  await signIn(page, 'member');
+  // a month of its own, nine ahead (the tests above use seven and eight)
+  const now = new Date();
+  const ahead = new Date(now.getFullYear(), now.getMonth() + 9, 1);
+  const month = `${ahead.getFullYear()}-${String(ahead.getMonth() + 1).padStart(2, '0')}`;
+  const title = `${ahead.toLocaleString('en-GB', { month: 'long' })} ${ahead.getFullYear()}`;
+  const [ann, dan, eve] = [uniq('Dr Ann Test'), uniq('Dr Dan Test'), uniq('Dr Eve Test')];
+  for (const name of [ann, dan, eve]) await db.put(`spaces/_/people/${name}`, { name, grade: 'con', rank: 'Consultant', active: true, updatedAt: Date.now() });
+  // CON only; Ann on the 1st and again on the 2nd (too soon: a problem), Dan on the 5th, Eve free
+  const tierPlan = { weekday: ['con'], sat: ['con'], sun: ['con'], ph: ['con'] };
+  const row = (/** @type {string} */ d, /** @type {string} */ con) => ({ date: `${month}-${d}`, con, reg: null, moNuh: null, moNtf: null });
+  await db.put(`spaces/_/rosters/${month}`, { calls: [row('01', ann), row('02', ann), row('05', dan)], locked: [], tierPlan, updatedAt: Date.now() });
+  await openTab(page, 'calls');
+  for (let i = 0; i < 12 && (await page.locator('#calls-title').textContent()) !== title; i++) await page.getByRole('button', { name: 'Next month' }).click();
+  await expect(page.locator('#calls-title')).toHaveText(title);
+  await expect(page.locator('#calls-host .cl-problem', { hasText: ann })).toHaveCount(1, { timeout: 15_000 });
+  const con = async (/** @type {string} */ d) => (await db.get(`spaces/_/rosters/${month}`))?.calls?.find((/** @type {any} */ c) => c.date === `${month}-${d}`)?.con ?? null;
+  const ask = async () => {
+    await clickOpens(page.locator('#calls-make'), page.locator('#edit-sheet'));
+    await expect(page.locator('#edit-sheet')).toContainText('has calls already');
+  };
+  await ask();
+  await expect(page.locator('#edit-save')).toHaveText('Fix the problems only');
+  await expect(page.locator('#edit-delete')).toHaveText('Make all new');
+  await page.locator('#edit-sheet [data-close]').click();
+  await expect(page.locator('#edit-sheet')).toBeHidden();
+  expect((await db.get(`spaces/_/rosters/${month}`))?.seed).toBeUndefined();
+  // Fix only: the 1st and the 5th stay, the 2nd goes to someone else, an empty day is filled
+  await ask();
+  await page.locator('#edit-save').click();
+  const toast = page.locator('.toast', { hasText: 'Fixed' });
+  await expect(toast).toBeVisible({ timeout: 15_000 });
+  await expect.poll(() => db.get(`spaces/_/rosters/${month}`).then(d => d?.seed), { timeout: 15_000 }).toBe(1);
+  expect([await con('01'), await con('05')]).toEqual([ann, dan]);
+  expect(await con('02')).not.toBe(ann);
+  expect(await con('03')).not.toBeNull();
+  await toast.getByRole('button', { name: 'Undo' }).click();
+  await expect.poll(() => con('02'), { timeout: 15_000 }).toBe(ann);
+  expect(await con('03')).toBeNull();
+});
+
 test('a roster maker moves a junior on the grid and puts them back with Undo', async ({ phone }) => {
   const page = await phone();
   await signIn(page, 'member');
