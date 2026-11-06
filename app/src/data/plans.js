@@ -47,7 +47,7 @@ const cleanWeek = cleaner({
     ? { day: r.day, session: r.session, list: r.list.slice(0, 64), juniors: (Array.isArray(r.juniors) ? r.juniors : []).filter((/** @type {unknown} */ n) => typeof n === 'string').map((/** @type {string} */ n) => n.slice(0, 60)).slice(0, 10) } : null)),
   lists: rows(400, r => (r && dayOk(r.day) && typeof r.id === 'string' ? {
     id: r.id.slice(0, 64), site: text(20)(r.site) ?? '', kind: oneOf(['ot', 'msp', 'clinic', 'hot'])(r.kind) ?? 'ot', name: text(40)(r.name) ?? '', day: r.day,
-    session: r.session === 'PM' ? 'PM' : 'AM', consultant: optText(60)(r.consultant) ?? null, ...(optText(60)(r.consultant2) ? { consultant2: optText(60)(r.consultant2) } : {}), rooms: optText(40)(r.rooms) ?? null,
+    session: r.session === 'PM' ? 'PM' : 'AM', consultant: optText(60)(r.consultant) ?? null, ...(optText(60)(r.consultant2) ? { consultant2: optText(60)(r.consultant2) } : {}), ...(optText(60)(r.consultant3) ? { consultant3: optText(60)(r.consultant3) } : {}), rooms: optText(40)(r.rooms) ?? null,
     patients: optInt(0, 200)(r.patients) ?? null, status: oneOf(['open', 'closed', 'template', 'empty', 'consultant-only'])(r.status) ?? 'open',
     need: int(0, 10)(r.need) ?? 0, ...(int(0, 10)(r.min) !== undefined ? { min: r.min } : {}), consultantOnLeave: r.consultantOnLeave === true,
     ...(r.away === true ? { away: true } : {}), ...(r.emergency === true ? { emergency: true } : {}), ...(r.holiday === true ? { holiday: true } : {}),
@@ -55,6 +55,7 @@ const cleanWeek = cleaner({
   overrides: rows(200, r => (r && typeof r.id === 'string' ? {
     id: r.id.slice(0, 64), ...(r.consultant !== undefined ? { consultant: optText(60)(r.consultant) ?? null } : {}),
     ...(r.consultant2 !== undefined ? { consultant2: optText(60)(r.consultant2) ?? null } : {}),
+    ...(r.consultant3 !== undefined ? { consultant3: optText(60)(r.consultant3) ?? null } : {}),
     ...(int(0, 10)(r.need) !== undefined ? { need: int(0, 10)(r.need) } : {}),
     ...(int(0, 10)(r.min) !== undefined ? { min: int(0, 10)(r.min) } : {}),
     ...(r.away === true ? { away: true } : {}),

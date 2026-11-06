@@ -20,7 +20,7 @@ import { callsAround } from '../roster/sections.js';
 import { listName, sectionsOf, shortOptions, whyNot } from '../roster/sections.js';
 import { gridRows, juniorsOn, move, place } from '../roster/grid.js';
 import { firstWeek, makerWeek } from '../roster/sections.js';
-import { slotsFor, STATUSES } from '../data/lists.js';
+import { slotsFor } from '../data/lists.js';
 import { activePeople } from '../data/people.js';
 import { leaveOf } from '../data/leave.js';
 import { editSheet } from './sheet.js';
@@ -223,36 +223,10 @@ export function weekScreen(ctx) {
     });
   }
 
-  /**
-   * A list's changes for this week only (consultant, patients, juniors needed, status): kept in the week's `overrides`, so
-   * the Lists tab keeps the usual pattern; "Back to the usual" drops them.
-   * @param {ReturnType<typeof model>} m @param {import('../roster/model.js').ListSlot} l
-   */
-  function weekListSheet(m, l) {
-    const cons = m.people.filter(p => p.grade === 'con' || p.rank === 'AC').map(p => p.name).sort();   // an AC can run a list
-    const had = (m.wk?.overrides ?? []).some(o => o.id === l.id);
-    sheet.open({
-      title: `${l.name}, this week`, saveLabel: 'Save',
-      note: `${l.site}, ${shortDay(l.day)} ${l.session === 'AM' ? 'morning' : 'afternoon'}. For this week only; the Lists tab keeps the usual.`,
-      values: { consultant: l.consultant ?? '', consultant2: l.consultant2 ?? '', patients: l.patients ?? null, need: l.need, min: minOf(l), status: l.status, away: !!l.away },
-      fields: [
-        { key: 'consultant', label: 'Consultant', type: 'select',
-          options: [['', 'Nobody'], ...(l.consultant && !cons.includes(l.consultant) ? [l.consultant, ...cons] : cons).map(n => /** @type {[string, string]} */ ([n, n]))] },
-        { key: 'consultant2', label: 'Shared with', type: 'select', hint: 'It runs while either consultant is in.',
-          options: v => [['', 'Nobody'], ...(l.consultant2 && !cons.includes(l.consultant2) ? [l.consultant2, ...cons] : cons).filter(n => n !== v.consultant).map(n => /** @type {[string, string]} */ ([n, n]))] },
-        { key: 'patients', label: 'Patients', type: 'number', min: 0, max: 200, hint: 'Shown on the print and the hand grid as "(21 pts)". Leave empty when not known.' },
-        { key: 'need', label: 'Juniors wanted', type: 'number', min: 0, max: 10 },
-        { key: 'min', label: 'At least', type: 'number', min: 0, max: 10, hint: 'It cannot run with fewer. Every list gets its minimum before any list gets more.' },
-        { key: 'status', label: 'Status', type: 'select', options: STATUSES },
-        { key: 'away', label: 'Consultant away (clinics close; an OT list becomes an emergency slot)', type: 'check' },
-      ],
-      // (an emergency slot's need and minimum are the rule's: kept out of the change unless typed differently)
-      onSave: v => saveOverrides(m, [[l.id, { consultant: v.consultant || null,
-        consultant2: (v.consultant && v.consultant2 !== v.consultant && v.consultant2) || ((l.consultant2 ?? null) === null ? undefined : null), patients: v.patients, status: v.status, away: v.away,
-        need: l.emergency && v.need === l.need ? undefined : v.need ?? l.need,
-        min: v.min == null || v.min === minOf(l) ? had ? m.wk?.overrides?.find(o => o.id === l.id)?.min : undefined : v.min }]]),
-      ...(had ? { deleteLabel: 'Back to the usual', onDelete: () => saveOverrides(m, [[l.id, null]]) } : {}),
-    });
+  /** A list's changes for this week only (screens/week-list.js, loaded when first used) @param {ReturnType<typeof model>} m @param {import('../roster/model.js').ListSlot} l */
+  async function weekListSheet(m, l) {
+    const { weekListSheet: open } = await import('./week-list.js');
+    open({ m, l, sheet, saveOverrides });
   }
   /**
    * Changes lists for this week only. Each change is laid over the list's earlier change (a key set to undefined drops it);

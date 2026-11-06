@@ -61,6 +61,7 @@ const SHELL = [
   'src/screens/rows.js',
   'src/screens/sheet.js',
   'src/screens/signed-out.js',
+  'src/screens/week-list.js',
   'src/screens/week.js',
   'src/shell.js',
   'src/store.js',

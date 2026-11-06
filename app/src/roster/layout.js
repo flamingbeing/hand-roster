@@ -6,7 +6,7 @@
 // her live formulas (a tally per person and an "accounted for everyone" check). The month's calls have their own small
 // layout. Pure.
 import { addDays, rangeDays, weekdayName, shortDay, MONTH_NAMES, MONTHS, monthDays } from './dates.js';
-import { DEFAULT_TIER_PLAN, TIERS, TIER_LABEL, callMapOf, conText, dayType, isJunior, leaveIndex, tiersShown } from './model.js';
+import { DEFAULT_TIER_PLAN, TIERS, TIER_LABEL, callMapOf, conText, consOf, dayType, isJunior, leaveIndex, tiersShown } from './model.js';
 import { sectionsOf } from './sections.js';
 import { juniorsOn } from './grid.js';
 
@@ -90,7 +90,7 @@ export function weekLayout(o) {
 
   const sites = [...new Set(o.lists.map(l => l.site))].sort((a, b) => (SITE_ORDER.indexOf(a) + 1 || 9) - (SITE_ORDER.indexOf(b) + 1 || 9) || a.localeCompare(b));
   /** @param {ListSlot} l @returns {boolean} */
-  const closedList = l => l.status === 'closed' || (l.kind === 'clinic' && !!l.consultant && lv.blocks(l.consultant, l.day, l.session) && (!l.consultant2 || lv.blocks(l.consultant2, l.day, l.session)));
+  const closedList = l => l.status === 'closed' || (l.kind === 'clinic' && !!l.consultant && consOf(l).every(n => lv.blocks(n, l.day, l.session)));
 
   /** @param {ListSlot} l @returns {Line} */
   function head(l) {
