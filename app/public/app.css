@@ -29,8 +29,8 @@ select { padding: .5rem 2rem .5rem .65rem; }
 
 /* ---- Week ---- */
 .wk-bar { position: relative; }
-/* the week and month bars: [<] title [>] on top, then Grid | Day, This week (off this week) and Site, then the one step
-   (Epic and Build until built, then Share) */
+/* the week and month bars: [<] title [>] on top (the week's title takes you back to this week), then Grid | Day, More
+   and Site, then the one step (Epic and Build until built) */
 .wk-bar, .cl-bar { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "prev title next" "mid mid mid" "end end end"; align-items: center; }
 .wk-mid { grid-area: mid; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
 .wk-mid .pp-views { margin: 0; }
@@ -53,6 +53,8 @@ select { padding: .5rem 2rem .5rem .65rem; }
   #calls-make { order: 9; }
 }
 .wk-title, .cl-title { margin: 0; font-size: 1.05rem; text-align: center; min-width: 0; }
+.wk-bar #week-title { display: block; width: 100%; font: inherit; font-weight: 600; color: inherit; background: none; border: 0; padding: .35rem .5rem; justify-content: center; }
+#week-title.is-away { text-decoration: underline dotted; text-underline-offset: .25em; }
 .wk-site-pick { display: inline-flex; align-items: center; gap: .35rem; }
 .wk-chips { display: flex; gap: .4rem; margin-block: var(--gap); }
 .wk-daychip { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 0; padding: .35rem 0; border-radius: var(--card-r, .9rem); line-height: 1.2; }
