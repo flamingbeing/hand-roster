@@ -1,6 +1,6 @@
 // What is true of a month's calls as they stand (after a "Make calls" or a hand edit): how many each person has, what breaks a
 // rule, and which tiers have nobody. The rules are the solver's (calls.js), asked to judge the calls as they are, not to change them. Pure.
-import { solveCalls } from './calls.js';
+import { solveCalls, zeroTiers } from './calls.js';
 import { callMapIn } from './sections.js';
 import { monthDays } from './dates.js';
 import { DEFAULT_TIER_PLAN, TIERS, canTake, dayType, isOffDay } from './model.js';
@@ -24,12 +24,12 @@ export function checkCalls(o) {
   const empty = [];
   /** @type {Map<string, { total: number, weekend: number, tiers: Record<Tier, number> }>} */
   const by = new Map();
-  for (const p of o.people) if (TIERS.some(t => canTake(p, t))) by.set(p.name, { total: 0, weekend: 0, tiers: { con: 0, reg: 0, moNuh: 0, moNtf: 0 } });
+  for (const p of o.people) if (TIERS.some(t => canTake(p, t))) by.set(p.name, { total: 0, weekend: 0, tiers: zeroTiers() });
   for (const date of monthDays(o.month)) {
     const type = dayType(date, holidays);
-    for (const t of plan[type]) {
+    for (const t of TIERS) {
       const name = map[date]?.[t];
-      if (!name) { empty.push({ date, tier: t }); continue; }
+      if (!name) { if (plan[type].includes(t)) empty.push({ date, tier: t }); continue; }
       const c = by.get(name);
       if (!c) continue;
       c.total++; c.tiers[t]++; if (isOffDay(type)) c.weekend++;

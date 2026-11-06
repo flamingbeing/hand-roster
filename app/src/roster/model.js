@@ -3,7 +3,8 @@
 import { weekday } from './dates.js';
 
 /**
- * @typedef {'con' | 'reg' | 'moNuh' | 'moNtf'} Tier  the four on-call tiers (consultant, registrar, MO at NUH, MO at NTFGH)
+ * @typedef {'con' | 'reg' | 'reg2' | 'moNuh' | 'moNtf'} Tier  the on-call tiers (consultant, registrar, a second registrar on
+ *   some days, MO at NUH, MO at NTFGH)
  * @typedef {'weekday' | 'sat' | 'sun' | 'ph'} DayType
  * @typedef {'AM' | 'PM'} Session
  *
@@ -29,7 +30,7 @@ import { weekday } from './dates.js';
  * @property {'cannot' | 'want'} type  cannot = a hard rule; want = tried for
  * @property {Tier} [tier]  a want for one tier only
  *
- * @typedef {{ date: string, con?: string | null, reg?: string | null, moNuh?: string | null, moNtf?: string | null }} CallDay
+ * @typedef {{ date: string, con?: string | null, reg?: string | null, reg2?: string | null, moNuh?: string | null, moNtf?: string | null }} CallDay
  * @typedef {Record<string, Partial<Record<Tier, string | null>>>} CallMap  date -> tier -> name
  * @typedef {Record<DayType, Tier[]>} TierPlan  which tiers are on call on each kind of day
  *
@@ -42,23 +43,34 @@ import { weekday } from './dates.js';
  * @property {Session} session
  * @property {string | null} [consultant]
  * @property {'open' | 'closed' | 'template' | 'empty' | 'consultant-only'} status  only 'open' lists take juniors
- * @property {number} need  juniors wanted
+ * @property {number} need  juniors wanted (the ideal)
+ * @property {number} [min]  juniors it cannot run without (default: 1 when it wants any); filled before any list's extras
  * @property {string} [rooms]
  * @property {number} [patients]
  * @property {boolean} [external]  run by another hospital's team, never staffed from here
  * @property {boolean} [consultantOnLeave]
+ * @property {boolean} [away]  the consultant is away this week at this session (the Epic check), as if on leave
+ * @property {boolean} [emergency]  an OT list whose consultant is away, kept as an emergency (EOT) slot: a registrar must lead
+ *   it, an MO joins only when nobody else needs them
+ * @property {boolean} [holiday]  closed for a public holiday
  */
 
-export const TIERS = /** @type {Tier[]} */ (['con', 'reg', 'moNuh', 'moNtf']);
-export const TIER_LABEL = /** @type {Record<Tier, string>} */ ({ con: 'CON', reg: 'REG', moNuh: 'MO (NUH)', moNtf: 'MO (NTFGH)' });
+export const TIERS = /** @type {Tier[]} */ (['con', 'reg', 'reg2', 'moNuh', 'moNtf']);
+export const TIER_LABEL = /** @type {Record<Tier, string>} */ ({ con: 'CON', reg: 'REG', reg2: 'REG 2', moNuh: 'MO (NUH)', moNtf: 'MO (NTFGH)' });
+export const DAY_TYPES = /** @type {[DayType, string][]} */ ([['weekday', 'Weekdays'], ['sat', 'Saturdays'], ['sun', 'Sundays'], ['ph', 'Public holidays']]);
 
-/** weekends and public holidays have fewer tiers; every part is configurable per roster */
+/** the HRM roster has all four main tiers every day, weekends and holidays too; REG 2 only on the days it is entered.
+ * A roster can change any part (its `tierPlan`) */
 export const DEFAULT_TIER_PLAN = /** @type {TierPlan} */ ({
   weekday: ['con', 'reg', 'moNuh', 'moNtf'],
-  sat: ['con', 'reg'],
-  sun: ['con'],
-  ph: ['con', 'reg'],
+  sat: ['con', 'reg', 'moNuh', 'moNtf'],
+  sun: ['con', 'reg', 'moNuh', 'moNtf'],
+  ph: ['con', 'reg', 'moNuh', 'moNtf'],
 });
+/** @param {Partial<TierPlan> | null | undefined} saved  a roster's own plan @returns {TierPlan} with the default for any day type it leaves out */
+export const tierPlanOf = saved => /** @type {TierPlan} */ (Object.fromEntries(DAY_TYPES.map(([t]) => [t, saved?.[t] ?? DEFAULT_TIER_PLAN[t]])));
+/** @param {TierPlan} plan @param {CallDay[]} calls @returns {Tier[]} the tiers a month shows: the plan's, and any entered outside it */
+export const tiersShown = (plan, calls) => TIERS.filter(t => DAY_TYPES.some(([d]) => plan[d].includes(t)) || calls.some(c => c[t]));
 
 /** @param {string} day @param {string[]} [holidays] @returns {DayType} a public holiday wins over the weekday */
 export function dayType(day, holidays = []) {
@@ -81,7 +93,7 @@ export function canTake(p, tier) {
   if (p.noCall || p.extra) return false;
   if (p.tiers) return p.tiers.includes(tier);
   if (tier === 'con') return p.grade === 'con';
-  if (tier === 'reg') return p.grade === 'reg' && p.rank !== 'Fellow';
+  if (tier === 'reg' || tier === 'reg2') return p.grade === 'reg' && p.rank !== 'Fellow';
   return p.grade !== 'con';
 }
 
@@ -105,12 +117,51 @@ export function leaveIndex(leave) {
 export function callMapOf(calls) {
   /** @type {CallMap} */
   const out = {};
-  for (const c of calls) out[c.date] = { con: c.con ?? null, reg: c.reg ?? null, moNuh: c.moNuh ?? null, moNtf: c.moNtf ?? null };
+  for (const c of calls) out[c.date] = callRow(c);
   return out;
 }
 /** @param {CallMap} map @returns {CallDay[]} rows in date order, every tier present (null = nobody) */
 export function callRowsOf(map) {
-  return Object.keys(map).sort().map(date => ({
-    date, con: map[date].con ?? null, reg: map[date].reg ?? null, moNuh: map[date].moNuh ?? null, moNtf: map[date].moNtf ?? null,
-  }));
+  return Object.keys(map).sort().map(date => ({ date, ...callRow(map[date]) }));
+}
+/** @param {Partial<Record<Tier, string | null>>} c @returns {Partial<Record<Tier, string | null>>} every main tier (null for nobody), REG 2 only when someone has it */
+export const callRow = c => Object.fromEntries(TIERS.filter(t => t !== 'reg2' || c[t]).map(t => [t, c[t] ?? null]));
+
+// How a week's lists stand once the week's facts are in, before anyone is placed. A public holiday closes every list of
+// that day. A consultant away (on leave, or marked Away in the Epic check) closes their clinics, but their OT list stays as
+// an emergency (EOT) slot: a registrar must lead it, an MO joins only when nobody else needs them (owner, 6 Nov 2026). A
+// list with no patients booked (Epic says 0) needs nobody, except an emergency slot, which is there for cases not booked;
+// an MSP list runs as usual. Each list wants `need` juniors and cannot run with fewer than its minimum (an emergency
+// slot's is 1 unless the week sets it lower). Pure, and the same answer when run again on its own output.
+
+
+/** an emergency slot: one registrar, and an MO when spare */
+export const EOT = { need: 2, min: 1 };
+
+/** @param {ListSlot} l @returns {number} the juniors a list cannot run without: its own `min`, else 1 when it wants any; never above `need` */
+export const minOf = l => Math.min(l.need, l.min ?? (l.need > 0 ? 1 : 0));
+
+/**
+ * @param {ListSlot[]} lists
+ * @param {{ leave?: Leave[], holidays?: string[] }} o
+ * @returns {ListSlot[]} new slots: status, need and min settled, and the flags `holiday`, `consultantOnLeave`, `emergency`
+ */
+export function settleLists(lists, { leave = [], holidays = [] }) {
+  const lv = leaveIndex(leave);
+  return lists.map(l => {
+    const x = { ...l };
+    if (holidays.includes(x.day)) {
+      x.holiday = true;
+      if (x.status === 'open') x.status = 'closed';
+    }
+    const gone = !!x.consultant && (!!x.away || lv.blocks(x.consultant, x.day, x.session));
+    if (gone) x.consultantOnLeave = true;
+    if (gone && x.status === 'open') {
+      if (x.kind === 'clinic' || x.kind === 'hot') x.status = 'closed';
+      else if (x.kind === 'ot' && !x.external) { x.emergency = true; x.need = EOT.need; x.min = Math.min(EOT.min, x.min ?? EOT.min); }
+    }
+    if (x.status !== 'open' || x.external || (x.patients === 0 && !x.emergency)) { x.need = 0; delete x.min; delete x.emergency; }
+    if (x.min != null && x.min > x.need) x.min = x.need;
+    return x;
+  });
 }

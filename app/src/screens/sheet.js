@@ -1,7 +1,8 @@
 // The edit sheet (#edit-sheet in index.html): one sheet for every form in the app. A screen says what to ask (fields), what
 // is there now (values) and what to do with the answer; the sheet draws the fields, checks them (the browser's own form
 // checks: required, min, max) and calls back once on Save or Delete. A `warn` function can show problems under the form as
-// the person changes it (a hand edit may still go ahead).
+// the person changes it (a hand edit may still go ahead). A form the fields can't draw (a table, the Epic check) brings its
+// own `body` and how to read it.
 import { $, dialog, h, fill } from '../dom.js';
 
 /**
@@ -24,6 +25,7 @@ import { $, dialog, h, fill } from '../dom.js';
  * @property {string} [saveLabel]
  * @property {string} [deleteLabel]  shows a Delete button when onDelete is given
  * @property {(values: Record<string, any>) => string[]} [warn]
+ * @property {{ node: HTMLElement, read: () => Record<string, any> }} [body]  drawn after the fields; its values join theirs
  * @property {(values: Record<string, any>) => unknown} [onSave]
  * @property {() => unknown} [onDelete]
  */
@@ -54,7 +56,7 @@ function make() {
     const warnBox = h('p', { class: 'small warn', role: 'status' });
     const read = () => {
       /** @type {Record<string, any>} */
-      const out = {};
+      const out = { ...spec.body?.read() };
       for (const f of spec.fields) {
         const c = controls[f.key];
         out[f.key] = f.type === 'check' ? /** @type {HTMLInputElement} */ (c).checked
@@ -95,14 +97,14 @@ function make() {
         f.hint && h('span', { class: 'small' }, f.hint));
     });
     $('edit-title').textContent = spec.title;
-    fill($('edit-body'), spec.note && h('p', { class: 'small' }, spec.note), rows, warnBox);
+    fill($('edit-body'), spec.note && h('p', { class: 'small' }, spec.note), rows, spec.body?.node, warnBox);
     $('edit-save').textContent = spec.saveLabel ?? 'Save';
     $('edit-delete').hidden = !spec.onDelete;
     $('edit-delete').textContent = spec.deleteLabel ?? 'Delete';
     current = { read, spec };
     redrawOptions();
     sheet.showModal();
-    const first = Object.values(controls)[0];
+    const first = Object.values(controls)[0] ?? spec.body?.node.querySelector('input');
     if (first && first.type !== 'date') first.focus();
   }
   return { open, close: () => { current = null; sheet.close(); } };

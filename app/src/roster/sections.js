@@ -3,7 +3,8 @@
 // buildWeek (week.js), so a hand-edited grid is judged the way a built one was. Also here: picking the parts of the stored
 // months that a week or a month needs (callsAround, monthCells, ...). Pure.
 import { addDays, rangeDays, mondayOf, monthDays } from './dates.js';
-import { callMapOf, isJunior, leaveIndex, TIERS } from './model.js';
+import { callMapOf, callRow, isJunior, leaveIndex, minOf, TIERS } from './model.js';
+import { juniorsOn } from './grid.js';
 
 /** @typedef {import('./model.js').Person} Person */
 /** @typedef {import('./model.js').Leave} Leave */
@@ -11,13 +12,16 @@ import { callMapOf, isJunior, leaveIndex, TIERS } from './model.js';
 /** @typedef {import('./model.js').ListSlot} ListSlot */
 /** @typedef {import('./grid.js').GridRow} GridRow */
 /** @typedef {{ name: string, when: 'AM' | 'PM' | 'FULL DAY', why?: string }} FreeEntry */
+/** @typedef {{ list: string, day: string, session: 'AM' | 'PM', need: number, min: number, got: number, noReg?: boolean }} Gap  noReg: an emergency slot with no registrar */
 
 /**
- * @param {{ monday: string, people: Person[], leave: Leave[], calls: CallDay[], lists: ListSlot[], grid: GridRow[], postCallAm?: boolean }} o
+ * `short` holds the lists below their minimum (the Short panel), `under` the ones with fewer than they want (not counting
+ * an emergency slot's MO). On a public holiday nobody is listed as free.
+ * @param {{ monday: string, people: Person[], leave: Leave[], calls: CallDay[], lists: ListSlot[], grid: GridRow[], postCallAm?: boolean, holidays?: string[] }} o
  * @returns {{ days: string[], leave: Record<string, string[]>, postCall: Record<string, string[]>, onCall: Record<string, Record<string, string | null>>,
- *   free: Record<string, FreeEntry[]>, short: { list: string, day: string, session: 'AM' | 'PM', need: number, got: number }[] }}
+ *   free: Record<string, FreeEntry[]>, short: Gap[], under: Gap[] }}
  */
-export function sectionsOf({ monday, people, leave, calls, lists, grid, postCallAm = true }) {
+export function sectionsOf({ monday, people, leave, calls, lists, grid, postCallAm = true, holidays = [] }) {
   const days = rangeDays(monday, addDays(monday, 4));
   const lv = leaveIndex(leave);
   const map = callMapOf(calls);
@@ -36,6 +40,7 @@ export function sectionsOf({ monday, people, leave, calls, lists, grid, postCall
     postCall[day] = prev.filter(n => names.has(n));
     leaveOut[day] = people.filter(p => lv.blocks(p.name, day)).map(p => p.name).sort();
     free[day] = [];
+    if (holidays.includes(day)) continue;
     for (const p of juniors) {
       if (lv.full(p.name, day)) continue;
       if (today.includes(p.name)) { free[day].push({ name: p.name, when: 'FULL DAY', why: 'on call' }); continue; }
@@ -46,13 +51,20 @@ export function sectionsOf({ monday, people, leave, calls, lists, grid, postCall
     }
     free[day].sort((a, b) => a.name.localeCompare(b.name));
   }
-  const short = [];
+  const regs = new Set(people.filter(p => p.grade === 'reg').map(p => p.name));
+  /** @type {Gap[]} */ const short = [];
+  /** @type {Gap[]} */ const under = [];
   for (const l of lists) {
     if (l.need <= 0 || l.status !== 'open') continue;
-    const got = grid.find(r => r.day === l.day && r.session === l.session && r.list === l.id)?.juniors.length ?? 0;
-    if (got < l.need) short.push({ list: l.id, day: l.day, session: l.session, need: l.need, got });
+    const on = grid.find(r => r.day === l.day && r.session === l.session && r.list === l.id)?.juniors ?? [], got = on.length;
+    /** @type {Gap} */
+    const gap = { list: l.id, day: l.day, session: l.session, need: l.need, min: minOf(l), got };
+    // an emergency slot must be led by a registrar, whoever else is on it
+    if (l.emergency && !on.some(n => regs.has(n))) gap.noReg = true;
+    if (got < gap.min || gap.noReg) short.push(gap);
+    else if (got < l.need && !l.emergency) under.push(gap);
   }
-  return { days, leave: leaveOut, postCall, onCall, free, short };
+  return { days, leave: leaveOut, postCall, onCall, free, short, under };
 }
 
 /**
@@ -110,7 +122,68 @@ export function monthCells(month) {
 export function callMapIn(calls, month) {
   /** @type {import('./model.js').CallMap} */
   const out = {};
-  for (const c of calls) if (c.date.startsWith(month)) out[c.date] = { con: c.con ?? null, reg: c.reg ?? null, moNuh: c.moNuh ?? null, moNtf: c.moNtf ?? null };
+  for (const c of calls) if (c.date.startsWith(month)) out[c.date] = callRow(c);
   return out;
 }
 export { mondayOf };
+
+// The Short panel's choices: for a list below its minimum, the ways to stretch the people there are, each with what it
+// costs, cheapest first: someone free that session; someone moved off a list that has more than it must (an emergency
+// slot's MO first, the lowest priority, then a list's extra junior); running with the juniors it has; closing it. An
+// emergency slot below its minimum needs a registrar, so only registrars are offered for it. Pure.
+
+/**
+ * @typedef {{ kind: 'add', name: string, text: string, cost: string }
+ *   | { kind: 'move', name: string, from: string, text: string, cost: string }
+ *   | { kind: 'fewer', min: number, text: string, cost: string }
+ *   | { kind: 'close', text: string, cost: string }} ShortOption
+ */
+
+/** @param {ListSlot} l @returns {string} 'KRWOT 3 (Dr A)' */
+export const listName = l => `${l.name}${l.consultant ? ` (${l.consultant})` : ''}`;
+
+/**
+ * @param {{ gap: Gap, lists: ListSlot[], grid: import('./grid.js').GridRow[], people: Person[], free: FreeEntry[] }} o
+ *   free: that day's free entries (sectionsOf)
+ * @returns {ShortOption[]}
+ */
+export function shortOptions({ gap, lists, grid, people, free }) {
+  const list = lists.find(l => l.id === gap.list);
+  if (!list) return [];
+  const grade = new Map(people.map(p => [p.name, p.grade]));
+  // an emergency slot without its registrar takes a registrar only
+  const needsReg = !!list.emergency && !juniorsOn(grid, gap.day, gap.session, list.id).some(n => grade.get(n) === 'reg');
+  const fits = (/** @type {string} */ n) => !needsReg || grade.get(n) === 'reg';
+  /** @type {ShortOption[]} */
+  const out = [];
+
+  for (const f of free) {
+    if (f.why || (f.when !== 'FULL DAY' && f.when !== gap.session) || !fits(f.name)) continue;
+    out.push({ kind: 'add', name: f.name, text: `Add ${f.name}`, cost: 'free that session' });
+    if (out.length >= 2) break;
+  }
+
+  /** @type {{ o: ShortOption, rank: number }[]} */
+  const moves = [];
+  for (const l of lists) {
+    if (l.id === list.id || l.day !== gap.day || l.session !== gap.session || l.status !== 'open') continue;
+    const on = juniorsOn(grid, l.day, l.session, l.id);
+    const spare = on.length - minOf(l);
+    if (spare <= 0) continue;
+    // from an emergency slot only its MO: it keeps the registrar who leads it
+    const regs = on.filter(n => grade.get(n) === 'reg');
+    const movable = l.emergency ? on.filter(n => grade.get(n) !== 'reg' || regs.length > 1) : on;
+    for (const n of movable.filter(fits)) {
+      const cost = l.emergency ? `the emergency slot ${listName(l)} loses ${grade.get(n) === 'reg' ? 'a registrar' : 'its MO'}` : `${listName(l)} drops to ${on.length - 1} of the ${l.need} it wants`;
+      moves.push({ o: { kind: 'move', name: n, from: l.id, text: `Move ${n} from ${l.name}`, cost }, rank: l.emergency ? 0 : 1 });
+    }
+  }
+  moves.sort((a, b) => a.rank - b.rank);
+  out.push(...moves.slice(0, 3).map(m => m.o));
+
+  const got = juniorsOn(grid, gap.day, gap.session, list.id).length;
+  out.push({ kind: 'fewer', min: got, text: got ? `Run with ${got}` : 'Run with no junior',
+    cost: `${got} junior${got === 1 ? '' : 's'} instead of ${gap.min}, this week only` });
+  out.push({ kind: 'close', text: 'Close it', cost: list.emergency ? 'no emergency slot that session' : list.kind === 'ot' || list.kind === 'msp' ? 'its cases move to another day' : 'its patients are rebooked' });
+  return out;
+}

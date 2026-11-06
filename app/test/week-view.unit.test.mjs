@@ -59,7 +59,8 @@ test('sections: leave, post-call (PM only), on call, free and short lists are wo
   assert.equal(free['Dr Dan Test'], 'AM');
   assert.equal(free['Dr Cat Test'], 'PM', 'placed in the AM only');
   assert.equal('Dr Eve Test' in free, false, 'consultants are not juniors');
-  assert.deepEqual(s.short.map(x => [x.list, x.need, x.got]), [['a', 2, 1], ['b', 1, 0], ['c', 1, 0]]);
+  assert.deepEqual(s.short.map(x => [x.list, x.need, x.got]), [['b', 1, 0], ['c', 1, 0]], 'below the minimum (1 when a list wants any)');
+  assert.deepEqual(s.under.map(x => [x.list, x.need, x.got]), [['a', 2, 1]], 'at its minimum but fewer than it wants');
 });
 
 test('sections: whyNot names leave, on call, post-call and a double booking', () => {

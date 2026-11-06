@@ -1,33 +1,40 @@
 // The two plans the app builds, each a document named by the time it covers.
 // rosters: a month's on-call roster, named YYYY-MM: the calls as rows (one per day, a name per tier), the entries a person
-//   fixed by hand (`locked`, 'date|tier': the solver keeps them), the month's public holidays (an input, never built in) and
+//   fixed by hand (`locked`, 'date|tier': the solver keeps them), the month's public holidays (an input, never built in), which
+//   call tiers each kind of day has (`tierPlan`, the default when left out) and
 //   what the last "Make calls" found wrong. Counts are worked out from the rows when shown.
 // weeks: a week's daily roster, named by its Monday (YYYY-MM-DD): the grid (who is on which list, one row per list), a
 //   snapshot of the week's lists as they were built (so a later change to the template does not rewrite the past), and the
 //   changes to the template for this week only (`overrides`). Leave, post-call, on-call and free are worked out from the grid
 //   when shown (roster/sections.js).
 import { cleaner, text, optText, oneOf, int, optInt, days, texts } from './ops.js';
-
-const TIERS = ['con', 'reg', 'moNuh', 'moNtf'];
+import { DAY_TYPES, TIERS } from '../roster/model.js';
 
 /** @param {unknown} v */
 const callRows = v => (Array.isArray(v)
   ? v.filter(r => r && typeof r.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.date)).slice(0, 62).map(r => ({
-    date: r.date, ...Object.fromEntries(TIERS.map(t => [t, typeof r[t] === 'string' && r[t] ? r[t].slice(0, 60) : null])),
+    date: r.date, ...Object.fromEntries(TIERS.map(t => [t, typeof r[t] === 'string' && r[t] ? r[t].slice(0, 60) : null]).filter(([t, n]) => t !== 'reg2' || n)),
   }))
+  : undefined);
+
+/** @param {unknown} v @returns {import('../roster/model.js').TierPlan | undefined} a tier list per kind of day, known tiers only */
+const tierPlan = v => (v && typeof v === 'object' && !Array.isArray(v)
+  ? /** @type {any} */ (Object.fromEntries(DAY_TYPES.map(([d]) => [d, /** @type {any} */ (v)[d]]).filter(([, t]) => Array.isArray(t))
+    .map(([d, t]) => [d, TIERS.filter(x => t.includes(x))])))
   : undefined);
 
 const cleanRoster = cleaner({
   calls: callRows,
   locked: texts(200, 40),
   holidays: days(31),
+  tierPlan,
   problems: texts(60, 160),
   minGap: int(1, 7),
   seed: int(0, 1_000_000),
   built: int(0, Number.MAX_SAFE_INTEGER),
 });
 
-/** @typedef {import('./ops.js').Row & { calls?: import('../roster/model.js').CallDay[], locked?: string[], holidays?: string[], problems?: string[], minGap?: number, seed?: number, built?: number }} RosterRow */
+/** @typedef {import('./ops.js').Row & { calls?: import('../roster/model.js').CallDay[], locked?: string[], holidays?: string[], tierPlan?: Partial<import('../roster/model.js').TierPlan>, problems?: string[], minGap?: number, seed?: number, built?: number }} RosterRow */
 /** the rosters kind, as cloud.js lists it */
 export const rosters = { COLL: 'rosters', clean: cleanRoster };
 
@@ -42,11 +49,14 @@ const cleanWeek = cleaner({
     id: r.id.slice(0, 64), site: text(20)(r.site) ?? '', kind: oneOf(['ot', 'msp', 'clinic', 'hot'])(r.kind) ?? 'ot', name: text(40)(r.name) ?? '', day: r.day,
     session: r.session === 'PM' ? 'PM' : 'AM', consultant: optText(60)(r.consultant) ?? null, rooms: optText(40)(r.rooms) ?? null,
     patients: optInt(0, 200)(r.patients) ?? null, status: oneOf(['open', 'closed', 'template', 'empty', 'consultant-only'])(r.status) ?? 'open',
-    need: int(0, 10)(r.need) ?? 0, consultantOnLeave: r.consultantOnLeave === true,
+    need: int(0, 10)(r.need) ?? 0, ...(int(0, 10)(r.min) !== undefined ? { min: r.min } : {}), consultantOnLeave: r.consultantOnLeave === true,
+    ...(r.away === true ? { away: true } : {}), ...(r.emergency === true ? { emergency: true } : {}), ...(r.holiday === true ? { holiday: true } : {}),
   } : null)),
   overrides: rows(200, r => (r && typeof r.id === 'string' ? {
     id: r.id.slice(0, 64), ...(r.consultant !== undefined ? { consultant: optText(60)(r.consultant) ?? null } : {}),
     ...(int(0, 10)(r.need) !== undefined ? { need: int(0, 10)(r.need) } : {}),
+    ...(int(0, 10)(r.min) !== undefined ? { min: int(0, 10)(r.min) } : {}),
+    ...(r.away === true ? { away: true } : {}),
     ...(r.patients !== undefined && optInt(0, 200)(r.patients) !== undefined ? { patients: optInt(0, 200)(r.patients) } : {}),
     ...(oneOf(['open', 'closed', 'template', 'empty', 'consultant-only'])(r.status) ? { status: r.status } : {}),
   } : null)),
