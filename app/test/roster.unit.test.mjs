@@ -120,6 +120,16 @@ test('calls: totals are fair within each grade and the wanted day is given', () 
   assert.ok(Object.values(r.assignments['2026-11-20']).includes('Dr Mo Dee'), 'want honoured');
 });
 
+test('calls: a request from another month is left out; an unmet want in the month is still reported', () => {
+  // another month's want has no slot here: no problem, and the month comes out as without it
+  const other = solve({ requests: [...requests, { name: 'Dr Mo Eli', date: '2026-12-05', type: 'want' }, { name: 'Dr Con Ann', date: '2026-10-30', type: 'cannot' }] });
+  assert.ok(!other.problems.some(p => p.date.slice(0, 7) !== month), other.problems.map(p => p.text).join('; '));
+  assert.deepEqual(other.assignments, solve().assignments);
+  // on leave that day, so the want cannot be met
+  const unmet = solve({ requests: [...requests, { name: 'Dr Reg Ann', date: '2026-11-12', type: 'want' }] });
+  assert.ok(unmet.problems.some(p => p.rule === 'want' && p.name === 'Dr Reg Ann' && p.date === '2026-11-12'));
+});
+
 test('calls: same seed gives the same roster, locked entries stay, prior calls count for the gap', () => {
   assert.deepEqual(solve().assignments, solve().assignments);
   const locked = { '2026-11-03': { con: 'Dr Con Ann', reg: 'Dr Reg Ben' } };

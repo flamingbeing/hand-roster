@@ -80,6 +80,40 @@ test('calls: a call given to someone off the roster is listed; a tap on the line
   await expect(page.locator('#ef-con option').first()).toHaveText('Nobody');
 });
 
+test('calls: a call set by hand is shown as such; Release them unlocks it, Undo locks it again', async ({ phone }) => {
+  const page = await phone();
+  await signIn(page, 'member');
+  // a month of its own, eight ahead (the test above uses seven)
+  const now = new Date();
+  const ahead = new Date(now.getFullYear(), now.getMonth() + 8, 1);
+  const month = `${ahead.getFullYear()}-${String(ahead.getMonth() + 1).padStart(2, '0')}`;
+  const title = `${ahead.toLocaleString('en-GB', { month: 'long' })} ${ahead.getFullYear()}`;
+  const con = uniq('Dr Ann Test');
+  await db.put(`spaces/_/people/${con}`, { name: con, grade: 'con', rank: 'Consultant', active: true, updatedAt: Date.now() });
+  await db.put(`spaces/_/rosters/${month}`, { calls: [], locked: [], updatedAt: Date.now() });
+  await openTab(page, 'calls');
+  for (let i = 0; i < 12 && (await page.locator('#calls-title').textContent()) !== title; i++) await page.getByRole('button', { name: 'Next month' }).click();
+  await expect(page.locator('#calls-title')).toHaveText(title);
+  await expect(page.locator('#calls-release')).toHaveCount(0);
+  // a hand edit: the day's CON set in its sheet
+  await clickOpens(page.locator(`#calls-host .cl-day[data-day="${month}-03"]`), page.locator('#edit-sheet'));
+  await expect(page.locator(`#ef-con option[value="${con}"]`)).toHaveCount(1, { timeout: 15_000 });
+  await page.locator('#ef-con').selectOption(con);
+  await page.locator('#edit-save').click();
+  const locks = () => db.get(`spaces/_/rosters/${month}`).then(d => d?.locked);
+  await expect.poll(locks, { timeout: 15_000 }).toEqual([`${month}-03|con`]);
+  await expect(page.locator('#calls-host .cl-state')).toContainText('1 set by hand.');
+  await expect(page.locator('#calls-host .cl-hand-key')).toHaveText('Bold: set by hand, kept when the calls are made again.');
+  // Release them: the lock goes, the call stays
+  await page.locator('#calls-release').click();
+  await expect.poll(locks, { timeout: 15_000 }).toEqual([]);
+  await expect(page.locator('#calls-release')).toHaveCount(0);
+  expect((await db.get(`spaces/_/rosters/${month}`))?.calls).toEqual([expect.objectContaining({ date: `${month}-03`, con })]);
+  await page.locator('.toast', { hasText: 'Released' }).getByRole('button', { name: 'Undo' }).click();
+  await expect.poll(locks, { timeout: 15_000 }).toEqual([`${month}-03|con`]);
+  await expect(page.locator('#calls-release')).toBeVisible();
+});
+
 test('a roster maker moves a junior on the grid and puts them back with Undo', async ({ phone }) => {
   const page = await phone();
   await signIn(page, 'member');

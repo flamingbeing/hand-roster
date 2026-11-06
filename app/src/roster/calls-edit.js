@@ -22,6 +22,27 @@ export function setCall(calls, locked, date, tier, name) {
   return { calls: callRowsOf(map), locked: name ? [...keep, key] : keep };
 }
 
+/**
+ * A day sheet's save, laid onto the month as it is now. Only the tiers the person changed in the sheet are set (`before` is
+ * what the sheet opened with, `after` what it saves), so a call someone else set while the sheet was open stays: another
+ * day's, or a tier of this day the person left alone.
+ * @param {CallDay[]} calls the month's calls now @param {string[]} locked the month's locked list now @param {string} date
+ * @param {Partial<Record<Tier, string | null>>} before @param {Partial<Record<Tier, string | null>>} after
+ * @returns {{ calls: CallDay[], locked: string[] }}
+ */
+export function applyDayEdit(calls, locked, date, before, after) {
+  let state = { calls, locked };
+  for (const t of TIERS) {
+    if (!(t in after)) continue;
+    const name = after[t] || null;
+    if (name !== (before[t] || null)) state = setCall(state.calls, state.locked, date, t, name);
+  }
+  return state;
+}
+
+/** @param {string[]} locked @param {CallDay[]} calls @returns {number} how many calls are set by hand (locked and holding a name) */
+export const handCount = (locked, calls) => Object.values(lockedMap(locked, calls)).reduce((n, row) => n + Object.values(row).filter(Boolean).length, 0);
+
 /** @param {string[]} locked @returns {import('./model.js').CallMap} the locked entries, with the names from `calls` @param {CallDay[]} calls */
 export function lockedMap(locked, calls) {
   const map = callMapOf(calls);
