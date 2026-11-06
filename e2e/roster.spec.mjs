@@ -218,6 +218,44 @@ test('a roster maker moves a junior on the grid and puts them back with Undo', a
   await expect(on(b)).toHaveCount(0);
 });
 
+test('Build again on a week changed by hand: Cancel changes nothing, Keep builds around the hand placement, Undo', async ({ phone }) => {
+  const page = await phone();
+  await signIn(page, 'member');
+  await openWeek(page);
+  // a week of its own, nineteen on
+  for (let i = 0; i < 19; i++) await page.locator('#week-next').click();
+  await expect(page.locator('#week-title')).toHaveClass(/is-away/);
+  const mon = /** @type {string} */ (await page.locator('#week-grid .wk-day').first().getAttribute('data-day'));
+  const [t, t2, name] = [uniq('OT K'), uniq('OT L'), uniq('Dr Kay Test')];
+  // on lists by hand only, so no build puts them there by itself: the grid differs from its build and the placement is an ask
+  await db.put(`spaces/_/people/${name}`, { name, grade: 'mo', rank: 'MO', active: true, byHand: true, updatedAt: Date.now() });
+  for (const id of [t, t2]) await db.put(`spaces/_/lists/${id}`, { site: 'NUH', kind: 'ot', name: id, wd: 1, session: 'AM', need: 1, status: 'open', updatedAt: Date.now() });
+  // the lists are on the page (unbuilt, the week draws them from the template) before the week is built over them
+  for (const id of [t, t2]) await expect(page.locator(`#week-table .wt-list[data-list="${id}"]`)).toHaveCount(1, { timeout: 15_000 });
+  const list = (/** @type {string} */ id) => ({ id, site: 'NUH', kind: 'ot', name: id, day: mon, session: 'AM', consultant: null, status: 'open', need: 1 });
+  await db.put(`spaces/_/weeks/${mon}`, { lists: [list(t), list(t2)], grid: [{ day: mon, session: 'AM', list: t, juniors: [name] }], seed: 1, built: Date.now(), updatedAt: Date.now() });
+  await expect(page.locator(`#week-table .wt-list[data-list="${t}"] .wt-name`, { hasText: name })).toBeVisible({ timeout: 15_000 });
+  const week = async () => { const w = await db.get(`spaces/_/weeks/${mon}`); return [w?.seed, w?.grid?.find((/** @type {any} */ r) => r.list === t)?.juniors]; };
+  const again = async () => {
+    await page.locator('#week-more').click();
+    await clickOpens(page.getByRole('menuitem', { name: 'Build again' }), page.locator('#edit-sheet'));
+    await expect(page.locator('#edit-sheet')).toContainText('people you took off may be placed again', { timeout: 15_000 });
+  };
+  await again();
+  await expect(page.locator('#edit-save')).toHaveText('Keep my changes');
+  await expect(page.locator('#edit-delete')).toHaveText('Replace them');
+  await page.locator('#edit-sheet [data-close]').click();
+  await expect(page.locator('#edit-sheet')).toBeHidden();
+  expect(await week()).toEqual([1, [name]]);
+  await again();
+  await page.locator('#edit-save').click();
+  const toast = page.locator('.toast', { hasText: 'Kept 1 of 1 hand placement.' });
+  await expect(toast).toBeVisible();
+  await expect.poll(week, { timeout: 15_000 }).toEqual([2, [name]]);
+  await toast.getByRole('button', { name: 'Undo' }).click();
+  await expect.poll(week, { timeout: 15_000 }).toEqual([1, [name]]);
+});
+
 test('a built week marks a junior on a list on a day they are now on leave, and the clash opens the move sheet', async ({ phone }) => {
   const page = await phone();
   await signIn(page, 'member');
