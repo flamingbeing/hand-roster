@@ -9,8 +9,7 @@
 // Registrars are preferred on OT and MSP lists, MOs on clinics; sessions are balanced across the week; a list's PM keeps
 // its AM juniors. Deterministic from the seed. Pure: no page, no clock.
 import { addDays, mondayOf, rangeDays } from './dates.js';
-import { TIERS, callMapOf, isJunior, leaveIndex } from './model.js';
-import { minOf, settleLists } from './settle.js';
+import { TIERS, callMapOf, isJunior, leaveIndex, minOf, settleLists } from './model.js';
 
 /** @typedef {import('./model.js').Person} Person */
 /** @typedef {import('./model.js').Leave} Leave */

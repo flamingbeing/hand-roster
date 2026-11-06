@@ -11,12 +11,10 @@ import { ICONS } from '../icons.js';
 import { $, sectionScreen, h, fill } from '../dom.js';
 import { REFUSED } from '../items.js';
 import { addDays, mondayOf, nextWorkday, rangeDays, shortDay, weekday, weekdayName, MONTHS, todayKey } from '../roster/dates.js';
-import { TIERS, TIER_LABEL, dayType, tierPlanOf } from '../roster/model.js';
+import { TIERS, TIER_LABEL, dayType, minOf, settleLists, tierPlanOf } from '../roster/model.js';
 import { callsAround } from '../roster/sections.js';
-import { sectionsOf, whyNot } from '../roster/sections.js';
+import { listName, sectionsOf, shortOptions, whyNot } from '../roster/sections.js';
 import { gridRows, juniorsOn, move, place } from '../roster/grid.js';
-import { minOf, settleLists } from '../roster/settle.js';
-import { listName, shortOptions } from '../roster/short.js';
 import { slotsFor, STATUSES } from '../data/lists.js';
 import { activePeople } from '../data/people.js';
 import { leaveOf } from '../data/leave.js';
@@ -322,7 +320,7 @@ export function weekScreen(ctx) {
         const l = m.lists.find(x => x.id === gap.list);
         if (!l) return null;
         const opts = canWrite ? shortOptions({ gap, lists: m.lists, grid: m.grid, people: m.people, free: sec.free[gap.day] ?? [] }) : [];
-        /** @param {import('../roster/short.js').ShortOption} o */
+        /** @param {import('../roster/sections.js').ShortOption} o */
         const apply = o => {
           if (o.kind === 'add') return saveGrid({ grid: place(m.grid, gap.day, gap.session, l.id, o.name) });
           if (o.kind === 'move') return saveGrid({ grid: move(m.grid, { day: gap.day, session: gap.session, name: o.name, to: l.id }) });

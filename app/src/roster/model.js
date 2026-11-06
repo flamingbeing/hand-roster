@@ -126,3 +126,42 @@ export function callRowsOf(map) {
 }
 /** @param {Partial<Record<Tier, string | null>>} c @returns {Partial<Record<Tier, string | null>>} every main tier (null for nobody), REG 2 only when someone has it */
 export const callRow = c => Object.fromEntries(TIERS.filter(t => t !== 'reg2' || c[t]).map(t => [t, c[t] ?? null]));
+
+// How a week's lists stand once the week's facts are in, before anyone is placed. A public holiday closes every list of
+// that day. A consultant away (on leave, or marked Away in the Epic check) closes their clinics, but their OT list stays as
+// an emergency (EOT) slot: a registrar must lead it, an MO joins only when nobody else needs them (owner, 6 Nov 2026). A
+// list with no patients booked (Epic says 0) needs nobody, except an emergency slot, which is there for cases not booked;
+// an MSP list runs as usual. Each list wants `need` juniors and cannot run with fewer than its minimum (an emergency
+// slot's is 1 unless the week sets it lower). Pure, and the same answer when run again on its own output.
+
+
+/** an emergency slot: one registrar, and an MO when spare */
+export const EOT = { need: 2, min: 1 };
+
+/** @param {ListSlot} l @returns {number} the juniors a list cannot run without: its own `min`, else 1 when it wants any; never above `need` */
+export const minOf = l => Math.min(l.need, l.min ?? (l.need > 0 ? 1 : 0));
+
+/**
+ * @param {ListSlot[]} lists
+ * @param {{ leave?: Leave[], holidays?: string[] }} o
+ * @returns {ListSlot[]} new slots: status, need and min settled, and the flags `holiday`, `consultantOnLeave`, `emergency`
+ */
+export function settleLists(lists, { leave = [], holidays = [] }) {
+  const lv = leaveIndex(leave);
+  return lists.map(l => {
+    const x = { ...l };
+    if (holidays.includes(x.day)) {
+      x.holiday = true;
+      if (x.status === 'open') x.status = 'closed';
+    }
+    const gone = !!x.consultant && (!!x.away || lv.blocks(x.consultant, x.day, x.session));
+    if (gone) x.consultantOnLeave = true;
+    if (gone && x.status === 'open') {
+      if (x.kind === 'clinic' || x.kind === 'hot') x.status = 'closed';
+      else if (x.kind === 'ot' && !x.external) { x.emergency = true; x.need = EOT.need; x.min = Math.min(EOT.min, x.min ?? EOT.min); }
+    }
+    if (x.status !== 'open' || x.external || (x.patients === 0 && !x.emergency)) { x.need = 0; delete x.min; delete x.emergency; }
+    if (x.min != null && x.min > x.need) x.min = x.need;
+    return x;
+  });
+}

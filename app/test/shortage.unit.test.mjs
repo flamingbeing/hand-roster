@@ -3,11 +3,11 @@
 // default, a roster's own plan, REG 2 by hand). Invented names only.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { settleLists, minOf, EOT } from '../src/roster/settle.js';
+import { settleLists, minOf, EOT } from '../src/roster/model.js';
 import { buildWeek } from '../src/roster/week.js';
 import { gridRows } from '../src/roster/grid.js';
 import { sectionsOf } from '../src/roster/sections.js';
-import { shortOptions } from '../src/roster/short.js';
+import { shortOptions } from '../src/roster/sections.js';
 import { solveCalls } from '../src/roster/calls.js';
 import { checkCalls } from '../src/roster/calls-check.js';
 import { weekLayout, handGrid } from '../src/roster/layout.js';
