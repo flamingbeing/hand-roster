@@ -11,7 +11,7 @@ import { ICONS } from '../icons.js';
 import { $, sectionScreen, h, fill } from '../dom.js';
 import { REFUSED } from '../items.js';
 import { addDays, mondayOf, nextWorkday, rangeDays, shortDay, weekday, weekdayName, MONTHS, todayKey } from '../roster/dates.js';
-import { TIERS, TIER_LABEL, dayType, minOf, settleLists, tierPlanOf } from '../roster/model.js';
+import { TIERS, TIER_LABEL, dayType, minOf, regLed, settleLists, tierPlanOf } from '../roster/model.js';
 import { callsAround } from '../roster/sections.js';
 import { listName, sectionsOf, shortOptions, whyNot } from '../roster/sections.js';
 import { gridRows, juniorsOn, move, place } from '../roster/grid.js';
@@ -328,7 +328,7 @@ export function weekScreen(ctx) {
           return saveOverrides(m, [[l.id, { status: 'closed' }]], { grid: m.grid.map(r => (r.list === l.id && r.day === gap.day && r.session === gap.session ? { ...r, juniors: [] } : r)) });
         };
         return h('li', { class: 'sh-item' },
-          h('p', {}, h('b', {}, `${weekdayName(gap.day)} ${gap.session} · ${l.site} ${listName(l)}`), gap.noReg ? ' emergency slot with no registrar to lead it' : ` ${gap.got} of at least ${gap.min}`),
+          h('p', {}, h('b', {}, `${weekdayName(gap.day)} ${gap.session} · ${l.site} ${listName(l)}`), gap.noReg ? (l.emergency ? ' emergency slot with no registrar to lead it' : ' no registrar (an MSP list always needs one)') : ` ${gap.got} of at least ${gap.min}`),
           opts.length > 0 && h('div', { class: 'sh-options' }, opts.map(o => h('button', { type: 'button', class: 'sh-option', onclick: () => apply(o) },
             h('span', {}, o.text), h('span', { class: 'small' }, o.cost)))));
       }))];
@@ -343,7 +343,7 @@ export function weekScreen(ctx) {
       : l.emergency ? 'emergency slot (consultant away): a registrar leads' : l.patients === 0 ? 'no patients booked' : '';
     const noteBits = [l.rooms, l.patients != null && app.settings.get('showPatients') ? `${l.patients} pts` : '', state].filter(Boolean);
     const min = minOf(l);
-    const noReg = open && !!l.emergency && !juniors.some(n => m.people.find(p => p.name === n)?.grade === 'reg');
+    const noReg = open && regLed(l) && !juniors.some(n => m.people.find(p => p.name === n)?.grade === 'reg');
     const short = open && (juniors.length < min || noReg);
     const under = open && !short && !l.emergency && juniors.length < l.need;
     const canWrite = ctx.canWrite();

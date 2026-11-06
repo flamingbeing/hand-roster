@@ -4,12 +4,13 @@
 // day ("on call"); the day after a call is post-call, which takes the PM only (the AM can still be rostered, `postCallAm:
 // false` takes the whole day); a public holiday closes the day's lists and a consultant away closes their clinics but keeps
 // their OT as an emergency slot (settle.js); only 'open' lists take juniors. When there are too few juniors the order is the
-// owner's (6 Nov 2026): every list's minimum first (elective OT, MSP, HOT and clinics alike: none can be left), then a
+// owner's (6 Nov 2026): every list's minimum first (elective OT, MSP, HOT and clinics alike: none can be left; an MSP's
+// minimum includes a registrar), then a
 // registrar for each emergency slot, then the lists' extras (a second OT or MSP junior), then an emergency slot's MO.
 // Registrars are preferred on OT and MSP lists, MOs on clinics; sessions are balanced across the week; a list's PM keeps
 // its AM juniors. Deterministic from the seed. Pure: no page, no clock.
 import { addDays, mondayOf, rangeDays } from './dates.js';
-import { TIERS, callMapOf, isJunior, leaveIndex, minOf, settleLists } from './model.js';
+import { TIERS, callMapOf, isJunior, leaveIndex, minOf, regLed, settleLists } from './model.js';
 
 /** @typedef {import('./model.js').Person} Person */
 /** @typedef {import('./model.js').Leave} Leave */
@@ -122,8 +123,11 @@ export function buildWeek(o) {
       // 2. the rest in the owner's order, each step: the PM keeps the AM's juniors on the same list (same name, site and
       // consultant), then the hardest lists first
       const plain = order.filter(l => !l.emergency), eot = order.filter(l => l.emergency);
+      const msp = plain.filter(regLed);
+      const isReg = (/** @type {string} */ n) => juniors.find(x => x.name === n)?.grade === 'reg';
       /** @type {[ListSlot[], (l: ListSlot) => number, (p: Person) => boolean][]} */
       const steps = [
+        [msp, () => 1, p => p.grade === 'reg'],
         [plain, minOf, () => true],
         [eot, minOf, p => p.grade === 'reg'],
         [plain, l => l.need, () => true],
@@ -147,10 +151,11 @@ export function buildWeek(o) {
         while ((placed.get(l.id)?.length ?? 0) < upTo) {
           let best = null;
           let bestScore = Infinity;
-          // registrars go last (the slot is still filled when nobody else is free) while there are no more of them than emergency slots still without one (an MO does
-          // elsewhere what only a registrar does there)
-          const regsLeft = l.emergency ? Infinity : juniors.filter(p => p.grade === 'reg' && available(p, session)).length;
-          const keepRegs = regsLeft <= eot.filter(e => !(placed.get(e.id) ?? []).some(n => juniors.find(x => x.name === n)?.grade === 'reg')).length;
+          // registrars go last (the slot is still filled when nobody else is free) while there are no more of them than MSP
+          // lists and emergency slots still without one (an MO does elsewhere what only a registrar does there)
+          const lacksReg = (/** @type {ListSlot} */ x) => !(placed.get(x.id) ?? []).some(isReg);
+          const regsLeft = regLed(l) && lacksReg(l) ? Infinity : juniors.filter(p => p.grade === 'reg' && available(p, session)).length;
+          const keepRegs = regsLeft <= [...msp, ...eot].filter(e => regLed(e) && lacksReg(e)).length;
           for (const p of juniors) {
             if (!may(p) || !available(p, session)) continue;
             const st = stats[p.name];
@@ -170,7 +175,7 @@ export function buildWeek(o) {
       for (const l of todays) {
         const got = placed.get(l.id) ?? [], min = minOf(l);
         grid[day][session].push({ list: l.id, juniors: got });
-        const noReg = !!l.emergency && !got.some(n => juniors.find(x => x.name === n)?.grade === 'reg');
+        const noReg = regLed(l) && !got.some(isReg);
         if (got.length < (l.emergency ? min : l.need) || noReg) problems.push({ list: l.id, day, session, need: l.need, min, got: got.length, ...(noReg ? { noReg } : {}) });
       }
     }
