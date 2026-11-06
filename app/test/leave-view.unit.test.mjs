@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { expandDays, groupByMonth, requestRangeClashes, newLeaveRows, pastePreview, leaveKey, MAX_BAD } from '../src/roster/leave-view.js';
-import { parseInfo } from '../src/roster/parse-info.js';
+import { parseInfo, yearFor } from '../src/roster/parse-info.js';
 import { MAX_DAYS, MAX_LINES } from '../src/roster/leave-clash.js';
 
 const ANN = 'Dr Ann Test';
@@ -86,6 +86,25 @@ test('pasted leave: a range over a month end and over the year end is read and k
   assert.deepEqual(info.problems, []);
   const { rows } = newLeaveRows(info.leave, [{ id: 'x', name: ANN, from: '2026-10-30', to: '2026-10-31' }]);
   assert.deepEqual(rows.map(r => [r.name, r.from, r.to]), [[ANN, '2026-10-30', '2026-11-02'], [BO, '2026-12-30', '2027-01-02']]);
+});
+
+test('pasted leave: read late or early in the year, a date takes the year around today', () => {
+  const leave = (/** @type {string} */ text, /** @type {string} */ today) => parseInfo(text, { today, start: 'leave' }).leave.map(l => [l.from, l.to]);
+  // January pasted in December is next year's, December pasted in January last year's
+  assert.deepEqual(leave(`${BO} 4 to 8 Jan (away Mon to Fri)`, '2026-12-21'), [['2027-01-04', '2027-01-08']]);
+  assert.deepEqual(leave(`${ANN} 28 Dec`, '2027-01-03'), [['2026-12-28', '2026-12-28']]);
+  // a range over the year end starts this year, read either side of it
+  assert.deepEqual(leave(`${BO} 30 Dec to 2 Jan`, '2026-12-21'), [['2026-12-30', '2027-01-02']]);
+  assert.deepEqual(leave(`${BO} 30 Dec to 2 Jan`, '2027-01-01'), [['2026-12-30', '2027-01-02']]);
+  // the recent past stays this year
+  assert.deepEqual(leave(`${ANN} 12 Nov\n${ANN} 3 Oct\n${ANN} 3 Aug`, '2026-11-07'), [['2026-11-12', '2026-11-12'], ['2026-10-03', '2026-10-03'], ['2026-08-03', '2026-08-03']]);
+  // calls in the same block take the same year: 4 Jan 2027 is a Monday
+  const info = parseInfo('Calls (Reg / NUH MO / NTF MO)\nMon 4 Jan (A / B / C)', { today: '2026-12-21' });
+  assert.deepEqual(info.problems, []);
+  assert.equal(info.calls[0].date, '2027-01-04');
+  // the window runs from 3 months before today's month to 8 after
+  assert.deepEqual([8, 7, 12].map(m => yearFor(m, '2026-11-07')), [2026, 2027, 2026]);
+  assert.deepEqual([9, 10, 12].map(m => yearFor(m, '2027-01-15')), [2027, 2026, 2026]);
 });
 
 test('pasted leave: lines with no heading read as leave; the preview counts and names what it could not read', () => {

@@ -105,12 +105,13 @@ export function create(ctx) {
   async function openPaste() {
     let parseInfo;
     try { ({ parseInfo } = await import('../roster/parse-info.js')); } catch { toast('Could not open the paste box.'); return; }
-    // the dates are this year's; a range running past December rolls into the next
-    const year = Number(todayKey().slice(0, 4));
+    // each date takes the year that puts it from 3 months before today to 8 after (January pasted in December is next
+    // year's); a range running past December rolls into the next. Today is read when the box opens.
+    const today = todayKey();
     const leaveRows = () => /** @type {import('../data/leave.js').LeaveRow[]} */ (/** @type {any} */ (store.get('leave')));
     /** @param {string} text */
     const read = text => {
-      const info = parseInfo(text, { year, start: 'leave' });
+      const info = parseInfo(text, { today, start: 'leave' });
       return { info, picked: newLeaveRows(info.leave, leaveRows()) };
     };
     sheet.open({
