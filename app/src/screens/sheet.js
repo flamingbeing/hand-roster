@@ -43,10 +43,13 @@ function make() {
   let current = null;
 
   sheet.addEventListener('close', async () => {
-    const c = current; current = null;
+    // The dialog keeps its returnValue, and Cancel, Esc, the backdrop and a drag close it with none: clear it after use
+    // (and before each open) so a Cancel never runs the last sheet's Save or Delete again.
+    const c = current, said = sheet.returnValue;
+    current = null; sheet.returnValue = '';
     if (!c) return;
-    if (sheet.returnValue === 'save') await c.spec.onSave?.(c.read());
-    else if (sheet.returnValue === 'delete') await c.spec.onDelete?.();
+    if (said === 'save') await c.spec.onSave?.(c.read());
+    else if (said === 'delete') await c.spec.onDelete?.();
   });
   $('edit-delete').addEventListener('click', () => sheet.close('delete'));
 
@@ -66,6 +69,7 @@ function make() {
       }
       return out;
     };
+    const warnNow = () => { warnBox.textContent = (spec.warn?.(read()) ?? []).join(' '); };
     const redrawOptions = () => {
       const now = read();
       for (const f of spec.fields) if (f.type === 'select' && typeof f.options === 'function') {
@@ -73,8 +77,7 @@ function make() {
         fill(c, f.options(now).map(([v, l]) => h('option', { value: v }, l)));
         c.value = [...c.options].some(o => o.value === keep) ? keep : c.options[0]?.value ?? '';
       }
-      const w = spec.warn?.(read()) ?? [];
-      warnBox.textContent = w.join(' ');
+      warnNow();
     };
     const rows = spec.fields.map(f => {
       const type = f.type ?? 'text';
@@ -90,9 +93,10 @@ function make() {
         control = h('input', { id: `ef-${f.key}`, type: 'checkbox', checked: !!values[f.key] });
       } else {
         control = h('input', { id: `ef-${f.key}`, type, value: values[f.key] ?? '', required: f.required, maxlength: type === 'text' ? f.max : null,
-          min: type === 'number' ? f.min : null, max: type === 'number' ? f.max : null, autocomplete: 'off', list: f.list || null, inputmode: type === 'number' ? 'numeric' : null });
+          min: type === 'number' ? f.min : null, max: type === 'number' ? f.max : null, autocomplete: 'off', list: f.list || null, inputmode: type === 'number' ? 'numeric' : null, 'aria-required': f.required ? 'true' : null });
       }
       controls[f.key] = /** @type {any} */ (control);
+      if (f.hint) control.setAttribute('aria-describedby', `eh-${f.key}`);
       if (type === 'date') {
         const date = /** @type {HTMLInputElement} */ (control);
         let was = date.value;
@@ -105,9 +109,11 @@ function make() {
         });
       }
       control.addEventListener(type === 'select' || type === 'check' || type === 'date' ? 'change' : 'input', redrawOptions);
-      return h('label', { class: type === 'check' ? 'field field-check' : 'field', for: `ef-${f.key}` },
-        type === 'check' ? [control, h('span', {}, f.label)] : [h('span', {}, f.label), control],
-        f.hint && h('span', { class: 'small' }, f.hint));
+      // the hint sits outside the label so it is read as the field's description, not part of its name
+      const label = h('label', { for: `ef-${f.key}` }, f.label);
+      return h('div', { class: type === 'check' ? 'field field-check' : 'field' },
+        type === 'check' ? [control, label] : [label, control],
+        f.hint && h('span', { class: 'small', id: `eh-${f.key}` }, f.hint));
     });
     $('edit-title').textContent = spec.title;
     fill($('edit-body'), spec.note && h('p', { class: 'small' }, spec.note), rows, spec.body?.node, warnBox);
@@ -116,9 +122,13 @@ function make() {
     $('edit-delete').textContent = spec.deleteLabel ?? 'Delete';
     current = { read, spec };
     redrawOptions();
+    // a warning there at open is set again once the sheet shows, so the live region reads it out
+    warnBox.textContent = '';
+    sheet.returnValue = '';
     sheet.showModal();
+    requestAnimationFrame(warnNow);
     const first = Object.values(controls)[0] ?? spec.body?.node.querySelector('input');
     if (first && first.type !== 'date') first.focus();
   }
-  return { open, close: () => { current = null; sheet.close(); } };
+  return { open, close: () => { current = null; sheet.returnValue = ''; sheet.close(); } };
 }

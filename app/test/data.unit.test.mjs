@@ -99,11 +99,14 @@ test('rosters: calls rows, locked entries, holidays; the month document keeps on
 test('weeks: grid rows, the lists snapshot and overrides are cleaned', () => {
   const c = weeks.clean({
     grid: [{ day: '2026-11-02', session: 'AM', list: 'l1', juniors: ['Dr A', 5] }, { day: 'nope', session: 'AM', list: 'l1', juniors: [] }],
-    lists: [{ id: 'l1', site: 'NUH', kind: 'ot', name: 'OT 3', day: '2026-11-02', session: 'AM', need: 2, status: 'open', consultant: 'Dr B' }],
+    lists: [{ id: 'l1', site: 'NUH', kind: 'ot', name: 'OT 3', day: '2026-11-02', session: 'AM', need: 2, status: 'open', consultant: 'Dr B' },
+      { id: 'l2', site: 'NTFGH', kind: 'ot', name: 'OT 9', day: '2026-11-02', session: 'PM', need: 2, status: 'open', external: true }],
     overrides: [{ id: 'l1', need: 3, consultant: '' }, { nope: 1 }, { id: 'l2', patients: '21' }, { id: 'l3', patients: null }, { id: 'l4', patients: 900 }],
   });
   assert.deepEqual(c.grid, [{ day: '2026-11-02', session: 'AM', list: 'l1', juniors: ['Dr A'] }]);
   assert.equal(/** @type {any} */ (c.lists)[0].consultant, 'Dr B');
+  assert.equal(/** @type {any} */ (c.lists)[0].external, undefined);
+  assert.equal(/** @type {any} */ (c.lists)[1].external, true, 'run by another team survives the snapshot');
   assert.deepEqual(c.overrides, [{ id: 'l1', consultant: null, need: 3 }, { id: 'l2', patients: 21 }, { id: 'l3', patients: null }, { id: 'l4' }]);
 });
 

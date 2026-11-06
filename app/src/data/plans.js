@@ -51,6 +51,7 @@ const cleanWeek = cleaner({
     patients: optInt(0, 200)(r.patients) ?? null, status: oneOf(['open', 'closed', 'template', 'empty', 'consultant-only'])(r.status) ?? 'open',
     need: int(0, 10)(r.need) ?? 0, ...(int(0, 10)(r.min) !== undefined ? { min: r.min } : {}), consultantOnLeave: r.consultantOnLeave === true,
     ...(r.away === true ? { away: true } : {}), ...(r.emergency === true ? { emergency: true } : {}), ...(r.holiday === true ? { holiday: true } : {}),
+    ...(r.external === true ? { external: true } : {}),   // run by another team: the Week tab settles from this snapshot
   } : null)),
   overrides: rows(200, r => (r && typeof r.id === 'string' ? {
     id: r.id.slice(0, 64), ...(r.consultant !== undefined ? { consultant: optText(60)(r.consultant) ?? null } : {}),
