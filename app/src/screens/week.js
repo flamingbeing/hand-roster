@@ -77,19 +77,20 @@ export function weekScreen(ctx) {
   $('week-prev').replaceChildren(icon(ICONS.chevronLeft)); $('week-next').replaceChildren(icon(ICONS.chevronRight));
   $('week-prev').addEventListener('click', () => step(-1));
   $('week-next').addEventListener('click', () => step(1));
-  $('week-today').addEventListener('click', () => { placed = true; monday = firstWeek(todayKey()); selected = rangeDays(monday, addDays(monday, 4)).includes(todayKey()) ? todayKey() : monday; draw(); });
+  $('week-title').addEventListener('click', () => {   // the date takes you back to this week
+    placed = true; monday = firstWeek(todayKey()); selected = rangeDays(monday, addDays(monday, 4)).includes(todayKey()) ? todayKey() : monday; draw(); });
   $('week-site').addEventListener('change', e => { site = /** @type {HTMLSelectElement} */ (e.target).value; draw(); });
-  $('week-share').replaceChildren(icon(ICONS.share), 'Share');
-  $('week-share').addEventListener('click', () => {
+  $('week-more').replaceChildren(icon(ICONS.ellipsis), 'More');
+  $('week-more').addEventListener('click', () => {
     const canWrite = ctx.canWrite(), m = model();
-    openMenu($('week-share'), [
+    openMenu($('week-more'), [
       { label: 'Copy for WhatsApp', icon: ICONS.clipboardCopy, run: () => copyTomorrow() },
       { label: 'Excel (CORE)', icon: ICONS.download, run: () => exportXlsx('core') },
       { label: 'Excel (hand grid)', icon: ICONS.download, run: () => exportXlsx('hand') },
       { label: 'Print', icon: ICONS.printer, run: () => printWeek() },
       ...(canWrite && m.built && m.lists.length ? [null, { label: 'Check against Epic', icon: ICONS.listChecks, run: () => epicSheet(model()) },
         { label: 'Build again', icon: ICONS.refreshCw, run: () => build() }] : []),
-    ], { label: 'Share the week' });
+    ], { label: 'More' });
   });
   // Ctrl+P and the browser's own print draw the same sheet, once the export code has been loaded by a button or the idle load below
   /** @type {typeof import('./export.js') | null} */
@@ -223,10 +224,12 @@ export function weekScreen(ctx) {
     });
   }
 
-  /** A list's changes for this week only (screens/week-list.js, loaded when first used) @param {ReturnType<typeof model>} m @param {import('../roster/model.js').ListSlot} l */
-  async function weekListSheet(m, l) {
+  /** A list's changes for this week only (screens/week-list.js, loaded when first used) @param {import('../roster/model.js').ListSlot} l */
+  async function weekListSheet(l) {
     const { weekListSheet: open } = await import('./week-list.js');
-    open({ m, l, sheet, saveOverrides });
+    // the week as it is now, not as last drawn: a change saved a moment ago may not be drawn yet
+    const now = model();
+    open({ m: now, l: now.lists.find(x => x.id === l.id) ?? l, sheet, saveOverrides });
   }
   /**
    * Changes lists for this week only. Each change is laid over the list's earlier change (a key set to undefined drops it);
@@ -312,7 +315,7 @@ export function weekScreen(ctx) {
       return h('div', { class: `wt-list kind-${l.kind}${off ? ' is-off' : ''}${l.emergency ? ' is-eot' : ''}${short ? ' is-short' : ''}`, dataset: { list: l.id } },
         canWrite ? h('button', { type: 'button', class: 'wt-head', 'aria-haspopup': 'menu', 'aria-expanded': 'false', onclick: (/** @type {MouseEvent} */ e) => openMenu(/** @type {HTMLElement} */ (e.currentTarget), [
           ...(open ? [{ label: 'Add a junior', icon: ICONS.plus, run: () => addSheet(m, l.day, l.session, l) }] : []),
-          { label: 'Change for this week', icon: ICONS.pencil, run: () => weekListSheet(m, l) },
+          { label: 'Change for this week', icon: ICONS.pencil, run: () => weekListSheet(l) },
         ], { label: head }) }, head) : h('span', { class: 'wt-head' }, head),
         (flag || l.rooms) && h('span', { class: 'wt-flag' }, [l.rooms, flag].filter(Boolean).join(' · ')),
         (juniors.length > 0 || short) && h('div', { class: 'wt-names' },
@@ -357,7 +360,7 @@ export function weekScreen(ctx) {
     const canWrite = ctx.canWrite();
     return h('li', { class: `wk-list kind-${l.kind}${open && (l.need > 0 || juniors.length) ? '' : ' is-off'}${l.emergency ? ' is-eot' : ''}${short && m.built ? ' is-short' : ''}`, dataset: { list: l.id } },
       h('div', { class: 'wk-list-head' }, h('b', {}, l.name, l.emergency && ' (EOT)'), l.consultant && h('span', { class: 'wk-con' }, conText(l)),
-        canWrite && h('button', { type: 'button', class: 'wk-edit', 'aria-label': `Change ${l.name} for this week`, onclick: () => weekListSheet(m, l) }, icon(ICONS.pencil))),
+        canWrite && h('button', { type: 'button', class: 'wk-edit', 'aria-label': `Change ${l.name} for this week`, onclick: () => weekListSheet(l) }, icon(ICONS.pencil))),
       noteBits.length > 0 && h('div', { class: 'wk-note small' }, noteBits.join(' · ')),
       (open || juniors.length > 0) && h('div', { class: 'wk-juniors' },
         juniors.map(n => h('button', { type: 'button', class: 'wk-chip', disabled: !canWrite, dataset: { name: n }, 'aria-label': `${n}: move or take off`, onclick: () => moveSheet(m, l.day, l.session, n, l.id) }, n)),
@@ -386,11 +389,13 @@ export function weekScreen(ctx) {
     fill($('week-site'), h('option', { value: 'all' }, 'All sites'), [...SITE_ORDER, ...sites.filter(s => !SITE_ORDER.includes(s))].filter(s => SITE_ORDER.includes(s) || sites.includes(s)).map(s => h('option', { value: s }, s)));
     /** @type {HTMLSelectElement} */ (siteSelect).value = site;
     const canWrite = ctx.canWrite();
-    // one step at a time: Epic and Build until it is built, then Share (Epic and Build again are in its menu)
+    // one step at a time: Epic and Build until it is built, then More (Epic and Build again are in its menu)
     $('week-build').hidden = !canWrite || m.built;
     $('week-epic').hidden = !canWrite || m.built || !m.lists.length;
-    $('week-share').hidden = canWrite && !m.built;   // nothing of the maker's to share yet (a viewer can still take the lists out)
-    $('week-today').hidden = monday === firstWeek(todayKey());
+    $('week-more').hidden = canWrite && !m.built;   // nothing of the maker's to share yet (a viewer can still take the lists out)
+    const away = monday !== firstWeek(todayKey());
+    $('week-title').classList.toggle('is-away', away);
+    if (away) $('week-title').setAttribute('aria-label', `${weekTitle(monday)}. Back to this week`); else $('week-title').removeAttribute('aria-label');
     $('week-show-grid').setAttribute('aria-pressed', String(show === 'grid'));
     $('week-show-day').setAttribute('aria-pressed', String(show === 'day'));
     fill($('week-short'), shortPanel(m, sec));
