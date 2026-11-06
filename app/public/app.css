@@ -253,6 +253,14 @@ select { padding: .5rem 2rem .5rem .65rem; }
 .wk-mine li { padding: .2rem .4rem; border-radius: var(--radius); }
 .wk-mine li.is-today { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .wk-mine p { margin: .3rem 0 0; color: var(--muted); }
+/* their own lists and Grid cells: a thicker start border and a faint accent tint, so not by colour alone (a short list's warning tint still wins) */
+.wt-list.has-me { border-inline-start-width: 6px; background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.wk-list.has-me { border-inline-start-width: 7px; background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.wt td.has-me { background: color-mix(in srgb, var(--accent) 10%, transparent); box-shadow: inset 4px 0 var(--accent); }
+.wt-list.has-me.is-short { background: color-mix(in srgb, var(--warn, var(--danger)) 12%, transparent); }
+/* the one-time ask (a viewer with no name set) */
+.wk-ask { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem .75rem; }
+.wk-ask-do { display: flex; flex-wrap: wrap; gap: .5rem; }
 
 /* ---- print: one landscape page, one thing on it (7 Nov 2026) ----
    The Week unless html[data-print="calls"] (screens/calls.js): the hand-made grid once drawn (export.js; a laptop loads it
@@ -271,6 +279,9 @@ select { padding: .5rem 2rem .5rem .65rem; }
   .wk-chip { border: 0; padding: 0 1mm; background: none; }
   .wt-scroll { overflow: visible; margin: 0; padding: 0; }
   .wt th[scope=row], .wt thead th:first-child { position: static; background: none; }
+  .wt-list.has-me { border-inline-start-width: 3px; background: none; }
+  .wk-list.has-me { border-inline-start-width: 4px; }
+  .wt td.has-me { background: none; box-shadow: none; }
   body { background: #fff; color: #000; }
   .pr-sheet.is-ready { display: block; }
   .pr-table thead { display: table-header-group; }

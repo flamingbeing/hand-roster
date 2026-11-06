@@ -278,3 +278,34 @@ test('This is me: a name picked from More stands out on the grid, with a My week
   await expect(page.locator('#week-table .is-me')).toHaveCount(0);
   await expect(page.locator('#week-mine')).toBeEmpty();
 });
+
+test('a viewer on a phone: the Grid opens at today\'s column, and is asked once to pick their name', async ({ phone }) => {
+  const page = await phone();
+  const name = uniq('Dr Ola Test');   // (the ask needs someone to pick)
+  await db.put(`spaces/_/people/${name}`, { name, grade: 'mo', rank: 'MO', active: true, updatedAt: Date.now() });
+  await signIn(page, 'viewer');
+  await openWeek(page);
+  // a weekday: this week, scrolled so today's column sits just right of the session column (a weekend opens on next week)
+  const wd = new Date().getDay();
+  if (wd >= 1 && wd <= 5) {
+    await expect(page.locator('#week-table thead th.is-today')).toHaveCount(1);
+    await expect.poll(() => page.evaluate(() => {
+      const box = /** @type {HTMLElement} */ (document.querySelector('#week-table')).getBoundingClientRect();
+      const th = /** @type {HTMLElement} */ (document.querySelector('#week-table thead th.is-today')).getBoundingClientRect();
+      const label = /** @type {HTMLElement} */ (document.querySelector('#week-table thead th')).getBoundingClientRect();
+      return th.left >= label.right - 2 && th.right <= box.right + 2;
+    }), { timeout: 15_000 }).toBe(true);
+  }
+  // asked who they are; Not now hides it for good on this device (More still has This is me)
+  const ask = page.locator('#week-mine .wk-ask');
+  await expect(ask).toContainText('Find your days: pick your name', { timeout: 15_000 });
+  await expect(ask.getByRole('button', { name: 'Pick my name' })).toBeVisible();
+  await ask.getByRole('button', { name: 'Not now' }).click();
+  await expect(ask).toHaveCount(0);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect.poll(() => page.evaluate(() => window.starter.ready)).toBe(true);
+  await expect(page.locator('#week-table')).toBeVisible();
+  await expect(page.locator('#week-mine .wk-ask')).toHaveCount(0);
+  await page.locator('#week-more').click();
+  await expect(page.getByRole('menuitem', { name: 'This is me' })).toBeVisible();
+});

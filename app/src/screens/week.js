@@ -14,12 +14,14 @@
 // The edits (screens/week-edit.js) load on the roster maker's first edit or Build, so a viewer never loads them; each
 // saves from the week as it is then and can be undone from its toast (6 Nov 2026).
 // "This is me" (More) keeps a name on this device: it stands out wherever it shows, with a My week card on top
-// (screens/week-mine.js, loaded once a name is set) (7 Nov 2026).
+// (screens/week-mine.js, loaded once a name is set) (7 Nov 2026). Their own lists and cells are marked too, and a viewer
+// with no name set is asked once, on this device, to pick it (7 Nov 2026).
+// On a phone the Grid shows about two days: it opens at today's column, once per week shown (7 Nov 2026).
 import { icon, loadState, emptyState, openMenu, lazyModules } from '@core/ui';
 import { ICONS } from '../icons.js';
 import { $, sectionScreen, h, fill } from '../dom.js';
 import { addDays, mondayOf, nextWorkday, rangeDays, shortDay, weekday, weekdayName, MONTHS, MONTH_NAMES, todayKey } from '../roster/dates.js';
-import { TIERS, TIER_LABEL, conText, dayType, leads, minOf, regLed, settleLists, tierPlanOf } from '../roster/model.js';
+import { TIERS, TIER_LABEL, conText, dayType, hasMe, leads, minOf, regLed, settleLists, tierPlanOf } from '../roster/model.js';
 import { callsAround, callsUnmade, clashesOf } from '../roster/sections.js';
 import { listName, sectionsOf } from '../roster/sections.js';
 import { juniorsOn, weekBuilt } from '../roster/grid.js';
@@ -92,6 +94,12 @@ export function weekScreen(ctx) {
   let show = (() => { try { return localStorage.getItem(VIEW_KEY) === 'day' ? 'day' : 'grid'; } catch { return 'grid'; } })();
   /** @param {'grid' | 'day'} v */
   const setShow = v => { show = v; try { localStorage.setItem(VIEW_KEY, v); } catch { /* private window: not kept */ } draw(); };
+  // a viewer with no name set is asked once who they are; picking or Not now keeps it away on this device (More still has it)
+  const ASKED_KEY = 'me-asked';
+  let asked = (() => { try { return localStorage.getItem(ASKED_KEY) === '1'; } catch { return false; } })();
+  const setAsked = () => { asked = true; try { localStorage.setItem(ASKED_KEY, '1'); } catch { /* private window: asked again next time */ } };
+  /** the Monday the Grid last opened at today's column (or at Monday): a live redraw never pulls back a reader who scrolled */
+  let scrolledFor = '';
   $('week-show-grid').addEventListener('click', () => setShow('grid'));
   $('week-show-day').addEventListener('click', () => setShow('day'));
   const empty = emptyState($('week-empty'), { title: 'No lists yet', hint: 'Add the weekly lists on the Lists tab, then build the week.' });
@@ -112,8 +120,8 @@ export function weekScreen(ctx) {
   $('week-prev').replaceChildren(icon(ICONS.chevronLeft)); $('week-next').replaceChildren(icon(ICONS.chevronRight));
   $('week-prev').addEventListener('click', () => step(-1));
   $('week-next').addEventListener('click', () => step(1));
-  $('week-title').addEventListener('click', () => {   // the date takes you back to this week
-    placed = true; monday = firstWeek(todayKey()); selected = rangeDays(monday, addDays(monday, 4)).includes(todayKey()) ? todayKey() : monday; draw(); });
+  $('week-title').addEventListener('click', () => {   // the date takes you back to this week, at today's column
+    placed = true; scrolledFor = ''; monday = firstWeek(todayKey()); selected = rangeDays(monday, addDays(monday, 4)).includes(todayKey()) ? todayKey() : monday; draw(); });
   $('week-site').addEventListener('change', e => { site = /** @type {HTMLSelectElement} */ (e.target).value; draw(); });
   $('week-more').replaceChildren(icon(ICONS.ellipsis), 'More');
   $('week-more').addEventListener('click', () => {
@@ -127,7 +135,7 @@ export function weekScreen(ctx) {
       { label: 'Excel (CORE)', icon: ICONS.download, run: () => exportXlsx('core') },
       { label: 'Excel (hand grid)', icon: ICONS.download, run: () => exportXlsx('hand') },
       { label: 'Print', icon: ICONS.printer, run: () => printWeek() },
-      { label: 'This is me', icon: ICONS.userCheck, run: () => guarded(async () => (await mineCode()).pickMe(app, m.people), 'Could not open that. Try again.') },
+      { label: 'This is me', icon: ICONS.userCheck, run: () => pickMe(m.people) },
       ...(canWrite && m.built && m.lists.length ? [null, { label: 'Check against Epic', icon: ICONS.listChecks, run: () => edit(e => e.epicSheet()) },
         { label: 'Build again', icon: ICONS.refreshCw, run: () => edit(e => e.build()) }] : []),
     ], { label: 'More' });
@@ -151,6 +159,26 @@ export function weekScreen(ctx) {
   /** @type {typeof import('./week-mine.js') | null} */
   let mine = null;
   const mineCode = () => (mineLoad ??= import('./week-mine.js').then(x => (mine = x), e => { mineLoad = null; throw e; }));
+  /** @param {import('../roster/model.js').Person[]} people  the active people */
+  const pickMe = people => guarded(async () => (await mineCode()).pickMe(app, people), 'Could not open that. Try again.');
+  /** The ask: a viewer with no name set, once per device. Only a tap loads the picker. @param {import('../roster/model.js').Person[]} people */
+  const askCard = people => h('section', { class: 'wk-mine wk-ask', 'aria-labelledby': 'week-ask-title' },
+    h('b', { id: 'week-ask-title' }, 'Find your days: pick your name'),
+    h('div', { class: 'wk-ask-do' },
+      h('button', { type: 'button', class: 'ui-primary', onclick: () => { setAsked(); draw(); pickMe(people); } }, icon(ICONS.userCheck), 'Pick my name'),
+      h('button', { type: 'button', onclick: () => { setAsked(); draw(); $('week-more').focus(); } }, 'Not now')));
+
+  /** Opens the Grid at today's column, just right of the sticky session column, on the first draw of a week (a Monday not
+   * yet done) and after 'back to this week'; any other week opens at Monday. Never scrollIntoView (it moves the page). */
+  function toToday() {
+    const box = $('week-table');
+    if (scrolledFor === monday || !box.clientWidth) return;   // (hidden: not laid out yet, so a later draw does it)
+    scrolledFor = monday;
+    const th = box.querySelector('thead th.is-today'), label = box.querySelector('thead th');
+    if (!th || !label || box.scrollWidth <= box.clientWidth) { box.scrollLeft = 0; return; }
+    // twice: the session column only sticks once scrolled, so the second step takes up where it then sits
+    for (let i = 0; i < 2; i++) box.scrollLeft += th.getBoundingClientRect().left - label.getBoundingClientRect().right;
+  }
 
   /** everything a week is drawn from, as of now @param {string} [mon] a Monday (default: the week on screen) */
   function model(mon = monday) { return weekModel(store, mon); }
@@ -268,21 +296,26 @@ export function weekScreen(ctx) {
       const off = !open || (l.need === 0 && !juniors.length);
       const con = conText(l);
       const head = l.emergency ? `EOT ${l.name}` : [con, l.name.replace(/^CLINIC\b/, 'Clinic')].filter(Boolean).join(' ');
+      const mineHere = hasMe(l, juniors, me);
       const flag = l.holiday ? 'PH' : l.status === 'closed' ? 'closed' : l.emergency ? `${con || 'consultant'} away` : !open ? l.status.replace('-', ' ') : l.patients === 0 ? 'no patients' : '';
-      return h('div', { class: `wt-list kind-${l.kind}${off ? ' is-off' : ''}${l.emergency ? ' is-eot' : ''}${short ? ' is-short' : ''}`, dataset: { list: l.id } },
+      return h('div', { class: `wt-list kind-${l.kind}${off ? ' is-off' : ''}${l.emergency ? ' is-eot' : ''}${short ? ' is-short' : ''}${mineHere ? ' has-me' : ''}`, dataset: { list: l.id } },
         canWrite ? h('button', { type: 'button', class: 'wt-head', 'aria-haspopup': 'menu', 'aria-expanded': 'false', onclick: (/** @type {MouseEvent} */ e) => openMenu(/** @type {HTMLElement} */ (e.currentTarget), [
           ...(open ? [{ label: 'Add a junior', icon: ICONS.plus, run: () => edit(e => e.addSheet(m, l.day, l.session, l)) }] : []),
           { label: 'Change for this week', icon: ICONS.pencil, run: () => edit(e => e.weekListSheet(l)) },
         ], { label: head }) }, head) : h('span', { class: 'wt-head' }, head),
+        mineHere && h('span', { class: 'visually-hidden' }, ', you'),
         (flag || l.rooms) && h('span', { class: 'wt-flag' }, [l.rooms, flag].filter(Boolean).join(' · ')),
         (juniors.length > 0 || short) && h('div', { class: 'wt-names' },
           juniors.flatMap((n, i) => [i > 0 && ', ', canWrite ? h('button', nameBtn(m, l, n, 'wt-name'), n)
             : h('span', { class: n === me ? 'wt-name is-me' : 'wt-name' }, n)]),
           short && h('span', { class: 'wt-need' }, juniors.length < min ? `needs ${min - juniors.length}` : l.kind === 'hot' ? 'needs a reg or R3' : 'needs a reg')));
     };
-    /** @param {string} label @param {string} sub @param {(d: string) => unknown} cell @param {string} [cls] */
-    const row = (label, sub, cell, cls = '') => h('tr', { class: cls },
-      h('th', { scope: 'row' }, label, sub && h('span', { class: 'wt-sub' }, sub)), days.map(d => h('td', { class: m.holidays.includes(d) ? 'is-ph' : '' }, cell(d))));
+    /** @param {string} label @param {string} sub @param {(d: string) => unknown} cell @param {string} [cls] @param {(d: string) => boolean} [mineOn]  the cell holds me */
+    const row = (label, sub, cell, cls = '', mineOn = () => false) => h('tr', { class: cls },
+      h('th', { scope: 'row' }, label, sub && h('span', { class: 'wt-sub' }, sub)),
+      days.map(d => h('td', { class: [m.holidays.includes(d) && 'is-ph', !!me && mineOn(d) && 'has-me'].filter(Boolean).join(' ') || null }, cell(d))));
+    /** @param {(string | [string, string])[]} list @returns {boolean} */
+    const holds = list => list.some(x => (Array.isArray(x) ? x[0] : x) === me);
     /** @param {(string | [string, string])[]} list */
     const plain = list => list.length ? h('p', { class: 'wt-plain' }, list.flatMap((x, i) => {
       const [n, note] = Array.isArray(x) ? x : [x, ''], t = note ? `${n} (${note})` : n;
@@ -299,9 +332,9 @@ export function weekScreen(ctx) {
         row('On call', '', d => {
           const plan = m.planOn(d)[dayType(d, m.holidays)];
           return h('dl', { class: 'wt-oncall' }, TIERS.filter(t => plan.includes(t) || sec.onCall[d][t]).map(t => [h('dt', {}, TIER_LABEL[t]), h('dd', { class: sec.onCall[d][t] === me ? 'is-me' : '' }, sec.onCall[d][t] ?? '–')]));
-        }, 'wt-first'),
-        row('Leave', '', d => plain(sec.leave[d])),
-        row('Post-call', '', d => plain(sec.postCall[d])),
+        }, 'wt-first', d => Object.values(sec.onCall[d]).includes(me)),
+        row('Leave', '', d => plain(sec.leave[d]), '', d => holds(sec.leave[d])),
+        row('Post-call', '', d => plain(sec.postCall[d]), '', d => holds(sec.postCall[d])),
         m.built && row('Free', '', d => plain(sec.free[d].map(f => [f.name, f.why ? 'on call' : f.when === 'FULL DAY' ? '' : f.when])))));
   }
 
@@ -318,8 +351,9 @@ export function weekScreen(ctx) {
     const short = open && (juniors.length < min || noReg);
     const under = open && !short && !l.emergency && juniors.length < l.need;
     const canWrite = ctx.canWrite();
-    return h('li', { class: `wk-list kind-${l.kind}${open && (l.need > 0 || juniors.length) ? '' : ' is-off'}${l.emergency ? ' is-eot' : ''}${short && m.built ? ' is-short' : ''}`, dataset: { list: l.id } },
-      h('div', { class: 'wk-list-head' }, h('b', {}, l.name, l.emergency && ' (EOT)'), l.consultant && h('span', { class: 'wk-con' }, conText(l)),
+    const mineHere = hasMe(l, juniors, me);
+    return h('li', { class: `wk-list kind-${l.kind}${open && (l.need > 0 || juniors.length) ? '' : ' is-off'}${l.emergency ? ' is-eot' : ''}${short && m.built ? ' is-short' : ''}${mineHere ? ' has-me' : ''}`, dataset: { list: l.id } },
+      h('div', { class: 'wk-list-head' }, h('b', {}, l.name, l.emergency && ' (EOT)', mineHere && h('span', { class: 'visually-hidden' }, ', you')), l.consultant && h('span', { class: 'wk-con' }, conText(l)),
         canWrite && h('button', { type: 'button', class: 'wk-edit', 'aria-label': `Change ${l.name} for this week`, onclick: () => edit(e => e.weekListSheet(l)) }, icon(ICONS.pencil))),
       noteBits.length > 0 && h('div', { class: 'wk-note small' }, noteBits.join(' · ')),
       (open || juniors.length > 0) && h('div', { class: 'wk-juniors' },
@@ -366,11 +400,11 @@ export function weekScreen(ctx) {
       : `Not built yet.${canWrite && !m.callsMade ? ` Calls for ${m.unmade.map(mo => MONTH_NAMES[Number(mo.slice(5)) - 1]).join(' and ')} are not made yet, so post-call days are not kept clear.` : ''}`;
     $('week-table').hidden = show !== 'grid';
     $('week-chips').hidden = $('week-grid').hidden = show !== 'day';
-    if (show === 'grid') fill($('week-table'), weekTable(m, sec, days));
+    if (show === 'grid') { fill($('week-table'), weekTable(m, sec, days)); toToday(); }
     if (me && !mine) mineCode().then(() => draw(), () => { /* no card until a later draw loads it */ });
     fill($('week-mine'), me ? mine?.mineCard({ name: me, days, lists: m.lists, grid: m.grid, sec, calls: m.calls, leave: m.leave, built: m.built, holidays: m.holidays,
       rosters: /** @type {any} */ (store.get('rosters')), today: todayKey() })
-      : !canWrite && !m.built && m.lists.length > 0 && h('p', { class: 'small' }, 'Tap More, then This is me, to see your days.'));
+      : !canWrite && !asked && m.people.length > 0 && askCard(m.people));
     empty.show(!m.lists.length);
 
     fill($('week-chips'), days.map(d => h('button', { type: 'button', class: `wk-daychip${d === todayKey() ? ' is-today' : ''}`, 'aria-pressed': String(d === selected), dataset: { day: d }, onclick: () => { selected = d; draw(); } },
