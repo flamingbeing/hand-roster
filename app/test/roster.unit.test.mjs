@@ -281,6 +281,30 @@ test('week: leave for one session only, a requested list, a PM that keeps the AM
   assert.ok(!whole.grid['2026-10-12'].AM.some(g => g.juniors.includes('Dr R3')));
 });
 
+test('week: a junior goes with a consultant of their team only when all else is equal', () => {
+  // two OT lists, one registrar each; every seed puts each registrar with their own team's consultant
+  const lists = [
+    { id: 'x', site: 'NUH', kind: 'ot', name: 'OT 1', day: '2026-10-12', session: 'AM', consultant: 'Dr C1', status: 'open', need: 1 },
+    { id: 'y', site: 'NUH', kind: 'ot', name: 'OT 2', day: '2026-10-12', session: 'AM', consultant: 'Dr C9', consultant2: 'Dr C2', status: 'open', need: 1 },
+  ];
+  const pp = [
+    { name: 'Dr C1', grade: 'con', team: 'Team 1' }, { name: 'Dr C2', grade: 'con', team: 'team 2 ' }, { name: 'Dr C9', grade: 'con' },
+    { name: 'Dr R1', grade: 'reg', team: 'Team 1' }, { name: 'Dr R2', grade: 'reg', team: 'Team 2' },
+  ];
+  for (let seed = 1; seed <= 20; seed++) {
+    const am = buildWeek({ monday: '2026-10-12', lists, people: pp, seed }).grid['2026-10-12'].AM;
+    assert.deepEqual(am.find(g => g.list === 'x').juniors, ['Dr R1'], `seed ${seed}`);
+    assert.deepEqual(am.find(g => g.list === 'y').juniors, ['Dr R2'], `seed ${seed}`);
+  }
+  // any other rule wins: a registrar on the wrong site goes to their own site's list, not their team's consultant
+  const split = lists.map(l => (l.id === 'y' ? { ...l, site: 'NTFGH' } : l));
+  const sited = pp.map(p => (p.name === 'Dr R1' ? { ...p, site: 'NTFGH' } : p.name === 'Dr R2' ? { ...p, site: 'NUH' } : p));
+  for (let seed = 1; seed <= 20; seed++) {
+    const am = buildWeek({ monday: '2026-10-12', lists: split, people: sited, seed }).grid['2026-10-12'].AM;
+    assert.deepEqual(am.find(g => g.list === 'x').juniors, ['Dr R2'], `seed ${seed}`);
+  }
+});
+
 // ---- roster info text ----
 const CALLS_TEXT = fx.calls.filter(c => c.date >= '2026-10-12' && c.date <= '2026-10-16');
 

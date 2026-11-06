@@ -51,7 +51,7 @@ export const clean = cleaner({
 
 /** @param {PersonRow} r @returns {import('../roster/model.js').Person} the engine's person */
 export const personOf = r => ({
-  name: r.name, grade: r.grade, ...(r.rank ? { rank: r.rank } : {}), ...(r.site ? { site: r.site } : {}),
+  name: r.name, grade: r.grade, ...(r.rank ? { rank: r.rank } : {}), ...(r.site ? { site: r.site } : {}), ...(r.team?.trim() ? { team: r.team.trim() } : {}),
   ...(r.noCall ? { noCall: true } : {}), ...(r.siteOnly && r.site ? { siteOnly: true } : {}), ...(r.byHand ? { byHand: true } : {}), ...(r.works?.length ? { works: r.works } : {}), ...(r.clinicsOnly ? { clinicsOnly: true } : {}), ...(r.moCalls && r.grade !== 'con' ? { tiers: /** @type {import('../roster/model.js').Tier[]} */ (['moNuh', 'moNtf']) } : {}), ...(r.extra || r.rank === 'Outposter' ? { extra: true } : {}),
 });
 /** @param {PersonRow[]} rows @returns {import('../roster/model.js').Person[]} the active people, in name order */
