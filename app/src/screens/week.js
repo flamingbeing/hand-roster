@@ -152,6 +152,8 @@ export function weekScreen(ctx) {
   $('week-epic').addEventListener('click', () => edit(e => e.epicSheet()));
   $('week-build').replaceChildren(icon(ICONS.sparkles), 'Build week');
   $('week-build').addEventListener('click', () => edit(e => e.build()));
+  $('week-drift').replaceChildren(icon(ICONS.refreshCw), 'Build again');
+  $('week-drift').addEventListener('click', () => edit(e => e.build()));
 
   // the picker and the My week card (screens/week-mine.js), loaded when the picker opens or a name is set
   /** @type {Promise<typeof import('./week-mine.js')> | null} */
@@ -396,7 +398,13 @@ export function weekScreen(ctx) {
     const clashes = m.built && canWrite ? clashesOf({ grid: m.grid, lists: m.lists, leave: m.leave, calls: m.calls, holidays: m.holidays }) : [];
     clashAt = new Map(clashes.map(c => [`${c.day}|${c.session}|${c.name}`, c.why.join(', ')]));
     fill($('week-short'), shortPanel(m, sec), clashPanel(m, clashes));
-    $('week-state-note').textContent = !m.lists.length ? '' : m.built ? (m.wk?.built ? `Built ${new Date(m.wk.built).toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })}.` : '')
+    // a built week is drawn from its lists as built: say so when the Lists tab has changed since (the maker's edit code counts)
+    const stale = canWrite && m.built && !!m.wk?.lists?.length;
+    if (stale && !editing) editCode().then(() => draw(), () => { /* no note until a later draw loads it */ });
+    const drift = stale && editor ? editor.drift(monday, m) : 0;
+    $('week-drift').hidden = !drift;
+    $('week-state-note').textContent = !m.lists.length ? '' : m.built ? [m.wk?.built ? `Built ${new Date(m.wk.built).toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })}.` : '',
+      drift ? `The Lists tab has changed since (${drift} list${drift === 1 ? '' : 's'}).` : ''].filter(Boolean).join(' ')
       : `Not built yet.${canWrite && !m.callsMade ? ` Calls for ${m.unmade.map(mo => MONTH_NAMES[Number(mo.slice(5)) - 1]).join(' and ')} are not made yet, so post-call days are not kept clear.` : ''}`;
     $('week-table').hidden = show !== 'grid';
     $('week-chips').hidden = $('week-grid').hidden = show !== 'day';

@@ -299,6 +299,25 @@ test('Build again on a week changed by hand: Cancel changes nothing, Keep builds
   await expect.poll(week, { timeout: 15_000 }).toEqual([1, [name]]);
 });
 
+test('a built week says when the Lists tab has changed since, and its Build again takes the change in', async ({ phone }) => {
+  const page = await phone();
+  await signIn(page, 'member');
+  await openWeek(page);
+  // a week of its own, twenty-three on
+  for (let i = 0; i < 23; i++) await page.locator('#week-next').click();
+  await expect(page.locator('#week-title')).toHaveClass(/is-away/);
+  const mon = /** @type {string} */ (await page.locator('#week-grid .wk-day').first().getAttribute('data-day'));
+  const [t, was, now] = [uniq('OT D'), uniq('Dr Dee Test'), uniq('Dr Fin Test')];
+  await db.put(`spaces/_/lists/${t}`, { site: 'NUH', kind: 'ot', name: t, wd: 1, session: 'AM', consultant: now, need: 1, status: 'open', updatedAt: Date.now() });
+  await expect(page.locator(`#week-table .wt-list[data-list="${t}"]`)).toHaveCount(1, { timeout: 15_000 });
+  // built while the list had another consultant: the Lists tab has changed since
+  await db.put(`spaces/_/weeks/${mon}`, { lists: [{ id: t, site: 'NUH', kind: 'ot', name: t, day: mon, session: 'AM', consultant: was, status: 'open', need: 1 }], grid: [], seed: 1, built: Date.now(), updatedAt: Date.now() });
+  await expect(page.locator('#week-state-note')).toContainText('The Lists tab has changed since', { timeout: 15_000 });
+  await page.locator('#week-drift').click();
+  await expect(page.locator('.toast', { hasText: 'Built' })).toBeVisible({ timeout: 15_000 });
+  await expect.poll(async () => (await db.get(`spaces/_/weeks/${mon}`))?.lists?.find((/** @type {any} */ l) => l.id === t)?.consultant, { timeout: 15_000 }).toBe(now);
+});
+
 test('a built week marks a junior on a list on a day they are now on leave, and the clash opens the move sheet', async ({ phone }) => {
   const page = await phone();
   await signIn(page, 'member');

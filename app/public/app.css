@@ -85,6 +85,9 @@ select { padding: .5rem 2rem .5rem .65rem; }
 .wk-list-head:has(.wk-edit) { justify-content: flex-start; align-items: center; }
 .wk-edit { margin-inline-start: auto; border-radius: 50%; width: 2.25rem; height: 2.25rem; padding: 0; border-color: transparent; background: none; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); }
 .wk-note { color: var(--muted); }
+/* the line under the week's bar: when it was built and, for the maker, a Build again when the Lists tab has changed since */
+.wk-state { display: flex; flex-wrap: wrap; align-items: center; gap: 0 .25rem; }
+.wk-state > button { padding-inline: .5rem; }
 .wk-juniors { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin-top: .4rem; }
 .wk-chip { border-radius: var(--pill-r, 1em); padding: .3rem .75rem; min-height: 2.25rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-color: transparent; background: color-mix(in srgb, var(--accent) 13%, var(--surface)); color: inherit; }
 .wk-chip:disabled { opacity: 1; cursor: default; }
@@ -267,7 +270,7 @@ select { padding: .5rem 2rem .5rem .65rem; }
    when idle), else the view on screen, Grid or Day. */
 @page { size: A4 landscape; margin: 10mm; }
 @media print {
-  .ui-bar, .ui-tabbar, .ui-sidebar, .wk-bar, .wk-chips, .sh-panel, #toasts, .wk-add, #week-state-note, #week-mine, .ui-large-title, .status-line, #conflict-sheet, #refused-list { display: none !important; }
+  .ui-bar, .ui-tabbar, .ui-sidebar, .wk-bar, .wk-chips, .sh-panel, #toasts, .wk-add, .wk-state, #week-mine, .ui-large-title, .status-line, #conflict-sheet, #refused-list { display: none !important; }
   .print-only { display: block; font-weight: 600; margin: 0 0 4mm; }
   .ui-shell { display: block !important; }   /* (the kit's grid keeps the side bar's column, empty, in print) */
   .ui-screen { display: block !important; position: static !important; transform: none !important; overflow: visible !important; }
