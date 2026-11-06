@@ -44,6 +44,7 @@ const SHELL = [
   'src/roster/layout.js',
   'src/roster/leave-clash.js',
   'src/roster/leave-view.js',
+  'src/roster/lists-drift.js',
   'src/roster/mine.js',
   'src/roster/model.js',
   'src/roster/names.js',

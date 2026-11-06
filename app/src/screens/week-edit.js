@@ -1,6 +1,7 @@
 // The Week tab's edits, apart from week.js so the first screen loads less (viewers never load it): Build week, a junior
-// moved, swapped, added or taken off, a list changed for this week, Check against Epic and the Short panel's options.
-// week.js loads it on a roster maker's first edit or Build. Each save works from the week as it is when saved
+// moved, swapped, added or taken off, a list changed for this week, Check against Epic, the Short panel's options and how
+// many lists the Lists tab has changed since the week was built.
+// week.js loads it on a roster maker's first edit or Build, or when a maker opens a built week. Each save works from the week as it is when saved
 // (roster/week-edits.js): a change another maker saved while a sheet was open stays. The copy a sheet opened with only
 // words and warns. A Build, a grid edit or a list change can be undone from its toast for a few seconds. Build again on a
 // week with hand changes asks to keep them (they go to the builder as asks), replace them, or cancel.
@@ -12,6 +13,7 @@ import { conText } from '../roster/model.js';
 import { sectionsOf, shortOptions, whyNot } from '../roster/sections.js';
 import { gridRows, juniorsOn } from '../roster/grid.js';
 import { applyEdit, keptCount, keptAsks, mergeOverrides, undoFields } from '../roster/week-edits.js';
+import { listsDrift } from '../roster/lists-drift.js';
 import { slotsFor } from '../data/lists.js';
 import { editSheet } from './sheet.js';
 
@@ -197,5 +199,12 @@ export function weekEdit({ ctx, model, monday }) {
       h('span', {}, o.text), h('span', { class: 'small' }, o.cost)))) : null;
   }
 
-  return { build, moveSheet, addSheet, weekListSheet, epicSheet, shortButtons };
+  /** @param {string} mon @param {Model} m @returns {number} the lists added, deleted or changed on the Lists tab since the week was built */
+  function drift(mon, m) {
+    if (!m.built || !m.wk?.lists?.length) return 0;
+    const d = listsDrift(m.wk.lists, slotsFor(m.templates, mon, m.wk.overrides));
+    return d.added.length + d.removed.length + d.changed.length;
+  }
+
+  return { build, moveSheet, addSheet, weekListSheet, epicSheet, shortButtons, drift };
 }
