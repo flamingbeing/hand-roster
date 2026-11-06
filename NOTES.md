@@ -94,7 +94,7 @@ text changed). Nothing is saved, so there is no format to migrate.
   newest first (`newest(record)`, default `updatedAt`).
 - Later: a `toJSON`/`loadJSON` cache of the index (rebuild at start is cheap below ~10k records).
 
-## Export: one layout, four outputs
+## Export: one layout, five outputs
 
 `roster/layout.js` builds a week as blocks (a session at a site, each on-call tier, leave, post-call, free), each with its
 lines per day. `coreRows` lays them out like the CORE sheet (DEPARTMENTS column, a header row then a row per junior);
@@ -107,3 +107,15 @@ cards once drawn; Ctrl+P re-draws it through `beforeprint` after one button use)
 - ExcelJS is the browser build from the owner's other roster app (MIT, licence beside it); never edit the vendored file.
 - No PDF library: the print sheet is HTML and CSS (`@page` A4 landscape) and the browser saves it as PDF.
 - Post-call in the sheet follows the engine: the PM only; FREE is shown once the week is built.
+- `handGrid` (layout.js) lays the week out as the roster maker's own workbook, cell by cell: title, day names and dates,
+  the AM lists (two rows per list: coloured header, then names joined " + "), Skills, Research, AM free, leave, two grey
+  gap rows, the PM lists, post call, Research, PM free, leave with its half, on call. Beside it the same formulas she
+  uses, written live with their results filled in: a per-person tally (T..AC: `SUMPRODUCT(--ISNUMBER(SEARCH(" "&$T4&" ",
+  " "&SUBSTITUTE(range,","," ")&" ")))` over the rows of each kind) and an "accounted for everyone" check per day and
+  half (H..M: occurrences of " name " in the half minus those marked with the other half). The spaces around the name
+  keep "Jo" from matching "Joe"; the check counts case-sensitively, as hers does. Ranges are read from the rows
+  the lists took, so they stay right when lists change. Not reproduced: short names, "KIV" and "with" notes, times,
+  two lists in one cell, an emergency-OT column (no such list kind; left blank).
+- A list's consultant, patients, juniors needed and status can be changed for one week from the pencil on its card
+  (an override in the week; "Back to the usual" removes it). Patients show as "(21 pts)" in the hand grid always, and in
+  the print when the patient-numbers option is on.

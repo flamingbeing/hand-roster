@@ -73,6 +73,8 @@ select { padding: .5rem 2rem .5rem .65rem; }
 .wk-list.is-short { border-color: var(--warn, var(--danger)); border-inline-start-color: var(--kind); }
 .wk-list-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .1rem .5rem; }
 .wk-con { color: var(--muted); font-size: .9rem; }
+.wk-list-head:has(.wk-edit) { justify-content: flex-start; align-items: center; }
+.wk-edit { margin-inline-start: auto; border-radius: 50%; width: 2.25rem; height: 2.25rem; padding: 0; border-color: transparent; background: none; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); }
 .wk-note { color: var(--muted); }
 .wk-juniors { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin-top: .4rem; }
 .wk-chip { border-radius: var(--pill-r, 1em); padding: .3rem .75rem; min-height: 2.25rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-color: transparent; background: color-mix(in srgb, var(--accent) 13%, var(--surface)); color: inherit; }

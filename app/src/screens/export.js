@@ -1,10 +1,11 @@
 // Everything that takes the roster out of the app, loaded only when one of its buttons is used (Week and Calls import it
-// on demand): the print sheet of the week, the xlsx files (ExcelJS is vendored in public/vendor/exceljs and loaded here
-// the first time, never at startup), and the chat text to paste into WhatsApp. The cells come from roster/layout.js, the same
-// ones for the sheet, the print and the text.
+// on demand): the print sheet of the week, the xlsx files (the week as the CORE sheet or as the roster maker's hand-made
+// grid, and the month's calls; ExcelJS is vendored in public/vendor/exceljs and loaded here the first time, never at
+// startup), and the chat text to paste into WhatsApp. The cells come from roster/layout.js, the same ones for the sheets,
+// the print and the text.
 import { h, fill } from '../dom.js';
-import { weekLayout, handSections, callsLayout } from '../roster/layout.js';
-import { buildWeekWorkbook, buildCallsWorkbook } from '../roster/xlsx.js';
+import { weekLayout, handSections, handGrid, callsLayout } from '../roster/layout.js';
+import { buildWeekWorkbook, buildHandWorkbook, buildCallsWorkbook } from '../roster/xlsx.js';
 import { whatsappText } from '../roster/whatsapp.js';
 
 /** @typedef {import('../roster/layout.js').WeekLayoutInput} WeekLayoutInput */
@@ -45,6 +46,19 @@ export async function exportWeek(o) {
   const layout = weekLayout({ ...o, style: 'core' });
   const name = `hrm-roster-${o.monday}.xlsx`;
   await saveWorkbook(buildWeekWorkbook(ExcelJS, layout), name);
+  return name;
+}
+
+/**
+ * The week as the roster maker's own workbook, formulas and all. It always carries the patient counts (her sheet does;
+ * the "show patient numbers" option is about this device's screen and print).
+ * @param {WeekLayoutInput} o the week's inputs @returns {Promise<string>} the file name
+ */
+export async function exportHandGrid(o) {
+  const ExcelJS = await loadExcel();
+  const grid = handGrid(weekLayout({ ...o, style: 'hand', patients: true }), o.people);
+  const name = `hrm-hand-grid-${o.monday}.xlsx`;
+  await saveWorkbook(buildHandWorkbook(ExcelJS, grid), name);
   return name;
 }
 

@@ -25,7 +25,7 @@ export const clean = cleaner({
 });
 
 /** @typedef {import('./ops.js').Row & { site: string, kind: 'ot' | 'msp' | 'clinic' | 'hot', name: string, wd: number, session: 'AM' | 'PM', consultant?: string | null, rooms?: string | null, patients?: number | null, need: number, status: string, external?: boolean }} ListRow */
-/** @typedef {{ id: string, consultant?: string | null, need?: number, status?: string }} Override  a change to one template row for one week */
+/** @typedef {{ id: string, consultant?: string | null, need?: number, status?: string, patients?: number | null }} Override  a change to one template row for one week (null patients: not known that week) */
 
 /**
  * The lists of one week: the template with the week's changes laid over, one dated slot each.
@@ -37,10 +37,11 @@ export function slotsFor(templates, monday, overrides = []) {
   return templates.filter(t => !t._deleted && t.wd >= 1 && t.wd <= 5).map(t => {
     const o = by.get(t.id);
     const consultant = o && 'consultant' in o ? o.consultant ?? null : t.consultant ?? null;
+    const patients = o && 'patients' in o ? o.patients ?? null : t.patients ?? null;
     return /** @type {import('../roster/model.js').ListSlot} */ ({
       id: t.id, site: t.site, kind: t.kind, name: t.name, day: addDays(monday, t.wd - 1), session: t.session,
       consultant, status: /** @type {any} */ (o?.status ?? t.status), need: o?.need ?? t.need,
-      ...(t.rooms ? { rooms: t.rooms } : {}), ...(t.patients != null ? { patients: t.patients } : {}), ...(t.external ? { external: true } : {}),
+      ...(t.rooms ? { rooms: t.rooms } : {}), ...(patients != null ? { patients } : {}), ...(t.external ? { external: true } : {}),
     });
   }).sort((a, b) => a.day.localeCompare(b.day) || (a.session === b.session ? 0 : a.session === 'AM' ? -1 : 1) || a.site.localeCompare(b.site) || a.name.localeCompare(b.name));
 }
