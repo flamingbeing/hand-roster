@@ -56,11 +56,13 @@ export function weekModel(store, mon) {
   const rosters = /** @type {import('../data/plans.js').RosterRow[]} */ (store.get('rosters'));
   const calls = callsAround(/** @type {any} */ (rosters), mon);
   const holidays = rosters.flatMap(r => r.holidays ?? []);
-  const lists = settleLists(built && wk?.lists?.length ? wk.lists : slotsFor(templates, mon, wk?.overrides), { leave, holidays });
+  // raw: the lists unsettled (what the week stores and a change is made from); lists: settled, as drawn
+  const raw = built && wk?.lists?.length ? wk.lists : slotsFor(templates, mon, wk?.overrides);
+  const lists = settleLists(raw, { leave, holidays });
   /** @param {string} day @returns {import('../roster/model.js').TierPlan} the call tiers of that day's month */
   const planOn = day => tierPlanOf(rosters.find(r => r.id === day.slice(0, 7))?.tierPlan);
   const unmade = callsUnmade(/** @type {any} */ (rosters), mon);   // a build can't keep their post-call days clear
-  return { wk, templates, built, lists, grid, people, leave, calls, holidays, planOn, unmade, callsMade: !unmade.length };
+  return { wk, templates, built, raw, lists, grid, people, leave, calls, holidays, planOn, unmade, callsMade: !unmade.length };
 }
 
 /**
@@ -334,7 +336,7 @@ export function weekScreen(ctx) {
     if (away) $('week-title').setAttribute('aria-label', `${weekTitle(monday)}. Back to this week`); else $('week-title').removeAttribute('aria-label');
     $('week-show-grid').setAttribute('aria-pressed', String(show === 'grid'));
     $('week-show-day').setAttribute('aria-pressed', String(show === 'day'));
-    const clashes = m.built && canWrite ? clashesOf({ grid: m.grid, leave: m.leave, calls: m.calls, holidays: m.holidays }) : [];
+    const clashes = m.built && canWrite ? clashesOf({ grid: m.grid, lists: m.lists, leave: m.leave, calls: m.calls, holidays: m.holidays }) : [];
     clashAt = new Map(clashes.map(c => [`${c.day}|${c.session}|${c.name}`, c.why.join(', ')]));
     fill($('week-short'), shortPanel(m, sec), clashPanel(m, clashes));
     $('week-state-note').textContent = !m.lists.length ? '' : m.built ? (m.wk?.built ? `Built ${new Date(m.wk.built).toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })}.` : '')

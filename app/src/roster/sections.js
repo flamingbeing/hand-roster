@@ -3,7 +3,7 @@
 // buildWeek (week.js), so a hand-edited grid is judged the way a built one was. Also here: picking the parts of the stored
 // months that a week or a month needs (callsAround, monthCells, ...). Pure.
 import { addDays, rangeDays, mondayOf, monthDays, weekday } from './dates.js';
-import { callMapOf, callRow, canWork, conText, consOf, isJunior, worksOn, leads, leaveIndex, minOf, regLed, TIERS } from './model.js';
+import { callMapOf, callRow, canWork, conText, consOf, isJunior, worksOn, leads, leaveIndex, minOf, regLed, shutBy, TIERS } from './model.js';
 import { juniorsOn } from './grid.js';
 
 /** @typedef {import('./model.js').Person} Person */
@@ -16,7 +16,8 @@ import { juniorsOn } from './grid.js';
 
 /**
  * `short` holds the lists below their minimum (the Short panel), `under` the ones with fewer than they want (not counting
- * an emergency slot's MO). On a public holiday nobody is listed as free.
+ * an emergency slot's MO). On a public holiday nobody is listed as free. Someone on a list that is not open this week
+ * counts as free that session (clashesOf flags them).
  * @param {{ monday: string, people: Person[], leave: Leave[], calls: CallDay[], lists: ListSlot[], grid: GridRow[], postCallAm?: boolean, holidays?: string[] }} o
  * @returns {{ days: string[], leave: Record<string, string[]>, postCall: Record<string, string[]>, onCall: Record<string, Record<string, string | null>>,
  *   free: Record<string, FreeEntry[]>, short: Gap[], under: Gap[] }}
@@ -29,6 +30,8 @@ export function sectionsOf({ monday, people, leave, calls, lists, grid, postCall
   const names = new Set(juniors.map(p => p.name));
   /** @param {string} day @returns {string[]} */
   const callers = day => TIERS.map(t => map[day]?.[t]).filter(/** @returns {n is string} */ n => !!n);
+  // a place on a list not open this week (closed since the build) does not take the session: free, and offered on Short
+  const shut = new Set(lists.filter(l => l.status !== 'open').map(l => l.id));
 
   /** @type {Record<string, string[]>} */ const leaveOut = {};
   /** @type {Record<string, string[]>} */ const postCall = {};
@@ -46,7 +49,7 @@ export function sectionsOf({ monday, people, leave, calls, lists, grid, postCall
       if (today.includes(p.name)) { free[day].push({ name: p.name, when: 'FULL DAY', why: 'on call' }); continue; }
       if (p.byHand) continue;   // around only on the days someone puts them on a list
       const runs = (/** @type {'AM' | 'PM'} */ s) => lists.some(l => l.day === day && l.session === s && l.status === 'open' && consOf(l).includes(p.name));
-      const open = /** @type {('AM' | 'PM')[]} */ (['AM', 'PM']).filter(s => worksOn(p, day, s) && !runs(s) && !grid.some(r => r.day === day && r.session === s && r.juniors.includes(p.name))
+      const open = /** @type {('AM' | 'PM')[]} */ (['AM', 'PM']).filter(s => worksOn(p, day, s) && !runs(s) && !grid.some(r => r.day === day && r.session === s && !shut.has(r.list) && r.juniors.includes(p.name))
         && !lv.blocks(p.name, day, s) && !(prev.includes(p.name) && (s === 'PM' || !postCallAm)));
       if (open.length === 2) free[day].push({ name: p.name, when: 'FULL DAY' });
       else if (open.length === 1) free[day].push({ name: p.name, when: open[0] });
@@ -87,16 +90,28 @@ export function whyNot({ name, day, session, leave, calls, grid, list = null, po
 }
 
 /**
- * Juniors a built grid has on a list while on leave, on call or post-call (leave or calls changed since the build), with
- * why ('on leave then'). Not a double booking, nor on a public holiday.
- * @param {{ grid: GridRow[], leave: Leave[], calls: CallDay[], holidays?: string[], postCallAm?: boolean }} o
+ * Juniors a built grid has on a list while on leave, on call or post-call (leave or calls changed since the build), or on a
+ * list that is not open this week (a holiday, the consultant away or on leave, or closed since the build: 7 Nov 2026), with
+ * why ('on leave then', 'the list is closed (public holiday)'). Not a double booking; on a public holiday only the closed list.
+ * @param {{ grid: GridRow[], lists?: ListSlot[], leave: Leave[], calls: CallDay[], holidays?: string[], postCallAm?: boolean }} o
+ *   lists: the week's lists, settled
  * @returns {{ day: string, session: 'AM' | 'PM', list: string, name: string, why: string[] }[]}
  */
-export function clashesOf({ grid, leave, calls, holidays = [], postCallAm = true }) {
-  return grid.flatMap(r => holidays.includes(r.day) ? [] : r.juniors.map(name => ({ day: r.day, session: r.session, list: r.list, name,
-    why: whyNot({ name, day: r.day, session: r.session, leave, calls, grid: [], postCallAm }).map(w => w.slice(name.length + 4)) })))
-    .filter(c => c.why.length);
+export function clashesOf({ grid, lists = [], leave, calls, holidays = [], postCallAm = true }) {
+  const byId = new Map(lists.map(l => [l.id, l]));
+  return grid.flatMap(r => {
+    const l = byId.get(r.list), shut = l && l.status !== 'open' ? shutText(l) : '';
+    const ph = holidays.includes(r.day);
+    return r.juniors.map(name => ({ day: r.day, session: r.session, list: r.list, name,
+      why: [...(shut ? [shut] : []), ...(ph ? [] : whyNot({ name, day: r.day, session: r.session, leave, calls, grid: [], postCallAm }).map(w => w.slice(name.length + 4)))] }));
+  }).filter(c => c.why.length);
 }
+
+/** @param {ListSlot} l  settled, not open @returns {string} 'the list is closed (public holiday)', 'the list is closed', 'the list is consultant only' */
+const shutText = l => {
+  const why = shutBy(l);
+  return l.holiday || l.consultantOnLeave ? `the list is closed (${why})` : `the list is ${why}`;
+};
 
 // ---- the months a week or a month needs ----
 /**

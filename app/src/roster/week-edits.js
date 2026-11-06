@@ -2,6 +2,7 @@
 // week as it is when it is saved, never from the copy a sheet opened with: a change another maker saved in between stays.
 // Undo puts back the fields an edit changed, as they were just before it.
 import { move, place } from './grid.js';
+import { coOf, minOf } from './model.js';
 
 /** @typedef {import('./grid.js').GridRow} GridRow */
 /**
@@ -35,6 +36,34 @@ export function mergeOverrides(overrides, changes) {
     if (Object.keys(next).length > 1) by.set(id, /** @type {any} */ (next)); else by.delete(id);
   }
   return [...by.values()];
+}
+
+/**
+ * A list's change for this week from its sheet: only the fields typed differently from the list as it stands unsettled
+ * (the template with the week's changes), so a field left alone never becomes a change. Never from the settled list: a
+ * holiday, leave or no patients would be saved as closed with no juniors, and stay so once the reason went (7 Nov 2026).
+ * A sharer the lead also is drops out; a minimum left as shown keeps whatever change the week has by then; an empty
+ * number (patients aside) changes nothing.
+ * @param {import('./model.js').ListSlot} raw  the list unsettled
+ * @param {{ consultant?: string | null, consultant2?: string | null, consultant3?: string | null, patients?: number | null,
+ *   need?: number | null, min?: number | null, status?: string, away?: boolean }} v  the sheet's values
+ * @returns {Partial<import('../data/lists.js').Override>}
+ */
+export function listChange(raw, v) {
+  /** @type {Record<string, unknown>} */
+  const out = {};
+  const consultant = v.consultant || null;
+  if (consultant !== (raw.consultant ?? null)) out.consultant = consultant;
+  const [c2 = null, c3 = null] = coOf(consultant ?? '', v.consultant2, v.consultant3);
+  if (c2 !== (raw.consultant2 ?? null)) out.consultant2 = c2;
+  if (c3 !== (raw.consultant3 ?? null)) out.consultant3 = c3;
+  const patients = v.patients ?? null;
+  if (patients !== (raw.patients ?? null)) out.patients = patients;
+  if (v.need != null && v.need !== raw.need) out.need = v.need;
+  if (v.min != null && v.min !== minOf(raw)) out.min = v.min;
+  if (v.status && v.status !== raw.status) out.status = v.status;
+  if (!!v.away !== !!raw.away) out.away = !!v.away;
+  return out;
 }
 
 const NONE = /** @type {Record<string, unknown>} */ ({ grid: [], lists: [], overrides: [], seed: 0, built: 0 });

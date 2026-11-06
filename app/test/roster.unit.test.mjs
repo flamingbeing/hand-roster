@@ -7,7 +7,9 @@ import { solveCalls, prng } from '../src/roster/calls.js';
 import { buildWeek } from '../src/roster/week.js';
 import { parseInfo, formatInfo } from '../src/roster/parse-info.js';
 import { addDays, daysIn, diffDays, isDay, mondayOf, monthDays, weekday } from '../src/roster/dates.js';
-import { canTake, dayType, DEFAULT_TIER_PLAN, leaveIndex, tierPlanOf } from '../src/roster/model.js';
+import { canTake, dayType, DEFAULT_TIER_PLAN, leaveIndex, settleLists, tierPlanOf } from '../src/roster/model.js';
+import { clashesOf, sectionsOf } from '../src/roster/sections.js';
+import { listChange } from '../src/roster/week-edits.js';
 
 const fx = JSON.parse(readFileSync(new URL('./fixtures/hrm-week.json', import.meta.url), 'utf8'));
 
@@ -362,4 +364,81 @@ test('parse-info: the sample week round-trips through the text form', () => {
   // the parsed calls feed the week builder directly
   const r = buildWeek({ monday: week.from, lists: inputLists, people: fxPeople, leave: back.leave, calls: back.calls });
   assert.equal(r.days.length, 5);
+});
+
+// Lists a week closes (a holiday, the consultant on leave or away, no patients): 'Change for this week' saves only what was
+// typed, from the list unsettled; juniors left on a closed list are flagged and count as free (7 Nov 2026).
+const CW = '2026-11-09';   // a Monday
+const cwSlot = (/** @type {Record<string, unknown>} */ o) => ({ id: 'c1', site: 'NUH', kind: 'clinic', name: 'CLINIC 1', day: CW, session: 'AM',
+  consultant: 'Dr Con Test', status: 'open', need: 2, patients: 18, ...o });
+/** the sheet's values as it opens on a list (screens/week-list.js) */
+const cwValues = (/** @type {any} */ l) => ({ consultant: l.consultant ?? '', consultant2: l.consultant2 ?? '', consultant3: l.consultant3 ?? '',
+  patients: l.patients ?? null, need: l.need, min: Math.min(l.need, l.min ?? (l.need > 0 ? 1 : 0)), status: l.status, away: !!l.away });
+
+test('week list change: only the fields typed differently from the list unsettled', () => {
+  const raw = cwSlot({});
+  // a holiday closes it this week; only the patients are changed: nothing about the holiday is saved
+  const [ph] = settleLists([raw], { holidays: [CW] });
+  assert.equal(ph.status, 'closed');
+  assert.deepEqual(listChange(raw, { ...cwValues(raw), patients: 12 }), { patients: 12 });
+  // no patients: need 0 this week; typed to 20, only the patients
+  const none = cwSlot({ patients: 0 });
+  assert.equal(settleLists([none], {})[0].need, 0);
+  assert.deepEqual(listChange(none, { ...cwValues(none), patients: 20 }), { patients: 20 });
+  // the consultant on leave closes the clinic; only the patients change: no status written
+  const leave = [{ name: 'Dr Con Test', from: CW, to: CW }];
+  assert.equal(settleLists([raw], { leave })[0].status, 'closed');
+  const c = listChange(raw, { ...cwValues(raw), patients: 9 });
+  assert.deepEqual(c, { patients: 9 });
+  assert.ok(!('status' in c) && !('need' in c));
+  // nothing typed: no change at all; each field on its own when typed
+  assert.deepEqual(listChange(raw, cwValues(raw)), {});
+  assert.deepEqual(listChange(raw, { ...cwValues(raw), status: 'closed', need: 1, min: 0, away: true }), { status: 'closed', need: 1, min: 0, away: true });
+  // a sharer written only when it changes; one who becomes the lead drops out as sharer
+  const shared = cwSlot({ consultant2: 'Dr Two Test' });
+  assert.deepEqual(listChange(shared, cwValues(shared)), {});
+  assert.deepEqual(listChange(shared, { ...cwValues(shared), consultant2: '' }), { consultant2: null });
+  assert.deepEqual(listChange(shared, { ...cwValues(shared), consultant: 'Dr Two Test' }), { consultant: 'Dr Two Test', consultant2: null });
+  assert.deepEqual(listChange(raw, { ...cwValues(raw), consultant: '' }), { consultant: null });
+  // an empty number other than patients changes nothing; emptied patients is "not known"
+  assert.deepEqual(listChange(raw, { ...cwValues(raw), need: null, min: null }), {});
+  assert.deepEqual(listChange(raw, { ...cwValues(raw), patients: null }), { patients: null });
+  // an OT list with its consultant away is an emergency slot this week; its usual need untouched is not saved
+  const ot = cwSlot({ id: 'o1', kind: 'ot', name: 'OT 1', need: 3 });
+  assert.equal(settleLists([ot], { leave })[0].emergency, true);
+  assert.deepEqual(listChange(ot, cwValues(ot)), {});
+  // unticking away writes away false (mergeOverrides drops it from the week's change)
+  const away = cwSlot({ away: true });
+  assert.deepEqual(listChange(away, { ...cwValues(away), away: false }), { away: false });
+});
+
+test('week clashes: juniors on a list closed this week are flagged and free', () => {
+  const people = [{ name: 'Dr Ann Test', grade: 'reg' }, { name: 'Dr Ben Test', grade: 'mo' }, { name: 'Dr Cat Test', grade: 'mo' }, { name: 'Dr Con Test', grade: 'con' }];
+  const raw = [cwSlot({}), cwSlot({ id: 'o1', kind: 'ot', name: 'OT 1', consultant: 'Dr Other Test' })];
+  const grid = [{ day: CW, session: 'AM', list: 'c1', juniors: ['Dr Ann Test', 'Dr Ben Test'] }, { day: CW, session: 'AM', list: 'o1', juniors: ['Dr Cat Test'] }];
+  const leave = [{ name: 'Dr Con Test', from: CW, to: CW }];
+  // the clinic's consultant on leave since the build: one clash per junior on it, and they are free that morning
+  const lists = settleLists(raw, { leave });
+  const clashes = clashesOf({ grid, lists, leave, calls: [] });
+  assert.deepEqual(clashes.map(c => [c.list, c.name, c.why.join()]),
+    [['c1', 'Dr Ann Test', 'the list is closed (consultant on leave)'], ['c1', 'Dr Ben Test', 'the list is closed (consultant on leave)']]);
+  const sec = sectionsOf({ monday: CW, people, leave, calls: [], lists, grid });
+  const free = sec.free[CW].map(f => [f.name, f.when]);
+  assert.deepEqual(free.filter(([n]) => n !== 'Dr Cat Test'), [['Dr Ann Test', 'FULL DAY'], ['Dr Ben Test', 'FULL DAY']]);
+  assert.deepEqual(free.find(([n]) => n === 'Dr Cat Test'), ['Dr Cat Test', 'PM'], 'the open list still takes its morning');
+  // marked away in the Epic check
+  const away = settleLists([{ ...raw[0], away: true }, raw[1]], {});
+  assert.deepEqual(clashesOf({ grid, lists: away, leave: [], calls: [] }).map(c => c.why.join()), ['the list is closed (consultant away)', 'the list is closed (consultant away)']);
+  // a public holiday: every list's juniors, said once each, and nothing else checked that day
+  const ph = settleLists(raw, { holidays: [CW] });
+  assert.deepEqual(clashesOf({ grid, lists: ph, leave, calls: [], holidays: [CW] }).map(c => [c.name, c.why]),
+    [['Dr Ann Test', ['the list is closed (public holiday)']], ['Dr Ben Test', ['the list is closed (public holiday)']], ['Dr Cat Test', ['the list is closed (public holiday)']]]);
+  // closed by the week's own change
+  const shut = settleLists([{ ...raw[0], status: 'closed' }, raw[1]], {});
+  assert.deepEqual(clashesOf({ grid, lists: shut, leave: [], calls: [] }).map(c => c.why.join()), ['the list is closed', 'the list is closed']);
+  // open lists: none
+  assert.deepEqual(clashesOf({ grid, lists: settleLists(raw, {}), leave: [], calls: [] }), []);
+  // leave of a junior on a closed list: both said
+  const both = clashesOf({ grid, lists, leave: [...leave, { name: 'Dr Ann Test', from: CW, to: CW }], calls: [] });
+  assert.deepEqual(both[0].why, ['the list is closed (consultant on leave)', 'on leave then']);
 });
