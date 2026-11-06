@@ -60,6 +60,7 @@ export function parseInfo(text, { year }) {
 
 /** @param {string} h @returns {Tier | null} */
 function tierOfHead(h) {
+  if (/\breg(?:istrar)?\s*2\b/i.test(h)) return 'reg2';
   /** @type {string[]} */
   const words = h.toLowerCase().match(/[a-z]+/g) ?? [];
   const mo = words.includes('mo');
@@ -107,7 +108,7 @@ function callLine(line, year, order) {
   if (names.length > order.length) return `${names.length} names but ${order.length} columns in the Calls heading`;
   /** @type {CallDay} */
   const row = { date, con: null, reg: null, moNuh: null, moNtf: null };
-  order.forEach((t, i) => { const n = names[i]; row[t] = n === undefined || NOBODY.test(n) ? null : n; });
+  order.forEach((t, i) => { const n = names[i]; const v = n === undefined || NOBODY.test(n) ? null : n; if (v || t !== 'reg2') row[t] = v; });
   return row;
 }
 
@@ -121,7 +122,7 @@ const dm = day => `${Number(day.slice(8))} ${MONTHS[Number(day.slice(5, 7)) - 1]
  * @returns {string}
  */
 export function formatInfo(info, order = ['reg', 'moNuh', 'moNtf']) {
-  const head = { con: 'Con', reg: 'Reg', moNuh: 'NUH MO', moNtf: 'NTF MO' };
+  const head = { con: 'Con', reg: 'Reg', reg2: 'Reg 2', moNuh: 'NUH MO', moNtf: 'NTF MO' };
   const lines = ['Leave'];
   for (const l of info.leave) {
     const days = rangeDays(l.from, l.to);

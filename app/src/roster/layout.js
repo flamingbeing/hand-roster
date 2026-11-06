@@ -6,7 +6,7 @@
 // her live formulas (a tally per person and an "accounted for everyone" check). The month's calls have their own small
 // layout. Pure.
 import { addDays, rangeDays, weekdayName, shortDay, MONTH_NAMES, MONTHS, monthDays } from './dates.js';
-import { DEFAULT_TIER_PLAN, TIERS, TIER_LABEL, callMapOf, dayType, isJunior, leaveIndex } from './model.js';
+import { DEFAULT_TIER_PLAN, TIERS, TIER_LABEL, callMapOf, dayType, isJunior, leaveIndex, tiersShown } from './model.js';
 import { sectionsOf } from './sections.js';
 import { juniorsOn } from './grid.js';
 
@@ -26,6 +26,7 @@ import { juniorsOn } from './grid.js';
  * @property {string} [who]  the person a line is about: a list header's consultant, a FREE line's person (with when and why)
  * @property {'AM' | 'PM' | 'FULL DAY'} [when]
  * @property {string} [why]
+ * @property {boolean} [eot]  a list header for an emergency slot (its consultant away): the hand grid's EOT group
  */
 /** @typedef {{ section: string, label: string, lines: Line[][], prefix?: boolean }} Block  lines[i] is day i's lines */
 /** @typedef {{ title: string, sheet: string, style: 'core' | 'hand', days: string[], dayHeads: string[], blocks: Block[], built: boolean }} WeekLayout */
@@ -66,7 +67,8 @@ export const longDay = day => `${weekdayName(day)} ${shortDay(day)} ${day.slice(
  * @property {Person[]} people
  * @property {Leave[]} [leave]
  * @property {CallDay[]} [calls]  the calls around the week
- * @property {string[]} [holidays]  public holidays (they have fewer on-call tiers)
+ * @property {string[]} [holidays]  public holidays: their lists are closed
+ * @property {import('./model.js').TierPlan} [tierPlan]  which call tiers each kind of day has (default DEFAULT_TIER_PLAN)
  * @property {boolean} [built]  the grid has been built: FREE is shown only then (default: the grid has rows)
  * @property {boolean} [patients]  show patient counts in the hand-made header (default true)
  * @property {boolean} [postCallAm]
@@ -80,7 +82,7 @@ export function weekLayout(o) {
   const showPatients = o.patients !== false;
   const week = rangeDays(o.monday, addDays(o.monday, 6));
   const days = style === 'hand' ? week.slice(0, 5) : week;
-  const sec = sectionsOf({ monday: o.monday, people: o.people, leave, calls: o.calls ?? [], lists: o.lists, grid, postCallAm: o.postCallAm });
+  const sec = sectionsOf({ monday: o.monday, people: o.people, leave, calls: o.calls ?? [], lists: o.lists, grid, postCallAm: o.postCallAm, holidays });
   const lv = leaveIndex(leave);
   const map = callMapOf(o.calls ?? []);
   /** @type {Block[]} */
@@ -93,17 +95,18 @@ export function weekLayout(o) {
   /** @param {ListSlot} l @returns {Line} */
   function head(l) {
     const closed = closedList(l);
-    const who = closed ? 'CLOSED' : l.consultant || (l.kind === 'hot' ? '' : 'EMPTY');
+    const who = closed ? (l.holiday ? 'CLOSED (PH)' : 'CLOSED') : l.emergency ? `EOT (${l.consultant ?? 'consultant'} away)` : l.consultant || (l.kind === 'hot' ? '' : 'EMPTY');
     // (the hand-made grid also greys a clinic with no patients booked)
     const grey = closed || l.status === 'template' || l.status === 'empty' || (style === 'hand' && l.patients === 0);
     const nameText = style === 'hand' && l.kind === 'clinic' ? 'Clinic' : l.name;
     let t;
     if (style === 'core') t = `${l.site} ${nameText}${who ? ` - ${who}` : ''}`;
     else {
-      const flag = closed ? ' (closed)' : !l.consultant && l.kind !== 'hot' ? ' (empty)' : '';
+      const flag = closed ? (l.holiday ? ' (public holiday)' : ' (closed)') : l.emergency ? ' EOT (consultant away)' : !l.consultant && l.kind !== 'hot' ? ' (empty)' : '';
       t = `${[l.consultant, l.site, nameText, l.rooms].filter(Boolean).join(' ')}${l.patients != null && showPatients ? ` (${l.patients} pts)` : ''}${flag}`;
     }
-    return { t, k: grey ? 'closed' : 'head', short: `${l.name}${closed ? ' (closed)' : l.consultant ? ` (${l.consultant})` : ''}`, kind: l.kind, site: l.site, ...(l.consultant ? { who: l.consultant } : {}) };
+    return { t, k: grey ? 'closed' : 'head', short: `${l.name}${closed ? ' (closed)' : l.emergency ? ' (EOT)' : l.consultant ? ` (${l.consultant})` : ''}`, kind: l.kind, site: l.site,
+      ...(l.consultant && !l.emergency ? { who: l.consultant } : {}), ...(l.emergency ? { eot: true } : {}) };
   }
   /** @param {string} day @param {'AM' | 'PM'} session @param {string} site @returns {Line[]} */
   function listLines(day, session, site) {
@@ -118,11 +121,12 @@ export function weekLayout(o) {
       if (lines.some(l => l.length)) blocks.push({ section, label: site, lines });
     }
   }
-  for (const tier of TIERS) {
+  const plan = o.tierPlan ?? DEFAULT_TIER_PLAN;
+  for (const tier of tiersShown(plan, (o.calls ?? []).filter(c => days.includes(c.date)))) {
     const lines = days.map(d => {
       const name = map[d]?.[tier] ?? '';
       if (name) return [/** @type {Line} */ ({ t: name, k: 'text' })];
-      return [{ t: DEFAULT_TIER_PLAN[dayType(d, holidays)].includes(tier) ? '–' : '', k: /** @type {LineKind} */ ('text') }];
+      return [{ t: plan[dayType(d, holidays)].includes(tier) ? '–' : '', k: /** @type {LineKind} */ ('text') }];
     });
     blocks.push({ section: SECTIONS.call, label: TIER_LABEL[tier], lines, prefix: true });
   }
@@ -235,7 +239,7 @@ export function handSections(layout) {
  * @property {string[]} juniors  one tally and check row each
  */
 
-/** the tally's columns, as the roster maker heads them; EOT has no list kind here, so it is left for her to type */
+/** the tally's columns, as the roster maker heads them; EOT counts the emergency slots (an OT list whose consultant is away) */
 export const TALLY = /** @type {[TallyKind, string][]} */ ([
   ['msp', 'MSP/ LA OT'], ['eot', 'EOT'], ['ot', 'Elective OT'], ['clinic', 'Clinic'], ['admin', 'Admin/ Research/ Skills'],
   ['al', 'AL'], ['free', 'Free on call/other commitments'], ['post', 'Post-call'],
@@ -243,7 +247,7 @@ export const TALLY = /** @type {[TallyKind, string][]} */ ([
 /** rows the roster maker keeps under the grid for her own notes; the app has nothing to put in them */
 export const NOTE_ROWS = ['Ortho Reg', 'Special Clinic', 'NUH Locums', 'NTF Locums', 'Outposters', 'Fam Med', 'ED', 'RAI'];
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const GROUPS = /** @type {const} */ (['clinic', 'ot', 'msp']);
+const GROUPS = /** @type {const} */ (['clinic', 'ot', 'eot', 'msp']);
 /** where the side tables sit: the check in H (names) and I:M (days), the tally in T (names), U:AB (kinds), AC (total) */
 export const HAND_COLS = { check: 8, tally: 20 };
 
@@ -293,8 +297,8 @@ export function handGrid(layout, people) {
     put({ r, c: 1, k: 'label', v: label });
     days.forEach((_, i) => put({ r, c: 2 + i, k, v: day(i) }));
   };
-  /** @param {Line} l @returns {'clinic' | 'ot' | 'msp'} */
-  const groupOf = l => (l.kind === 'msp' ? 'msp' : l.kind === 'clinic' || l.kind === 'hot' ? 'clinic' : 'ot');
+  /** @param {Line} l @returns {'clinic' | 'ot' | 'eot' | 'msp'} */
+  const groupOf = l => (l.eot ? 'eot' : l.kind === 'msp' ? 'msp' : l.kind === 'clinic' || l.kind === 'hot' ? 'clinic' : 'ot');
 
   put({ r: 1, c: 1, k: 'title', v: layout.title });
   days.forEach((d, i) => { put({ r: 2, c: 2 + i, k: 'day', v: DAY_NAMES[new Date(`${d}T00:00:00Z`).getUTCDay()] }); put({ r: 3, c: 2 + i, k: 'date', v: d }); });
@@ -319,7 +323,7 @@ export function handGrid(layout, people) {
         const n = Math.max(0, ...mine.map(ls => ls.length));
         if (!n) continue;
         mine.forEach((ls, i) => ls.forEach((x, j) => {
-          const tone = x.head.k === 'closed' ? 'grey' : g === 'msp' ? 'msp' : x.head.site === home ? g : 'away';
+          const tone = x.head.k === 'closed' ? 'grey' : g === 'msp' ? 'msp' : x.head.site !== home ? 'away' : g === 'eot' ? 'ot' : g;
           put({ r: r + 2 * j, c: 2 + i, k: 'head', v: x.head.t, tone });
           put({ r: r + 2 * j + 1, c: 2 + i, k: 'names', v: x.names.join(' + ') });
         }));
@@ -449,26 +453,27 @@ export function handGrid(layout, people) {
  * @property {string[][]} counts
  */
 /**
- * @param {{ month: string, calls: CallDay[], holidays?: string[], counts?: CountRow[] }} o
+ * @param {{ month: string, calls: CallDay[], holidays?: string[], counts?: CountRow[], tierPlan?: import('./model.js').TierPlan }} o
  * @returns {CallsLayout}
  */
-export function callsLayout({ month, calls, holidays = [], counts = [] }) {
+export function callsLayout({ month, calls, holidays = [], counts = [], tierPlan = DEFAULT_TIER_PLAN }) {
   const by = new Map(calls.map(c => [c.date, c]));
+  const tiers = tiersShown(tierPlan, calls.filter(c => c.date.startsWith(month)));
   const [y, m] = month.split('-').map(Number);
   return {
     title: `HRM on-call roster, ${MONTH_NAMES[m - 1]} ${y}`,
     sheet: `Calls ${MONTHS[m - 1]} ${y}`,
-    head: ['Date', 'Day', ...TIERS.map(t => TIER_LABEL[t])],
+    head: ['Date', 'Day', ...tiers.map(t => TIER_LABEL[t])],
     rows: monthDays(month).map(date => {
-      const type = dayType(date, holidays), plan = DEFAULT_TIER_PLAN[type], row = by.get(date);
+      const type = dayType(date, holidays), plan = tierPlan[type], row = by.get(date);
       return {
         off: type !== 'weekday',
         cells: [shortDay(date), `${weekdayName(date)}${holidays.includes(date) ? ' (PH)' : ''}`,
-          ...TIERS.map(t => row?.[t] ?? (plan.includes(t) ? '' : '–'))],
+          ...tiers.map(t => row?.[t] ?? (plan.includes(t) ? '' : '–'))],
       };
     }),
-    countsHead: ['Name', 'Total', 'Weekend/PH', ...TIERS.map(t => TIER_LABEL[t])],
-    counts: counts.filter(c => c.total > 0).map(c => [c.name, String(c.total), String(c.weekend), ...TIERS.map(t => String(c.tiers[t] ?? 0))]),
+    countsHead: ['Name', 'Total', 'Weekend/PH', ...tiers.map(t => TIER_LABEL[t])],
+    counts: counts.filter(c => c.total > 0).map(c => [c.name, String(c.total), String(c.weekend), ...tiers.map(t => String(c.tiers[t] ?? 0))]),
   };
 }
 

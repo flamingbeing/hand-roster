@@ -7,7 +7,7 @@ import { solveCalls, prng } from '../src/roster/calls.js';
 import { buildWeek } from '../src/roster/week.js';
 import { parseInfo, formatInfo } from '../src/roster/parse-info.js';
 import { addDays, daysIn, diffDays, isDay, mondayOf, monthDays, weekday } from '../src/roster/dates.js';
-import { canTake, dayType, DEFAULT_TIER_PLAN, leaveIndex } from '../src/roster/model.js';
+import { canTake, dayType, DEFAULT_TIER_PLAN, leaveIndex, tierPlanOf } from '../src/roster/model.js';
 
 const fx = JSON.parse(readFileSync(new URL('./fixtures/hrm-week.json', import.meta.url), 'utf8'));
 
@@ -27,7 +27,10 @@ test('model: tiers per day type, tier eligibility, session-aware leave', () => {
   assert.equal(dayType('2026-10-17'), 'sat');
   assert.equal(dayType('2026-10-18'), 'sun');
   assert.equal(dayType('2026-10-14', ['2026-10-14']), 'ph');
-  assert.deepEqual(DEFAULT_TIER_PLAN.sun, ['con']);
+  assert.deepEqual(DEFAULT_TIER_PLAN.sun, ['con', 'reg', 'moNuh', 'moNtf'], 'all four tiers every day, as the HRM roster has');
+  assert.deepEqual(tierPlanOf({ sun: ['con'] }), { ...DEFAULT_TIER_PLAN, sun: ['con'] }, "a roster's own plan, the default for the rest");
+  assert.equal(canTake({ name: 'a', grade: 'reg', rank: 'Reg' }, 'reg2'), true);
+  assert.equal(canTake({ name: 'a', grade: 'mo' }, 'reg2'), false);
   assert.equal(canTake({ name: 'a', grade: 'reg', rank: 'Fellow' }, 'reg'), false);
   assert.equal(canTake({ name: 'a', grade: 'reg', rank: 'Fellow' }, 'moNuh'), true);
   assert.equal(canTake({ name: 'a', grade: 'mo' }, 'reg'), false);
@@ -64,8 +67,10 @@ const requests = [
 ];
 const holidays = ['2026-11-08'];
 
+/** fewer tiers at the weekend (the app's first default): the weekend cases below are about a plan's shape */
+const OLD_PLAN = { weekday: ['con', 'reg', 'moNuh', 'moNtf'], sat: ['con', 'reg'], sun: ['con'], ph: ['con', 'reg'] };
 function solve(extra = {}) {
-  return solveCalls({ month, people, leave, requests, holidays, seed: 3, ...extra });
+  return solveCalls({ month, people, leave, requests, holidays, seed: 3, tiers: OLD_PLAN, ...extra });
 }
 
 test('calls: every slot filled, hard rules hold on a 30-day month', () => {
@@ -78,7 +83,7 @@ test('calls: every slot filled, hard rules hold on a 30-day month', () => {
   const byPerson = new Map();
   for (const date of days) {
     const row = r.assignments[date];
-    assert.deepEqual(Object.keys(row).sort(), [...DEFAULT_TIER_PLAN[dayType(date, holidays)]].sort(), `${date} tiers`);
+    assert.deepEqual(Object.keys(row).sort(), [...OLD_PLAN[dayType(date, holidays)]].sort(), `${date} tiers`);
     const names = Object.values(row);
     assert.ok(names.every(Boolean), `${date} filled`);
     assert.equal(new Set(names).size, names.length, `${date}: nobody on two tiers`);

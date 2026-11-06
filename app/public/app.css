@@ -81,6 +81,29 @@ select { padding: .5rem 2rem .5rem .65rem; }
 .wk-chip:disabled { opacity: 1; cursor: default; }
 .wk-add { flex: none; border-radius: 50%; width: 2.25rem; height: 2.25rem; border-style: dashed; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
 .wk-need { color: var(--warn, var(--danger)); }
+.wk-want { color: var(--muted); }
+/* an emergency slot (its consultant away): dashed, so it reads as not the usual list */
+.wk-list.is-eot { border-style: dashed; border-inline-start-style: solid; }
+.wk-ph { color: var(--warn, var(--danger)); font-weight: 600; }
+/* the Short panel: each list below its minimum, its choices as full-width rows */
+.sh-panel:empty { display: none; }
+.sh-panel { border: 1px solid var(--warn, var(--danger)); border-radius: var(--card-r, var(--radius)); padding: .6rem .8rem; margin: 0 0 var(--gap); background: var(--surface); }
+.sh-panel h2 { font-size: 1rem; margin: 0 0 .4rem; }
+.sh-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
+.sh-item p { margin: 0 0 .3rem; }
+.sh-options { display: grid; border: 1px solid var(--line); border-radius: var(--card-r, var(--radius)); overflow: hidden; }
+.sh-option { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .1rem .75rem; text-align: start; border: 0; border-radius: 0; border-top: 1px solid var(--line); background: none; padding: .55rem .7rem; color: inherit; }
+.sh-option:first-child { border-top: 0; }
+.sh-option .small { color: var(--muted); }
+/* the Epic check: consultants by day and session, scrolling sideways on a phone with the names kept in view */
+.ep-wrap { overflow-x: auto; margin: 0 0 var(--gap); }
+.ep-table { border-collapse: collapse; font-size: .9rem; }
+.ep-table th, .ep-table td { padding: .2rem .25rem; text-align: center; border-bottom: 1px solid var(--line); }
+.ep-table tbody th { text-align: start; position: sticky; inset-inline-start: 0; background: var(--surface); min-width: 8rem; }
+.ep-table tbody th span { display: block; }
+.ep-table input { width: 2.6rem; padding: .3rem .2rem; text-align: center; }
+.ep-none { color: var(--muted); }
+.ep-away { padding: .1rem .4rem; min-height: 0; }
 .wk-none { color: var(--muted); margin: 0; }
 .wk-extras { margin-top: var(--gap); }
 .wk-oncall { display: grid; grid-template-columns: auto 1fr; gap: .1rem .75rem; margin: 0; }
@@ -145,7 +168,7 @@ select { padding: .5rem 2rem .5rem .65rem; }
 /* ---- print: the whole week on one landscape page ---- */
 @page { size: A4 landscape; margin: 10mm; }
 @media print {
-  .ui-bar, .ui-tabbar, .ui-sidebar, .wk-bar, .wk-chips, #toasts, .wk-add, #week-state-note, .ui-large-title, .status-line, #conflict-sheet, #refused-list { display: none !important; }
+  .ui-bar, .ui-tabbar, .ui-sidebar, .wk-bar, .wk-chips, .sh-panel, #toasts, .wk-add, #week-state-note, .ui-large-title, .status-line, #conflict-sheet, #refused-list { display: none !important; }
   .print-only { display: block; font-weight: 600; margin: 0 0 4mm; }
   .ui-screen { display: block !important; position: static !important; transform: none !important; overflow: visible !important; }
   .ui-screen:not(#week-page) { display: none !important; }

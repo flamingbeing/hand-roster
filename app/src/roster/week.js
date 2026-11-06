@@ -2,11 +2,15 @@
 // for each weekday's AM and PM and works out the rest of the CORE sheet's sections: LEAVE, POST-CALL and FREE.
 // Rules (from the sample roster): someone on leave is out for the leave's session; a call makes the person FREE the whole
 // day ("on call"); the day after a call is post-call, which takes the PM only (the AM can still be rostered, `postCallAm:
-// false` takes the whole day); a clinic whose consultant is on leave is CLOSED; only 'open' lists take juniors. Registrars
-// are preferred on OT and MSP lists, MOs on clinics; sessions are balanced across the week; a list's PM keeps its AM
-// juniors. Deterministic from the seed. Pure: no page, no clock.
+// false` takes the whole day); a public holiday closes the day's lists and a consultant away closes their clinics but keeps
+// their OT as an emergency slot (settle.js); only 'open' lists take juniors. When there are too few juniors the order is the
+// owner's (6 Nov 2026): every list's minimum first (elective OT, MSP, HOT and clinics alike: none can be left), then a
+// registrar for each emergency slot, then the lists' extras (a second OT or MSP junior), then an emergency slot's MO.
+// Registrars are preferred on OT and MSP lists, MOs on clinics; sessions are balanced across the week; a list's PM keeps
+// its AM juniors. Deterministic from the seed. Pure: no page, no clock.
 import { addDays, mondayOf, rangeDays } from './dates.js';
-import { callMapOf, isJunior, leaveIndex } from './model.js';
+import { TIERS, callMapOf, isJunior, leaveIndex } from './model.js';
+import { minOf, settleLists } from './settle.js';
 
 /** @typedef {import('./model.js').Person} Person */
 /** @typedef {import('./model.js').Leave} Leave */
@@ -23,12 +27,14 @@ import { callMapOf, isJunior, leaveIndex } from './model.js';
  * @property {CallDay[]} [calls]  the month's calls; the day before the week counts for post-call
  * @property {{ type: 'list-person', person: string, list: string, day: string, session: Session | 'both' }[]} [requests]  a person asked for a list
  * @property {{ type: 'list-need', list: string, day: string, session: Session | 'both', need: number }[]} [needs]  a list wants a different number of juniors
+ * @property {string[]} [holidays]  public holidays: their lists close and nobody is free or rostered
  * @property {boolean} [postCallAm]  post-call people can still work the AM (default true)
  * @property {number} [seed]
  *
  * @typedef {{ list: string, juniors: string[] }} Placement
  * @typedef {{ name: string, when: 'AM' | 'PM' | 'FULL DAY', why?: string }} FreeEntry
- * @typedef {{ list: string, day: string, session: Session, need: number, got: number }} Shortfall
+ * @typedef {{ list: string, day: string, session: Session, need: number, min: number, got: number, noReg?: boolean }} Shortfall  got < min
+ *   or noReg (an emergency slot with no registrar): short; else fewer than it wants (an emergency slot's missing MO is not one)
  * @typedef {object} WeekResult
  * @property {string[]} days  the weekdays Mon..Fri
  * @property {Record<string, Record<Session, Placement[]>>} grid
@@ -64,22 +70,15 @@ export function buildWeek(o) {
   const calls = callMapOf(o.calls ?? []);
   const postCallAm = o.postCallAm ?? true;
   const juniors = o.people.filter(isJunior);
-  const tiers = /** @type {const} */ (['con', 'reg', 'moNuh', 'moNtf']);
+  const holidays = o.holidays ?? [];
   /** @param {string} day @returns {string[]} */
-  const onCallOn = day => tiers.map(t => calls[day]?.[t]).filter(/** @returns {n is string} */ n => !!n);
+  const onCallOn = day => TIERS.map(t => calls[day]?.[t]).filter(/** @returns {n is string} */ n => !!n);
 
-  // lists: settle status and need
-  /** @type {ListSlot[]} */
-  const lists = o.lists.filter(l => days.includes(l.day)).map(l => {
-    const x = { ...l };
-    const gone = !!x.consultant && lv.blocks(x.consultant, x.day, x.session);
-    if (gone) x.consultantOnLeave = true;
-    if (gone && x.kind === 'clinic' && x.status === 'open') x.status = 'closed';
-    const ask = (o.needs ?? []).find(n => n.day === x.day && sameName(n.list, x) && (n.session === 'both' || n.session === x.session));
-    if (ask) x.need = ask.need;
-    if (x.status !== 'open' || x.external) x.need = 0;
-    return x;
-  });
+  // lists: a request for a different number first, then status, need and minimum settled (settle.js)
+  const lists = settleLists(o.lists.filter(l => days.includes(l.day)).map(l => {
+    const ask = (o.needs ?? []).find(n => n.day === l.day && sameName(n.list, l) && (n.session === 'both' || n.session === l.session));
+    return ask ? { ...l, need: ask.need, ...(l.min != null && l.min > ask.need ? { min: ask.need } : {}) } : l;
+  }), { leave: o.leave, holidays });
 
   /** @type {Record<string, Record<Session, Placement[]>>} */
   const grid = {};
@@ -121,28 +120,46 @@ export function buildWeek(o) {
         const p = juniors.find(x => x.name === r.person);
         if (l && p && available(p, session)) put(l, p.name);
       }
-      // 2. the PM keeps the AM's juniors on the same list (same name, site and consultant)
-      if (session === 'PM') {
-        for (const l of order) {
-          const am = grid[day].AM.find(g => { const a = lists.find(x => x.id === g.list); return a && a.name === l.name && a.site === l.site && a.consultant === l.consultant && a.kind === l.kind; });
-          for (const name of am?.juniors ?? []) {
-            const p = juniors.find(x => x.name === name);
-            if (p && available(p, session) && l.need > (placed.get(l.id)?.length ?? 0)) put(l, name);
+      // 2. the rest in the owner's order, each step: the PM keeps the AM's juniors on the same list (same name, site and
+      // consultant), then the hardest lists first
+      const plain = order.filter(l => !l.emergency), eot = order.filter(l => l.emergency);
+      /** @type {[ListSlot[], (l: ListSlot) => number, (p: Person) => boolean][]} */
+      const steps = [
+        [plain, minOf, () => true],
+        [eot, minOf, p => p.grade === 'reg'],
+        [plain, l => l.need, () => true],
+        [eot, l => l.need, () => true],
+      ];
+      for (const [mine, upTo, may] of steps) {
+        if (session === 'PM') {
+          for (const l of mine) {
+            const am = grid[day].AM.find(g => { const a = lists.find(x => x.id === g.list); return a && a.name === l.name && a.site === l.site && a.consultant === l.consultant && a.kind === l.kind; });
+            for (const name of am?.juniors ?? []) {
+              const p = juniors.find(x => x.name === name);
+              if (p && may(p) && available(p, session) && upTo(l) > (placed.get(l.id)?.length ?? 0)) put(l, name);
+            }
           }
         }
+        for (const l of mine) fillTo(l, upTo(l), may);
       }
-      // 3. the rest, hardest lists first
-      for (const l of order) {
-        while ((placed.get(l.id)?.length ?? 0) < l.need) {
+
+      /** @param {ListSlot} l @param {number} upTo @param {(p: Person) => boolean} may */
+      function fillTo(l, upTo, may) {
+        while ((placed.get(l.id)?.length ?? 0) < upTo) {
           let best = null;
           let bestScore = Infinity;
+          // registrars are kept back while there are no more of them than emergency slots still without one (an MO does
+          // elsewhere what only a registrar does there)
+          const regsLeft = l.emergency ? Infinity : juniors.filter(p => p.grade === 'reg' && available(p, session)).length;
+          const keepRegs = regsLeft <= eot.filter(e => !(placed.get(e.id) ?? []).some(n => juniors.find(x => x.name === n)?.grade === 'reg')).length;
           for (const p of juniors) {
-            if (!available(p, session)) continue;
+            if (!may(p) || !available(p, session)) continue;
             const st = stats[p.name];
             const wantsOt = l.kind === 'ot' || l.kind === 'msp';
             let v = st.sessions * 3 + (wantsOt ? st.ot : st.clinic) * 1.5 + rnd() * 0.5;
             v += wantsOt ? (p.grade === 'reg' ? 0 : 4) : (p.grade === 'mo' ? 0 : 2);
             if (p.site && (l.site === 'NUH' || l.site === 'NTFGH') && p.site !== l.site) v += 2;
+            if (keepRegs && p.grade === 'reg') v += 20;
             const amSite = session === 'PM' ? grid[day].AM.find(g => g.juniors.includes(p.name)) : undefined;
             if (amSite && lists.find(x => x.id === amSite.list)?.site !== l.site) v += 1.5;
             if (v < bestScore) { bestScore = v; best = p; }
@@ -152,14 +169,16 @@ export function buildWeek(o) {
         }
       }
       for (const l of todays) {
-        const got = placed.get(l.id) ?? [];
+        const got = placed.get(l.id) ?? [], min = minOf(l);
         grid[day][session].push({ list: l.id, juniors: got });
-        if (got.length < l.need) problems.push({ list: l.id, day, session, need: l.need, got: got.length });
+        const noReg = !!l.emergency && !got.some(n => juniors.find(x => x.name === n)?.grade === 'reg');
+        if (got.length < (l.emergency ? min : l.need) || noReg) problems.push({ list: l.id, day, session, need: l.need, min, got: got.length, ...(noReg ? { noReg } : {}) });
       }
     }
 
     // FREE: unplaced juniors who are around (leave goes under LEAVE, the post-call PM under POST-CALL)
     free[day] = [];
+    if (holidays.includes(day)) continue;
     for (const p of juniors) {
       if (lv.full(p.name, day)) continue;
       if (today.includes(p.name)) { free[day].push({ name: p.name, when: 'FULL DAY', why: 'on call' }); continue; }

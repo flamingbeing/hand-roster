@@ -71,8 +71,11 @@ test('core rows: DEPARTMENTS plus seven days, sections, list header then juniors
   assert.equal(rows.find(r => r[2].t === 'NUH CLINIC - CLOSED')?.[2].k, 'closed');
 });
 
+/** a plan with fewer tiers at the weekend (the app's first default), for the "tier a day does not have" cases */
+const OLD_PLAN = { weekday: ['con', 'reg', 'moNuh', 'moNtf'], sat: ['con', 'reg'], sun: ['con'], ph: ['con', 'reg'] };
+
 test('core rows: ON-CALL by tier incl. the weekend, LEAVE with halves, POST-CALL, FREE with its words', () => {
-  const { rows } = coreRows(weekLayout({ ...base, style: 'core' }));
+  const { rows } = coreRows(weekLayout({ ...base, style: 'core', tierPlan: OLD_PLAN }));
   const rowAt = (/** @type {string} */ label) => rows.find(r => r[0].t === label && r[0].k === 'label');
   assert.deepEqual(rowAt('CON')?.map(c => c.t).slice(1, 7), ['Dr Fay Test', '–', '–', '–', '–', 'Dr Eve Test']);
   assert.equal(rowAt('MO (NUH)')?.[6].t, '', 'a tier a Saturday does not have is blank');
@@ -115,7 +118,7 @@ test('hand grid: title, one row per section, "Consultant SITE Clinic rooms (pati
 
 test('calls layout: a row a day, four tiers, off days marked, counts without the idle', () => {
   const cl = callsLayout({
-    month: '2026-11', calls, holidays: ['2026-11-08'],
+    month: '2026-11', calls, holidays: ['2026-11-08'], tierPlan: OLD_PLAN,
     counts: [{ name: 'Dr Ann Test', total: 1, weekend: 0, tiers: { reg: 1 } }, { name: 'Dr Zed Test', total: 0, weekend: 0, tiers: {} }],
   });
   assert.deepEqual(cl.head, ['Date', 'Day', 'CON', 'REG', 'MO (NUH)', 'MO (NTFGH)']);
@@ -127,6 +130,11 @@ test('calls layout: a row a day, four tiers, off days marked, counts without the
   assert.equal(cl.rows[2].cells[2], '', 'a weekday with no call yet is blank, not a dash');
   assert.deepEqual(cl.counts, [['Dr Ann Test', '1', '0', '0', '1', '0', '0']]);
   assert.equal(cl.title, 'HRM on-call roster, November 2026');
+  // the default: all four tiers every day, a blank where nobody is entered; REG 2 gets a column once a day has one
+  const now = callsLayout({ month: '2026-11', calls: [...calls, { date: '2026-11-19', reg2: 'Dr Ann Test' }] });
+  assert.deepEqual(now.head, ['Date', 'Day', 'CON', 'REG', 'REG 2', 'MO (NUH)', 'MO (NTFGH)']);
+  assert.deepEqual(now.rows[6].cells, ['7 Nov', 'Sat', 'Dr Eve Test', 'Dr Ben Test', '–', '', '']);
+  assert.equal(now.rows[18].cells[4], 'Dr Ann Test');
 });
 
 test('whatsapp text: tomorrow\'s lists by site, on call, leave, post-call and free', () => {

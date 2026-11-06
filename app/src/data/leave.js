@@ -29,7 +29,7 @@ const cleanRequest = cleaner({
   name: text(60, true),
   date: day,
   type: oneOf(['cannot', 'want']),
-  tier: oneOf(['con', 'reg', 'moNuh', 'moNtf'], true),
+  tier: oneOf(['con', 'reg', 'reg2', 'moNuh', 'moNtf'], true),
 });
 
 /** @typedef {import('./ops.js').Row & { name: string, date: string, type: 'cannot' | 'want', tier?: import('../roster/model.js').Tier | null }} RequestRow */

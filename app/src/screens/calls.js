@@ -1,5 +1,6 @@
-// The Calls tab (#calls-page): a month's on-call roster. A calendar of the four tiers (CON, REG, MO NUH, MO NTFGH; weekends and
-// public holidays have fewer), "Make calls" (the solver, roster/calls.js), a table of how many calls each person has,
+// The Calls tab (#calls-page): a month's on-call roster. A calendar of the tiers (CON, REG, MO NUH, MO NTFGH every day by
+// default; Settings sets the tiers per kind of day; REG 2 on the days it is entered by hand), "Make calls" (the solver,
+// roster/calls.js), a table of how many calls each person has,
 // and what breaks a rule. A tap on a day sets its calls by hand; a call set by hand is kept when the calls are made again.
 // A phone shows the days as a list, a wider screen as a month grid.
 import { icon, confirmModal, emptyState } from '@core/ui';
@@ -10,7 +11,7 @@ import { solveCalls } from '../roster/calls.js';
 import { checkCalls } from '../roster/calls-check.js';
 import { setCall, lockedMap, problemLines } from '../roster/calls-edit.js';
 import { callMapIn, monthCells, shiftMonth } from '../roster/sections.js';
-import { callRowsOf, DEFAULT_TIER_PLAN, TIERS, TIER_LABEL, canTake, dayType } from '../roster/model.js';
+import { callRow, callRowsOf, DAY_TYPES, TIERS, TIER_LABEL, canTake, dayType, tierPlanOf, tiersShown } from '../roster/model.js';
 import { MONTHS, monthDays, shortDay, weekdayName, todayKey } from '../roster/dates.js';
 import { activePeople } from '../data/people.js';
 import { leaveOf, requestsOf } from '../data/leave.js';
@@ -18,7 +19,13 @@ import { editSheet } from './sheet.js';
 
 /** @param {string} month @returns {string} 'November 2026' */
 export const monthTitle = month => `${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][Number(month.slice(5)) - 1]} ${month.slice(0, 4)}`;
-const SHORT = /** @type {Record<string, string>} */ ({ con: 'CON', reg: 'REG', moNuh: 'NUH', moNtf: 'NTF' });
+const SHORT = /** @type {Record<string, string>} */ ({ con: 'CON', reg: 'REG', reg2: 'REG2', moNuh: 'NUH', moNtf: 'NTF' });
+/** the usual choices of tiers for a kind of day (Settings) */
+const PLAN_CHOICES = /** @type {import('../roster/model.js').Tier[][]} */ ([
+  ['con', 'reg', 'moNuh', 'moNtf'], ['con', 'reg', 'reg2', 'moNuh', 'moNtf'], ['con', 'reg', 'moNuh'], ['con', 'reg'], ['con'],
+]);
+/** @param {string[]} tiers */
+const planLabel = tiers => tiers.map(t => SHORT[t]).join(' + ');
 
 /** @param {import('./context.js').Context} ctx */
 export function create(ctx) {
@@ -49,7 +56,8 @@ export function create(ctx) {
     const prevRoster = /** @type {import('../data/plans.js').RosterRow | undefined} */ (store.row('rosters', shiftMonth(month, -1)));
     const nextRoster = /** @type {import('../data/plans.js').RosterRow | undefined} */ (store.row('rosters', shiftMonth(month, 1)));
     const prior = callMapIn([...(prevRoster?.calls ?? []), ...(nextRoster?.calls ?? [])].filter(c => c.date < `${month}-01`), shiftMonth(month, -1));
-    return { roster, people, leave, requests, prior, calls: roster?.calls ?? [], holidays: roster?.holidays ?? [], minGap: roster?.minGap ?? 2 };
+    const plan = tierPlanOf(roster?.tierPlan);
+    return { roster, people, leave, requests, prior, calls: roster?.calls ?? [], holidays: roster?.holidays ?? [], minGap: roster?.minGap ?? 2, plan };
   }
 
   /** the month's calls as an Excel file (date rows by the four tiers, then the counts) */
@@ -57,9 +65,9 @@ export function create(ctx) {
     const m = model();
     if (!m.calls.some(c => TIERS.some(t => c[t]))) { toast('Make the calls first.'); return; }
     try {
-      const check = checkCalls({ month, calls: m.calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior });
+      const check = checkCalls({ month, calls: m.calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, tiers: m.plan });
       const { exportCalls } = await import('./export.js');
-      toast(`Saved ${await exportCalls({ month, calls: m.calls, holidays: m.holidays, counts: check.counts })}`);
+      toast(`Saved ${await exportCalls({ month, calls: m.calls, holidays: m.holidays, counts: check.counts, tierPlan: m.plan })}`);
     } catch (e) { toast(e instanceof Error && e.message ? e.message : 'Could not make the Excel file.'); }
   }
 
@@ -74,7 +82,7 @@ export function create(ctx) {
     try {
       await new Promise(r => setTimeout(r, 30));   // let the note paint before the solver holds the page
       const seed = (m.roster?.seed ?? 0) + 1;
-      const res = solveCalls({ month, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, seed, prior: m.prior, locked, iterations: 20000 });
+      const res = solveCalls({ month, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, seed, prior: m.prior, locked, tiers: m.plan, iterations: 20000 });
       const refused = await app.data.rosters.upsert(month, m.roster, { calls: callRowsOf(res.assignments), problems: problemLines(res.problems), seed, built: Date.now() });
       toast(refused ? REFUSED : res.problems.length ? `Made. ${res.problems.length} thing${res.problems.length === 1 ? '' : 's'} to look at.` : 'Made');
     } finally { busy = false; $('calls-make').removeAttribute('disabled'); draw(); }
@@ -83,8 +91,9 @@ export function create(ctx) {
   /** @param {string} date */
   function daySheet(date) {
     const m = model();
-    const plan = DEFAULT_TIER_PLAN[dayType(date, m.holidays)];
-    const tiers = TIERS.filter(t => plan.includes(t) || m.calls.find(c => c.date === date)?.[t]);
+    const plan = m.plan[dayType(date, m.holidays)];
+    // (REG 2 is offered every day: the roster has one on a few days, entered by hand)
+    const tiers = TIERS.filter(t => plan.includes(t) || t === 'reg2' || m.calls.find(c => c.date === date)?.[t]);
     const row = m.calls.find(c => c.date === date);
     const eligible = (/** @type {import('../roster/model.js').Tier} */ t) => /** @type {[string, string][]} */ ([['', 'Nobody'], ...m.people.filter(p => canTake(p, t)).map(p => /** @type {[string, string]} */ ([p.name, p.name]))]);
     sheet.open({
@@ -94,8 +103,8 @@ export function create(ctx) {
         options: () => { const o = eligible(t); const cur = row?.[t]; return cur && !o.some(([v]) => v === cur) ? [...o, /** @type {[string, string]} */ ([cur, cur])] : o; } })),
       warn: v => {
         const next = Object.fromEntries(tiers.map(t => [t, v[t] || null]));
-        const calls = [...m.calls.filter(c => c.date !== date), { date, con: null, reg: null, moNuh: null, moNtf: null, ...next }];
-        return checkCalls({ month, calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior })
+        const calls = [...m.calls.filter(c => c.date !== date), { date, ...callRow({ ...row, ...next }) }];
+        return checkCalls({ month, calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, tiers: m.plan })
           .problems.filter(p => p.date === date || (next[p.tier] === p.name && Math.abs(Date.parse(p.date) - Date.parse(date)) <= 4 * 864e5)).map(p => p.text);
       },
       onSave: async v => {
@@ -111,15 +120,18 @@ export function create(ctx) {
     const m = model();
     sheet.open({
       title: `${monthTitle(month)}: settings`, saveLabel: 'Save',
-      note: 'Public holidays have fewer tiers on call, like a Saturday. Enter them as days.',
-      values: { holidays: m.holidays.join('\n'), minGap: m.minGap },
+      note: 'Public holidays close that day’s lists on the Week tab. REG 2 can be set on any day by hand.',
+      values: { holidays: m.holidays.join('\n'), minGap: m.minGap, ...Object.fromEntries(DAY_TYPES.map(([d]) => [`plan-${d}`, m.plan[d].join(',')])) },
       fields: [
         { key: 'holidays', label: 'Public holidays (one day per line, YYYY-MM-DD)', type: 'area', max: 400 },
         { key: 'minGap', label: 'Days clear between one person’s calls', type: 'number', min: 1, max: 7, hint: '2 means call on Monday, next on Thursday at the earliest.' },
+        ...DAY_TYPES.map(([d, label]) => ({ key: `plan-${d}`, label: `On call on ${label.toLowerCase()}`, type: /** @type {const} */ ('select'),
+          options: [...PLAN_CHOICES, ...(PLAN_CHOICES.some(c => c.join(',') === m.plan[d].join(',')) ? [] : [m.plan[d]])].map(c => /** @type {[string, string]} */ ([c.join(','), planLabel(c)])) })),
       ],
       onSave: async v => {
         const holidays = String(v.holidays).split(/[\s,;]+/).filter(Boolean);
-        const refused = await app.data.rosters.upsert(month, m.roster, { holidays, ...(v.minGap == null ? {} : { minGap: v.minGap }) });
+        const tierPlan = Object.fromEntries(DAY_TYPES.map(([d]) => [d, String(v[`plan-${d}`]).split(',').filter(Boolean)]));
+        const refused = await app.data.rosters.upsert(month, m.roster, { holidays, tierPlan, ...(v.minGap == null ? {} : { minGap: v.minGap }) });
         toast(refused ? REFUSED : 'Saved');
       },
     });
@@ -139,14 +151,15 @@ export function create(ctx) {
         canWrite && h('button', { type: 'button', class: 'ui-primary', id: 'calls-make', disabled: busy, onclick: make }, icon(ICONS.sparkles), 'Make calls')));
     const byDate = new Map(m.calls.map(c => [c.date, c]));
     const any = m.calls.some(c => TIERS.some(t => c[t]));
-    const check = checkCalls({ month, calls: m.calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior });
+    const check = checkCalls({ month, calls: m.calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, tiers: m.plan });
+    const shownTiers = tiersShown(m.plan, m.calls);
     const bad = new Set(check.problems.map(p => `${p.date}|${p.tier}`));
     stateNote.textContent = any ? (m.roster?.built ? `Made ${new Date(m.roster.built).toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })}. ${check.empty.length ? `${check.empty.length} empty.` : ''}` : '') : (canWrite ? 'No calls yet. Tap Make calls.' : 'No calls yet.');
 
     /** @param {string} date */
     const cell = date => {
       const row = byDate.get(date), type = dayType(date, m.holidays);
-      const plan = DEFAULT_TIER_PLAN[type];
+      const plan = m.plan[type];
       const shown = TIERS.filter(t => plan.includes(t) || row?.[t]);
       const locked = new Set((m.roster?.locked ?? []));
       return h('button', { type: 'button', role: 'listitem', class: `cl-day type-${type}${date === todayKey() ? ' is-today' : ''}`, disabled: !canWrite, dataset: { day: date }, 'aria-label': `${weekdayName(date)} ${shortDay(date)}: edit calls`, onclick: () => daySheet(date) },
@@ -159,8 +172,8 @@ export function create(ctx) {
     fill(counts, any && [
       h('h3', {}, 'Calls per person'),
       h('table', { class: 'cl-table' },
-        h('thead', {}, h('tr', {}, h('th', {}, 'Name'), h('th', {}, 'Total'), h('th', {}, 'Off days'), TIERS.map(t => h('th', {}, SHORT[t])))),
-        h('tbody', {}, check.counts.map(c => h('tr', {}, h('th', { scope: 'row' }, c.name), h('td', {}, String(c.total)), h('td', {}, String(c.weekend)), TIERS.map(t => h('td', {}, c.tiers[t] ? String(c.tiers[t]) : '·'))))))]);
+        h('thead', {}, h('tr', {}, h('th', {}, 'Name'), h('th', {}, 'Total'), h('th', {}, 'Off days'), shownTiers.map(t => h('th', {}, SHORT[t])))),
+        h('tbody', {}, check.counts.map(c => h('tr', {}, h('th', { scope: 'row' }, c.name), h('td', {}, String(c.total)), h('td', {}, String(c.weekend)), shownTiers.map(t => h('td', {}, c.tiers[t] ? String(c.tiers[t]) : '·'))))))]);
 
     const lines = [...check.problems.map(p => p.text), ...check.empty.map(e => `${TIER_LABEL[e.tier]} on ${shortDay(e.date)} has nobody`)];
     fill(problemsBox, any && (lines.length

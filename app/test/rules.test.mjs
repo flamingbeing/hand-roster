@@ -96,6 +96,8 @@ test('lists: site, kind, name, weekday 1 to 5, session, juniors needed and statu
   assert.equal((await put({ ...base, status: 'maybe' })).ok, false);
   assert.equal((await put({ ...base, need: 11 })).ok, false);
   assert.equal((await put({ ...base, need: -1 })).ok, false);
+  assert.equal((await put({ ...base, min: 1 })).ok, true, 'a minimum');
+  assert.equal((await put({ ...base, min: 11 })).ok, false);
   assert.equal((await put({ ...base, name: '' })).ok, false);
   assert.equal((await put({ ...base, name: 'x'.repeat(41) })).ok, false);
   assert.equal((await put({ ...base, patients: 201 })).ok, false);
@@ -144,6 +146,9 @@ test('rosters: named by month; calls, locked, holidays and problems are lists of
   const put = (data, id = '2026-11') => as('member').set(`spaces/_/rosters/${id}`, data, at);
   assert.equal((await put(base)).ok, true);
   assert.equal((await put({ ...base, locked: ['2026-11-01|con'], holidays: ['2026-11-08'], problems: ['x'], minGap: 2, seed: 7, built: 1700000000000 })).ok, true);
+  assert.equal((await put({ ...base, tierPlan: { weekday: ['con', 'reg'], sun: ['con'] } })).ok, true, 'a tier plan per kind of day');
+  assert.equal((await put({ ...base, tierPlan: { monday: ['con'] } })).ok, false, 'only the four kinds of day');
+  assert.equal((await put({ ...base, tierPlan: 'all' })).ok, false, 'a plan is a map');
   assert.equal((await put(base, '2026-13')).ok, false, 'not a month');
   assert.equal((await put(base, 'november')).ok, false);
   assert.equal((await put({ ...base, calls: 'none' })).ok, false, 'calls is a list');

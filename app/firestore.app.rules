@@ -52,7 +52,7 @@ service cloud.firestore {
     match /spaces/{g}/lists/{id} {
       allow read: if can(g, ['admin', 'member', 'viewer']);
       allow create, update: if can(g, ['admin', 'member']) && stamped()
-        && request.resource.data.keys().hasOnly(['site', 'kind', 'name', 'wd', 'session', 'consultant', 'rooms', 'patients', 'need', 'status', 'external', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
+        && request.resource.data.keys().hasOnly(['site', 'kind', 'name', 'wd', 'session', 'consultant', 'rooms', 'patients', 'need', 'min', 'status', 'external', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
         && str(request.resource.data, 'site', 20)
         && oneOfStr(request.resource.data, 'kind', ['ot', 'msp', 'clinic', 'hot'])
         && str(request.resource.data, 'name', 40)
@@ -60,7 +60,7 @@ service cloud.firestore {
         && oneOfStr(request.resource.data, 'session', ['AM', 'PM'])
         && optStr(request.resource.data, 'consultant', 60) && optStr(request.resource.data, 'rooms', 40)
         && optIntIn(request.resource.data, 'patients', 0, 200)
-        && intIn(request.resource.data, 'need', 0, 10)
+        && intIn(request.resource.data, 'need', 0, 10) && optIntIn(request.resource.data, 'min', 0, 10)
         && oneOfStr(request.resource.data, 'status', ['open', 'closed', 'template', 'empty', 'consultant-only'])
         && optBool(request.resource.data, 'external')
         && recordOk(request.resource.data);
@@ -88,20 +88,22 @@ service cloud.firestore {
         && str(request.resource.data, 'name', 60)
         && dayIn(request.resource.data, 'date')
         && oneOfStr(request.resource.data, 'type', ['cannot', 'want'])
-        && optOneOf(request.resource.data, 'tier', ['con', 'reg', 'moNuh', 'moNtf'])
+        && optOneOf(request.resource.data, 'tier', ['con', 'reg', 'reg2', 'moNuh', 'moNtf'])
         && recordOk(request.resource.data);
       allow delete: if can(g, ['admin', 'member']);
     }
 
-    // A month's on-call roster, named YYYY-MM: calls (a row per day), locked (entries set by hand), holidays, problems.
+    // A month's on-call roster, named YYYY-MM: calls (a row per day), locked (entries set by hand), holidays, problems, and
+    // tierPlan (which call tiers each kind of day has).
     match /spaces/{g}/rosters/{id} {
       allow read: if can(g, ['admin', 'member', 'viewer']);
       allow create, update: if can(g, ['admin', 'member']) && stamped() && id.matches('^[0-9]{4}-(0[1-9]|1[0-2])$')
-        && request.resource.data.keys().hasOnly(['calls', 'locked', 'holidays', 'problems', 'minGap', 'seed', 'built', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
+        && request.resource.data.keys().hasOnly(['calls', 'locked', 'holidays', 'problems', 'tierPlan', 'minGap', 'seed', 'built', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
         && optList(request.resource.data, 'calls', 62) && optList(request.resource.data, 'locked', 200)
         && optList(request.resource.data, 'holidays', 31) && optList(request.resource.data, 'problems', 60)
         && optIntIn(request.resource.data, 'minGap', 0, 7) && optIntIn(request.resource.data, 'seed', 0, 1000000)
         && (!('built' in request.resource.data) || request.resource.data.built is number)
+        && (!('tierPlan' in request.resource.data) || (request.resource.data.tierPlan is map && request.resource.data.tierPlan.keys().hasOnly(['weekday', 'sat', 'sun', 'ph'])))
         && recordOk(request.resource.data);
       allow delete: if can(g, ['admin', 'member']);
     }

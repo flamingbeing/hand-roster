@@ -1,4 +1,4 @@
-// The monthly on-call solver. For every day it fills the tiers that day has (CON, REG, MO NUH, MO NTFGH) from the people
+// The monthly on-call solver. For every day it fills the tiers that day has (CON, REG, REG 2, MO NUH, MO NTFGH) from the people
 // who may take them. Hard rules: nobody on leave, nobody on two tiers in a day, a minimum gap between a person's calls,
 // "cannot" requests, locked entries kept. Soft: even call totals (scaled to the days a person is around), even weekend and
 // public holiday calls, even spread of tiers, calls spaced out, "want" requests, juniors on their own grade's tiers.
@@ -75,7 +75,7 @@ export function solveCalls(o) {
   days.forEach((date, di) => {
     const type = dayType(date, holidays);
     for (const tier of TIERS) {
-      if (!plan[type].includes(tier)) continue;
+      if (!plan[type].includes(tier) && !o.locked?.[date]?.[tier]) continue; // (a tier off the plan only when given by hand, as REG 2)
       const cands = [];
       for (let i = 0; i < P; i++) {
         const p = people[i];
@@ -111,14 +111,15 @@ export function solveCalls(o) {
   const wants = new Map();
   for (const r of requests) if (r.type === 'want') wants.set(`${r.name}|${r.date}`, r.tier ?? '*');
 
-  const tierIx = /** @type {Record<Tier, number>} */ ({ con: 0, reg: 1, moNuh: 2, moNtf: 3 });
+  const NT = TIERS.length;
+  const tierIx = /** @type {Record<Tier, number>} */ (Object.fromEntries(TIERS.map((t, i) => [t, i])));
   /** @param {Int16Array} a @returns {{ hard: number, soft: number }} */
   function cost(a) {
     let hard = 0;
     let soft = 0;
     const total = new Float64Array(P);
     const off = new Float64Array(P);
-    const perTier = new Float64Array(P * 4);
+    const perTier = new Float64Array(P * NT);
     /** @type {number[][]} */
     const dd = people.map((_, i) => priorDays[i].slice());
     for (let s = 0; s < S; s++) {
@@ -127,9 +128,9 @@ export function solveCalls(o) {
       const sl = slots[s];
       total[p]++;
       if (sl.off) off[p]++;
-      perTier[p * 4 + tierIx[sl.tier]]++;
+      perTier[p * NT + tierIx[sl.tier]]++;
       dd[p].push(sl.di);
-      if (poolOf[p] === 'reg' && sl.tier !== 'reg') soft += W.grade; // a registrar on an MO tier
+      if (poolOf[p] === 'reg' && sl.tier !== 'reg' && sl.tier !== 'reg2') soft += W.grade; // a registrar on an MO tier
     }
     for (let p = 0; p < P; p++) {
       const d = dd[p];
@@ -138,7 +139,7 @@ export function solveCalls(o) {
         if (gap <= minGap) hard += gap === 0 ? 2 : 1;
         else if (gap < spreadTarget) soft += W.spread * (spreadTarget - gap) ** 2;
       }
-      for (let t = 0; t < 4; t++) soft += W.tier * perTier[p * 4 + t] ** 2;
+      for (let t = 0; t < NT; t++) soft += W.tier * perTier[p * NT + t] ** 2;
     }
     pools.forEach((g, gi) => {
       let tt = 0;
@@ -233,7 +234,7 @@ export function solveCalls(o) {
     const assignments = {};
     /** @type {Record<string, CallCount>} */
     const counts = {};
-    for (const p of people) counts[p.name] = { total: 0, weekend: 0, tiers: { con: 0, reg: 0, moNuh: 0, moNtf: 0 } };
+    for (const p of people) counts[p.name] = { total: 0, weekend: 0, tiers: zeroTiers() };
     /** @type {CallProblem[]} */
     const problems = [];
     /** @type {Map<string, number[]>} */
@@ -272,3 +273,6 @@ export function solveCalls(o) {
     return { assignments, counts, problems, cost: c };
   }
 }
+
+/** @returns {Record<Tier, number>} */
+export const zeroTiers = () => /** @type {Record<Tier, number>} */ (Object.fromEntries(TIERS.map(t => [t, 0])));

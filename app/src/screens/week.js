@@ -2,16 +2,21 @@
 // juniors on it; then who is on call, on leave, post-call and free. A phone shows one day at a time (day chips); from 900 px
 // wide the five days sit side by side, and printing always shows all five on one landscape page. "Build week" fills the grid
 // from the lists, leave and calls (roster/week.js, loaded when first used); a tap on a junior moves, swaps or removes them.
-// The grid is stored per week; leave, post-call, on-call and free are worked out each time (roster/sections.js).
+// The grid is stored per week; leave, post-call, on-call and free are worked out each time (roster/sections.js). The lists are
+// settled each time too (roster/settle.js): a public holiday closes them, a consultant away closes their clinics and turns
+// their OT into an emergency slot. "Check against Epic" takes the week's booked patients and who is away, consultant by
+// consultant (their leave is not in the junior leave calendar); the Short panel offers ways to fill a list below its minimum.
 import { icon, loadState, confirmModal, emptyState } from '@core/ui';
 import { ICONS } from '../icons.js';
 import { $, sectionScreen, h, fill } from '../dom.js';
 import { REFUSED } from '../items.js';
 import { addDays, mondayOf, nextWorkday, rangeDays, shortDay, weekday, weekdayName, MONTHS, todayKey } from '../roster/dates.js';
-import { TIER_LABEL, DEFAULT_TIER_PLAN, dayType, leaveIndex } from '../roster/model.js';
+import { TIERS, TIER_LABEL, dayType, tierPlanOf } from '../roster/model.js';
 import { callsAround } from '../roster/sections.js';
 import { sectionsOf, whyNot } from '../roster/sections.js';
-import { gridRows, juniorsOn, listOf, move, place } from '../roster/grid.js';
+import { gridRows, juniorsOn, move, place } from '../roster/grid.js';
+import { minOf, settleLists } from '../roster/settle.js';
+import { listName, shortOptions } from '../roster/short.js';
 import { slotsFor, STATUSES } from '../data/lists.js';
 import { activePeople } from '../data/people.js';
 import { leaveOf } from '../data/leave.js';
@@ -78,6 +83,8 @@ export function weekScreen(ctx) {
   /** @returns {Promise<typeof import('./export.js')>} */
   const exportCode = async () => (exporter ??= await import('./export.js'));
   window.addEventListener('beforeprint', () => { if (exporter && !$('week-page').hidden) exporter.renderPrint($('week-print-sheet'), layoutInput(model(), monday)); });
+  $('week-epic').replaceChildren(icon(ICONS.listChecks), 'Check against Epic');
+  $('week-epic').addEventListener('click', () => epicSheet(model()));
   $('week-build').replaceChildren(icon(ICONS.sparkles), 'Build week');
   $('week-build').addEventListener('click', () => build());
 
@@ -86,19 +93,21 @@ export function weekScreen(ctx) {
     const wk = /** @type {import('../data/plans.js').WeekRow | undefined} */ (store.row('weeks', mon));
     const templates = /** @type {import('../data/lists.js').ListRow[]} */ (store.get('lists'));
     const built = Array.isArray(wk?.grid);
-    const lists = built && wk?.lists?.length ? wk.lists : slotsFor(templates, mon, wk?.overrides);
     const grid = wk?.grid ?? [];
     const people = activePeople(/** @type {any} */ (store.get('people')));
     const leave = leaveOf(/** @type {any} */ (store.get('leave')));
     const rosters = /** @type {import('../data/plans.js').RosterRow[]} */ (store.get('rosters'));
     const calls = callsAround(/** @type {any} */ (rosters), mon);
     const holidays = rosters.flatMap(r => r.holidays ?? []);
-    return { wk, templates, built, lists, grid, people, leave, calls, holidays };
+    const lists = settleLists(built && wk?.lists?.length ? wk.lists : slotsFor(templates, mon, wk?.overrides), { leave, holidays });
+    /** @param {string} day @returns {import('../roster/model.js').TierPlan} the call tiers of that day's month */
+    const planOn = day => tierPlanOf(rosters.find(r => r.id === day.slice(0, 7))?.tierPlan);
+    return { wk, templates, built, lists, grid, people, leave, calls, holidays, planOn };
   }
 
   /** @param {ReturnType<typeof model>} m @param {string} mon @returns {import('../roster/layout.js').WeekLayoutInput} what the sheet, the print and the chat text are made from */
   const layoutInput = (m, mon) => ({
-    monday: mon, lists: m.lists, grid: m.grid, people: m.people, leave: m.leave, calls: m.calls, holidays: m.holidays,
+    monday: mon, lists: m.lists, grid: m.grid, people: m.people, leave: m.leave, calls: m.calls, holidays: m.holidays, tierPlan: m.planOn(mon),
     built: m.built, patients: !!app.settings.get('showPatients'),
   });
 
@@ -144,9 +153,10 @@ export function weekScreen(ctx) {
     try {
       const { buildWeek } = await import('../roster/week.js');
       const seed = (m.wk?.seed ?? 0) + 1;
-      const res = buildWeek({ monday, lists: slotsFor(m.templates, monday, m.wk?.overrides), people: m.people, leave: m.leave, calls: m.calls, seed });
+      const res = buildWeek({ monday, lists: slotsFor(m.templates, monday, m.wk?.overrides), people: m.people, leave: m.leave, calls: m.calls, holidays: m.holidays, seed });
       const refused = await app.data.weeks.upsert(monday, m.wk, { grid: gridRows(res.grid), lists: res.lists, seed, built: Date.now() });
-      toast(refused ? REFUSED : res.problems.length ? `Built. ${res.problems.length} list${res.problems.length === 1 ? ' is' : 's are'} short of juniors.` : 'Built');
+      const short = res.problems.filter(p => p.got < p.min || p.noReg).length;
+      toast(refused ? REFUSED : short ? `Built. ${short} list${short === 1 ? ' is' : 's are'} below the minimum: see Short.` : 'Built');
     } finally { building = false; $('week-build').removeAttribute('disabled'); }
   }
 
@@ -177,7 +187,7 @@ export function weekScreen(ctx) {
   /** @param {ReturnType<typeof model>} m @param {string} day @param {'AM' | 'PM'} session @param {import('../roster/model.js').ListSlot} l */
   function addSheet(m, day, session, l) {
     const juniors = m.people.filter(p => p.grade !== 'con');
-    const sec = sectionsOf({ monday, people: m.people, leave: m.leave, calls: m.calls, lists: m.lists, grid: m.grid });
+    const sec = sectionsOf({ monday, people: m.people, leave: m.leave, calls: m.calls, lists: m.lists, grid: m.grid, holidays: m.holidays });
     const freeNames = new Set((sec.free[day] ?? []).filter(f => f.when === 'FULL DAY' || f.when === session).map(f => f.name));
     const ordered = [...juniors.filter(p => freeNames.has(p.name)), ...juniors.filter(p => !freeNames.has(p.name))];
     if (!ordered.length) { toast('Add people first (People tab).'); return; }
@@ -201,50 +211,145 @@ export function weekScreen(ctx) {
     sheet.open({
       title: `${l.name}, this week`, saveLabel: 'Save',
       note: `${l.site}, ${shortDay(l.day)} ${l.session === 'AM' ? 'morning' : 'afternoon'}. For this week only; the Lists tab keeps the usual.`,
-      values: { consultant: l.consultant ?? '', patients: l.patients ?? null, need: l.need, status: l.status },
+      values: { consultant: l.consultant ?? '', patients: l.patients ?? null, need: l.need, min: minOf(l), status: l.status, away: !!l.away },
       fields: [
         { key: 'consultant', label: 'Consultant', type: 'select',
           options: [['', 'Nobody'], ...(l.consultant && !cons.includes(l.consultant) ? [l.consultant, ...cons] : cons).map(n => /** @type {[string, string]} */ ([n, n]))] },
         { key: 'patients', label: 'Patients', type: 'number', min: 0, max: 200, hint: 'Shown on the print and the hand grid as "(21 pts)". Leave empty when not known.' },
-        { key: 'need', label: 'Juniors needed', type: 'number', min: 0, max: 10 },
+        { key: 'need', label: 'Juniors wanted', type: 'number', min: 0, max: 10 },
+        { key: 'min', label: 'At least', type: 'number', min: 0, max: 10, hint: 'It cannot run with fewer. Every list gets its minimum before any list gets more.' },
         { key: 'status', label: 'Status', type: 'select', options: STATUSES },
+        { key: 'away', label: 'Consultant away (clinics close; an OT list becomes an emergency slot)', type: 'check' },
       ],
-      onSave: v => saveOverride(m, l, { id: l.id, consultant: v.consultant || null, patients: v.patients, need: v.need ?? l.need, status: v.status }),
-      ...(had ? { deleteLabel: 'Back to the usual', onDelete: () => saveOverride(m, l, null) } : {}),
+      // (an emergency slot's need and minimum are the rule's: kept out of the change unless typed differently)
+      onSave: v => saveOverrides(m, [[l.id, { consultant: v.consultant || null, patients: v.patients, status: v.status, away: v.away,
+        need: l.emergency && v.need === l.need ? undefined : v.need ?? l.need,
+        min: v.min == null || v.min === minOf({ ...l, need: v.need ?? l.need, min: undefined }) || (l.emergency && v.min === minOf(l)) ? undefined : v.min }]]),
+      ...(had ? { deleteLabel: 'Back to the usual', onDelete: () => saveOverrides(m, [[l.id, null]]) } : {}),
     });
   }
-  /** @param {ReturnType<typeof model>} m @param {import('../roster/model.js').ListSlot} l @param {import('../data/lists.js').Override | null} o  null: drop the change */
-  async function saveOverride(m, l, o) {
-    const overrides = [...(m.wk?.overrides ?? []).filter(x => x.id !== l.id), ...(o ? [o] : [])];
+  /**
+   * Changes lists for this week only. Each change is laid over the list's earlier change (a key set to undefined drops it);
+   * null drops the list's change altogether. A built week is drawn from its lists as built, so they change too.
+   * @param {ReturnType<typeof model>} m @param {[string, Partial<import('../data/lists.js').Override> | null][]} changes  list id, change
+   * @param {Record<string, unknown>} [more]  other fields saved with it (the grid)
+   */
+  async function saveOverrides(m, changes, more = {}) {
+    const by = new Map((m.wk?.overrides ?? []).map(o => [o.id, o]));
+    for (const [id, c] of changes) {
+      if (!c) { by.delete(id); continue; }
+      /** @type {Record<string, unknown>} */
+      const next = { ...by.get(id), ...c, id };
+      for (const k of Object.keys(next)) if (next[k] === undefined || (k === 'away' && next[k] === false)) delete next[k];
+      if (Object.keys(next).length > 1) by.set(id, /** @type {any} */ (next)); else by.delete(id);
+    }
+    const overrides = [...by.values()];
     /** @type {Record<string, unknown>} */
-    const fields = { overrides };
-    // a built week is drawn from its lists as built, so the change goes into them too
+    const fields = { overrides, ...more };
     if (m.built && m.wk?.lists?.length) {
-      const now = slotsFor(m.templates, monday, overrides).find(x => x.id === l.id);
-      fields.lists = m.wk.lists.map(x => (x.id !== l.id ? x : now
-        ? { ...x, consultant: now.consultant ?? null, patients: now.patients ?? null, need: now.need, status: now.status }
-        : o ? { ...x, consultant: o.consultant ?? null, patients: o.patients ?? null, need: o.need ?? x.need, status: /** @type {any} */ (o.status ?? x.status) } : x));
+      const ids = new Set(changes.map(([id]) => id));
+      const now = new Map(slotsFor(m.templates, monday, overrides).filter(x => ids.has(x.id)).map(x => [x.id, x]));
+      fields.lists = m.wk.lists.map(x => { const n = now.get(x.id); return n ? settleLists([n], { leave: m.leave, holidays: m.holidays })[0] : x; });
     }
     toast(await app.data.weeks.upsert(monday, m.wk, fields) ? REFUSED : 'Saved');
   }
 
-  /** @param {ReturnType<typeof model>} m @param {import('../roster/model.js').ListSlot} l @param {ReturnType<typeof sectionsOf>} sec @param {Set<string>} gone consultants away */
-  function listCard(m, l, sec, gone) {
-    const juniors = juniorsOn(m.grid, l.day, l.session, l.id);
-    const away = !!l.consultant && gone.has(`${l.consultant}|${l.day}|${l.session}`);
-    const closed = l.status === 'closed' || (l.kind === 'clinic' && away);
-    const open = l.status === 'open' && !closed;
-    const state = closed ? (away ? 'consultant on leave: closed' : 'closed') : !open ? l.status.replace('-', ' ') : away ? 'consultant on leave' : '';
-    const noteBits = [l.rooms, l.patients != null && app.settings.get('showPatients') ? `${l.patients} pts` : '', state].filter(Boolean);
-    const short = open && juniors.length < l.need;
+  /**
+   * "Check against Epic": the week's consultants by Mon to Fri AM and PM. A box takes the patients Epic has booked (0 greys
+   * the list out) or A for away; a box with no list is a dash. "Away all week" fills a row. Saved as this week's changes.
+   * @param {ReturnType<typeof model>} m
+   */
+  function epicSheet(m) {
+    if (!ctx.canWrite()) return;
+    const raw = slotsFor(m.templates, monday, m.wk?.overrides);
+    const cons = [...new Set(raw.map(l => l.consultant).filter(/** @returns {c is string} */ c => !!c))].sort();
+    if (!cons.length) { toast('No lists have a consultant this week.'); return; }
+    const days = rangeDays(monday, addDays(monday, 4));
+    /** @type {Map<string, { input: HTMLInputElement, lists: import('../roster/model.js').ListSlot[] }>} */
+    const boxes = new Map();
+    const table = h('table', { class: 'ep-table' },
+      h('thead', {}, h('tr', {}, h('th', { scope: 'col' }, 'Consultant'), days.map(d => h('th', { scope: 'col', colspan: 2 }, `${weekdayName(d)} ${Number(d.slice(8))}`))),
+        h('tr', {}, h('th', {}), days.map(() => [h('th', { class: 'small' }, 'AM'), h('th', { class: 'small' }, 'PM')]))),
+      h('tbody', {}, cons.map(c => {
+        const rowBoxes = /** @type {HTMLInputElement[]} */ ([]);
+        const cells = days.flatMap(d => /** @type {const} */ (['AM', 'PM']).map(s => {
+          const lists = raw.filter(l => l.consultant === c && l.day === d && l.session === s);
+          if (!lists.length) return h('td', { class: 'ep-none', 'aria-label': 'no list' }, '–');
+          const value = lists.some(l => l.away) ? 'A' : lists.find(l => l.patients != null)?.patients ?? '';
+          const input = /** @type {HTMLInputElement} */ (h('input', { type: 'text', inputmode: 'text', maxlength: 3, size: 3, value: String(value), autocomplete: 'off',
+            'aria-label': `${c}, ${weekdayName(d)} ${s}: patients, or A for away`, title: lists.map(l => l.name).join(', ') }));
+          boxes.set(`${c}|${d}|${s}`, { input, lists });
+          rowBoxes.push(input);
+          return h('td', {}, input);
+        }));
+        return h('tr', {}, h('th', { scope: 'row' }, h('span', {}, c),
+          h('button', { type: 'button', class: 'ep-away small', onclick: () => { for (const b of rowBoxes) b.value = 'A'; } }, 'Away all week')), cells);
+      })));
+    sheet.open({
+      title: 'Check against Epic', saveLabel: 'Save',
+      note: `${weekTitle(monday)}. Type the patients Epic has booked (0 = none, the list is greyed out) or A when the consultant is away: their clinics close and their OT list becomes an emergency slot a registrar leads. Empty keeps the usual.`,
+      fields: [],
+      body: { node: h('div', { class: 'ep-wrap' }, table), read: () => Object.fromEntries([...boxes].map(([k, b]) => [k, b.input.value.trim()])) },
+      onSave: v => {
+        /** @type {[string, Partial<import('../data/lists.js').Override>][]} */
+        const changes = [];
+        for (const [k, b] of boxes) {
+          const t = String(v[k] ?? '').toLowerCase();
+          const away = /^a(way)?$/.test(t), n = /^\d{1,3}$/.test(t) ? Math.min(200, Number(t)) : undefined;
+          for (const l of b.lists) changes.push([l.id, { away, patients: n }]);
+        }
+        return saveOverrides(m, changes);
+      },
+    });
+  }
+
+  /**
+   * The Short panel: each list below its minimum, with the ways to fill it and what each costs (roster/short.js).
+   * @param {ReturnType<typeof model>} m @param {ReturnType<typeof sectionsOf>} sec
+   */
+  function shortPanel(m, sec) {
+    if (!m.built || !sec.short.length) return null;
     const canWrite = ctx.canWrite();
-    return h('li', { class: `wk-list kind-${l.kind}${open ? '' : ' is-off'}${short && m.built ? ' is-short' : ''}`, dataset: { list: l.id } },
-      h('div', { class: 'wk-list-head' }, h('b', {}, l.name), l.consultant && h('span', { class: 'wk-con' }, l.consultant),
+    return [h('h2', {}, `Short: ${sec.short.length} list${sec.short.length === 1 ? '' : 's'} below the minimum`),
+      h('ul', { class: 'sh-list' }, sec.short.map(gap => {
+        const l = m.lists.find(x => x.id === gap.list);
+        if (!l) return null;
+        const opts = canWrite ? shortOptions({ gap, lists: m.lists, grid: m.grid, people: m.people, free: sec.free[gap.day] ?? [] }) : [];
+        /** @param {import('../roster/short.js').ShortOption} o */
+        const apply = o => {
+          if (o.kind === 'add') return saveGrid({ grid: place(m.grid, gap.day, gap.session, l.id, o.name) });
+          if (o.kind === 'move') return saveGrid({ grid: move(m.grid, { day: gap.day, session: gap.session, name: o.name, to: l.id }) });
+          if (o.kind === 'fewer') return saveOverrides(m, [[l.id, { min: o.min }]]);
+          return saveOverrides(m, [[l.id, { status: 'closed' }]], { grid: m.grid.map(r => (r.list === l.id && r.day === gap.day && r.session === gap.session ? { ...r, juniors: [] } : r)) });
+        };
+        return h('li', { class: 'sh-item' },
+          h('p', {}, h('b', {}, `${weekdayName(gap.day)} ${gap.session} · ${l.site} ${listName(l)}`), gap.noReg ? ' emergency slot with no registrar to lead it' : ` ${gap.got} of at least ${gap.min}`),
+          opts.length > 0 && h('div', { class: 'sh-options' }, opts.map(o => h('button', { type: 'button', class: 'sh-option', onclick: () => apply(o) },
+            h('span', {}, o.text), h('span', { class: 'small' }, o.cost)))));
+      }))];
+  }
+
+  /** @param {ReturnType<typeof model>} m @param {import('../roster/model.js').ListSlot} l  a settled list */
+  function listCard(m, l) {
+    const juniors = juniorsOn(m.grid, l.day, l.session, l.id);
+    const closed = l.status === 'closed';
+    const open = l.status === 'open';
+    const state = l.holiday ? 'public holiday: closed' : closed ? (l.consultantOnLeave ? 'consultant away: closed' : 'closed') : !open ? l.status.replace('-', ' ')
+      : l.emergency ? 'emergency slot (consultant away): a registrar leads' : l.patients === 0 ? 'no patients booked' : '';
+    const noteBits = [l.rooms, l.patients != null && app.settings.get('showPatients') ? `${l.patients} pts` : '', state].filter(Boolean);
+    const min = minOf(l);
+    const noReg = open && !!l.emergency && !juniors.some(n => m.people.find(p => p.name === n)?.grade === 'reg');
+    const short = open && (juniors.length < min || noReg);
+    const under = open && !short && !l.emergency && juniors.length < l.need;
+    const canWrite = ctx.canWrite();
+    return h('li', { class: `wk-list kind-${l.kind}${open && (l.need > 0 || juniors.length) ? '' : ' is-off'}${l.emergency ? ' is-eot' : ''}${short && m.built ? ' is-short' : ''}`, dataset: { list: l.id } },
+      h('div', { class: 'wk-list-head' }, h('b', {}, l.name, l.emergency && ' (EOT)'), l.consultant && h('span', { class: 'wk-con' }, l.consultant),
         canWrite && h('button', { type: 'button', class: 'wk-edit', 'aria-label': `Change ${l.name} for this week`, onclick: () => weekListSheet(m, l) }, icon(ICONS.pencil))),
       noteBits.length > 0 && h('div', { class: 'wk-note small' }, noteBits.join(' · ')),
       (open || juniors.length > 0) && h('div', { class: 'wk-juniors' },
         juniors.map(n => h('button', { type: 'button', class: 'wk-chip', disabled: !canWrite, dataset: { name: n }, 'aria-label': `${n}: move or take off`, onclick: () => moveSheet(m, l.day, l.session, n, l.id) }, n)),
-        open && short && m.built && h('span', { class: 'wk-need small' }, `needs ${l.need - juniors.length} more`),
+        open && short && m.built && h('span', { class: 'wk-need small' }, juniors.length < min ? `needs ${min - juniors.length} more` : 'needs a registrar'),
+        open && under && m.built && h('span', { class: 'wk-want small' }, `could take ${l.need - juniors.length} more`),
         open && canWrite && juniors.length < Math.max(l.need, 1) + 1 && h('button', { type: 'button', class: 'wk-add', 'aria-label': `Add a junior to ${l.name}`, onclick: () => addSheet(m, l.day, l.session, l) }, icon(ICONS.plus))));
   }
 
@@ -252,14 +357,9 @@ export function weekScreen(ctx) {
     if (!store.loaded('lists') && !store.loaded('weeks')) return;
     loading.done();
     const m = model();
-    const sec = sectionsOf({ monday, people: m.people, leave: m.leave, calls: m.calls, lists: m.lists, grid: m.grid });
-    const lv = leaveIndex(m.leave);
+    const sec = sectionsOf({ monday, people: m.people, leave: m.leave, calls: m.calls, lists: m.lists, grid: m.grid, holidays: m.holidays });
     const days = sec.days;
     if (!days.includes(selected)) selected = days[0];
-    // (a consultant away at a list's session, for the "closed" and "on leave" notes)
-    /** @type {Set<string>} */
-    const gone = new Set();
-    for (const l of m.lists) if (l.consultant && lv.blocks(l.consultant, l.day, l.session)) gone.add(`${l.consultant}|${l.day}|${l.session}`);
 
     const siteSelect = $('week-site');
     $('week-title').textContent = weekTitle(monday);
@@ -269,6 +369,8 @@ export function weekScreen(ctx) {
     /** @type {HTMLSelectElement} */ (siteSelect).value = site;
     const canWrite = ctx.canWrite();
     $('week-build').hidden = !canWrite;
+    $('week-epic').hidden = !canWrite || !m.lists.length;
+    fill($('week-short'), shortPanel(m, sec));
     $('week-state-note').textContent = !m.lists.length ? '' : m.built ? (m.wk?.built ? `Built ${new Date(m.wk.built).toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })}.` : 'Saved.') : canWrite ? 'Not built yet. Tap Build week.' : 'Not built yet.';
     empty.show(!m.lists.length);
 
@@ -276,10 +378,10 @@ export function weekScreen(ctx) {
       h('span', {}, weekdayName(d)), h('span', { class: 'small' }, String(Number(d.slice(8)))))));
 
     fill($('week-grid'), days.map(d => {
-      const plan = DEFAULT_TIER_PLAN[dayType(d)];
-      const tiers = (/** @type {const} */ (['con', 'reg', 'moNuh', 'moNtf'])).filter(t => plan.includes(t) || sec.onCall[d][t]);
+      const plan = m.planOn(d)[dayType(d, m.holidays)];
+      const tiers = TIERS.filter(t => plan.includes(t) || sec.onCall[d][t]);
       return h('section', { class: `wk-day${d === selected ? ' is-selected' : ''}${d === todayKey() ? ' is-today' : ''}`, dataset: { day: d }, 'aria-label': `${weekdayName(d)} ${shortDay(d)}` },
-        h('h2', { class: 'wk-day-title' }, weekdayName(d), h('span', { class: 'small' }, shortDay(d))),
+        h('h2', { class: 'wk-day-title' }, weekdayName(d), h('span', { class: 'small' }, shortDay(d)), m.holidays.includes(d) && h('span', { class: 'wk-ph small' }, 'Public holiday')),
         SESSIONS.map(([s, name]) => {
           const mine = m.lists.filter(l => l.day === d && l.session === s && (site === 'all' || l.site === site));
           const siteNames = [...new Set(mine.map(l => l.site))].sort((a, b) => (SITE_ORDER.indexOf(a) + 1 || 9) - (SITE_ORDER.indexOf(b) + 1 || 9));
@@ -287,7 +389,7 @@ export function weekScreen(ctx) {
             h('h3', {}, name),
             !mine.length && h('p', { class: 'small wk-none' }, 'No lists'),
             siteNames.map(sn => h('div', { class: 'wk-site' }, h('h4', {}, sn),
-              h('ul', { class: 'wk-lists' }, mine.filter(l => l.site === sn).map(l => listCard(m, l, sec, gone))))));
+              h('ul', { class: 'wk-lists' }, mine.filter(l => l.site === sn).map(l => listCard(m, l))))));
         }),
         h('div', { class: 'wk-extras' },
           h('h3', {}, 'On call'),
