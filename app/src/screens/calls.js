@@ -8,7 +8,7 @@
 import { icon, emptyState, undoToast } from '@core/ui';
 import { ICONS } from '../icons.js';
 import { $, h, fill } from '../dom.js';
-import { REFUSED } from '../items.js';
+import { LOADING, REFUSED } from '../items.js';
 import { solveCalls } from '../roster/calls.js';
 import { checkCalls } from '../roster/calls-check.js';
 import { applyDayEdit, handCount, keepGoodCalls, lockedMap, problemLines, callChoices, dayLabel } from '../roster/calls-edit.js';
@@ -33,6 +33,9 @@ const PLAN_CHOICES = /** @type {import('../roster/model.js').Tier[][]} */ ([
 ]);
 /** @param {string[]} tiers */
 const planLabel = tiers => tiers.map(t => SHORT[t]).join(' + ');
+// what a month's calls are made from: until each kind's first rows are in, Make calls, a day's calls and Settings wait, or
+// they would make or save the month without its leave, requests or hand-set calls (7 Nov 2026)
+const CALLS_NEEDS = /** @type {import('../cloud.js').Kind[]} */ (['people', 'leave', 'requests', 'rosters']);
 
 /** @param {import('./context.js').Context} ctx */
 export function create(ctx) {
@@ -56,12 +59,14 @@ export function create(ctx) {
   const problemsBox = h('div', { class: 'cl-problems' });
   host.append(bar, h('p', { class: 'small cl-state' }, stateNote, releaseSlot), cal, handKey, counts, problemsBox);
 
-  store.on(['people', 'leave', 'requests', 'rosters'], () => draw());
+  store.on(CALLS_NEEDS, () => draw());
   ctx.onRole(() => draw());
   app.settings.watch('me', () => draw());   // "This is me" (Week, More): the name marked here too
 
   /** @param {number} n */
   const step = n => { month = shiftMonth(month, n); draw(); };
+  /** true (and says so) while some of what the calls are made from has not arrived yet */
+  const waiting = () => { if (store.ready(CALLS_NEEDS)) return false; toast(LOADING); return true; };
 
   /** the month's roster and what its calls depend on, as the store holds them now @param {string} [mon] (default: the month on screen) */
   function model(mon = month) {
@@ -104,7 +109,7 @@ export function create(ctx) {
   // check finds fine and fill the problem calls and the empty tiers), Make all new, or Cancel (the sheet's own). Calls set
   // by hand stay either way. A month with no calls yet is made straight away.
   async function make() {
-    if (busy || !ctx.canWrite()) return;
+    if (busy || !ctx.canWrite() || waiting()) return;
     const mon = month, open = model(mon);   // (the month on screen may change while it works)
     if (!open.calls.some(c => TIERS.some(t => c[t]))) { await solve(mon, false); return; }
     const hand = handCount(open.roster?.locked ?? [], open.calls);
@@ -144,7 +149,7 @@ export function create(ctx) {
    * @param {string} mon @param {boolean} fixOnly
    */
   async function solve(mon, fixOnly) {
-    if (busy || !ctx.canWrite()) return;
+    if (busy || !ctx.canWrite() || waiting()) return;
     busy = true; $('calls-make').setAttribute('disabled', ''); stateNote.textContent = 'Making the calls…';
     try {
       await new Promise(r => setTimeout(r, 30));   // let the note paint before the solver holds the page
@@ -175,7 +180,7 @@ export function create(ctx) {
 
   /** Release them: the month's hand-set calls unlocked (names and calls stay), so Make calls may change them; Undo locks them again */
   async function release() {
-    if (!ctx.canWrite()) return;
+    if (!ctx.canWrite() || waiting()) return;
     const mon = month, now = model(mon);
     const locked = now.roster?.locked ?? [];
     if (!locked.length) return;
@@ -185,6 +190,7 @@ export function create(ctx) {
 
   /** @param {string} date */
   function daySheet(date) {
+    if (waiting()) return;
     const mon = month, m = model(mon);   // (options and warnings read the month as it was when the sheet opened)
     const plan = m.plan[dayType(date, m.holidays)];
     // (REG 2 is offered every day: the roster has one on a few days, entered by hand)
@@ -204,6 +210,7 @@ export function create(ctx) {
       },
       // saved onto the month as it is now: only the tiers changed here, so another maker's save meanwhile stays
       onSave: async v => {
+        if (waiting()) return;
         const now = model(mon), was = { calls: now.calls, locked: now.roster?.locked ?? [] };
         const state = applyDayEdit(was.calls, was.locked, date, Object.fromEntries(tiers.map(t => [t, row?.[t] ?? null])), Object.fromEntries(tiers.map(t => [t, v[t] || null])));
         const refused = await app.data.rosters.upsert(mon, now.roster, { calls: state.calls, locked: state.locked });
@@ -213,6 +220,7 @@ export function create(ctx) {
   }
 
   function monthSheet() {
+    if (waiting()) return;
     const mon = month, m = model(mon);
     // Singapore's public holidays for the month (roster/holidays.js): Suggest adds the weekday ones; the admin still saves
     const pub = holidaysIn(mon);
@@ -240,6 +248,7 @@ export function create(ctx) {
       // a typo, a day that does not exist or a day of another month is named here, never dropped unseen
       warn: v => { const { ignored } = readHolidays(v.holidays, mon); return ignored.length ? [`Ignored: ${ignored.join(', ')} (${outOfMonth}).`] : []; },
       onSave: async v => {
+        if (waiting()) return;
         const { days: holidays, ignored } = readHolidays(v.holidays, mon);
         const tierPlan = Object.fromEntries(DAY_TYPES.map(([d]) => [d, String(v[`plan-${d}`]).split(',').filter(Boolean)]));
         // only these fields, onto the month as it is now (another maker may have saved calls meanwhile)
@@ -253,6 +262,7 @@ export function create(ctx) {
     if (!store.loaded('people')) return;
     const m = model();
     const canWrite = ctx.canWrite();
+    const ready = store.ready(CALLS_NEEDS);
     const me = meOf(app.settings.get('me'), m.people);
     empty.show(!m.people.length && canWrite);
     const prev = h('button', { type: 'button', 'aria-label': 'Previous month', onclick: () => step(-1) }, icon(ICONS.chevronLeft));
@@ -262,16 +272,17 @@ export function create(ctx) {
         h('button', { type: 'button', id: 'calls-xlsx', onclick: exportXlsx }, icon(ICONS.download), 'Excel'),
         h('button', { type: 'button', id: 'calls-print', onclick: printMonth }, icon(ICONS.printer), 'Print'),
         canWrite && h('button', { type: 'button', onclick: monthSheet }, 'Settings'),
-        canWrite && h('button', { type: 'button', class: 'ui-primary', id: 'calls-make', disabled: busy, onclick: make }, icon(ICONS.sparkles), 'Make calls')));
+        canWrite && h('button', { type: 'button', class: 'ui-primary', id: 'calls-make', disabled: busy || !ready, onclick: make }, icon(ICONS.sparkles), 'Make calls')));
     const byDate = new Map(m.calls.map(c => [c.date, c]));
     const any = m.calls.some(c => TIERS.some(t => c[t]));
     const check = checkCalls({ month, calls: m.calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, after: m.after, tiers: m.plan });
     const shownTiers = tiersShown(m.plan, m.calls);
     const bad = new Set(check.problems.map(p => `${p.date}|${p.tier}`));
     const hand = handCount(m.roster?.locked ?? [], m.calls);
-    let state = any ? (m.roster?.built ? `Made ${new Date(m.roster.built).toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })}. ${check.empty.length ? `${check.empty.length} empty.` : ''}` : '') : (canWrite ? 'No calls yet. Tap Make calls.' : 'No calls yet.');
+    // ('No calls yet' only once the month's roster has arrived: before that it may have calls)
+    let state = !ready ? 'Loading…' : any ? (m.roster?.built ? `Made ${new Date(m.roster.built).toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })}. ${check.empty.length ? `${check.empty.length} empty.` : ''}` : '') : (canWrite ? 'No calls yet. Tap Make calls.' : 'No calls yet.');
     // (the maker may have forgotten them: Singapore has a weekday public holiday this month)
-    if (canWrite && !m.holidays.length && holidaysIn(month).suggest.length) state = `${state.trim()} Public holidays not set for this month (Settings).`;
+    if (ready && canWrite && !m.holidays.length && holidaysIn(month).suggest.length) state = `${state.trim()} Public holidays not set for this month (Settings).`;
     if (canWrite && hand) state = `${state.trim()} ${hand} set by hand.`;
     stateNote.textContent = state.trim();
     fill(releaseSlot, canWrite && hand > 0 && !busy && h('button', { type: 'button', id: 'calls-release', onclick: release }, 'Release them'));

@@ -32,6 +32,9 @@ import { leaveOf } from '../data/leave.js';
 
 const SESSIONS = /** @type {const} */ ([['AM', 'Morning'], ['PM', 'Afternoon']]);
 const SITE_ORDER = ['NUH', 'NTFGH'];
+// what a week is built from: until each kind's first rows are in, Build week, Build again, Check against Epic and the grid's
+// edits wait, or a build would miss leave or calls, or save over a built week not heard yet (7 Nov 2026)
+export const WEEK_NEEDS = /** @type {import('../cloud.js').Kind[]} */ (['lists', 'people', 'leave', 'rosters', 'weeks']);
 /** "This is me" (meOf): marked wherever the name shows, in bold, the accent and underlined (not by colour alone) */
 let me = '';
 /** names as small chips, each with an optional note (AM, PM, on call); commas kept for copy and screen readers
@@ -106,9 +109,7 @@ export function weekScreen(ctx) {
   if (!store.loaded('lists')) loading.loading();
 
   const view = sectionScreen('week-view');
-  /** @type {import('../cloud.js').Kind[]} */
-  const kinds = ['people', 'lists', 'leave', 'rosters', 'weeks'];
-  store.on(kinds, () => draw());
+  store.on(WEEK_NEEDS, () => draw());
   ctx.onRole(() => draw());
   app.settings.watch('defaultSite', () => { site = String(app.settings.get('defaultSite') || 'all'); draw(); });
   app.settings.watch('showPatients', () => draw());
@@ -136,7 +137,7 @@ export function weekScreen(ctx) {
       { label: 'Excel (hand grid)', icon: ICONS.download, run: () => exportXlsx('hand') },
       { label: 'Print', icon: ICONS.printer, run: () => printWeek() },
       { label: 'This is me', icon: ICONS.userCheck, run: () => pickMe(m.people) },
-      ...(canWrite && m.built && m.lists.length ? [null, { label: 'Check against Epic', icon: ICONS.listChecks, run: () => edit(e => e.epicSheet()) },
+      ...(canWrite && m.built && m.lists.length && store.ready(WEEK_NEEDS) ? [null, { label: 'Check against Epic', icon: ICONS.listChecks, run: () => edit(e => e.epicSheet()) },
         { label: 'Build again', icon: ICONS.refreshCw, run: () => edit(e => e.build()) }] : []),
     ], { label: 'More' });
   });
@@ -391,9 +392,13 @@ export function weekScreen(ctx) {
     fill($('week-site'), h('option', { value: 'all' }, 'All sites'), [...SITE_ORDER, ...sites.filter(s => !SITE_ORDER.includes(s))].filter(s => SITE_ORDER.includes(s) || sites.includes(s)).map(s => h('option', { value: s }, s)));
     /** @type {HTMLSelectElement} */ (siteSelect).value = site;
     const canWrite = ctx.canWrite();
+    const ready = store.ready(WEEK_NEEDS);
     // one step at a time: Epic and Build until it is built, then More (Epic and Build again are in its menu)
     $('week-build').hidden = !canWrite || m.built;
     $('week-epic').hidden = !canWrite || m.built || !m.lists.length;
+    // (shown but not tappable until all the week's records are in; Build stays off while a build runs)
+    $('week-build').toggleAttribute('disabled', !ready || !!editor?.busy());
+    $('week-epic').toggleAttribute('disabled', !ready);
     $('week-more').hidden = canWrite && !m.built;   // nothing of the maker's to share yet (a viewer can still take the lists out)
     const away = monday !== firstWeek(todayKey());
     $('week-title').classList.toggle('is-away', away);
@@ -407,8 +412,9 @@ export function weekScreen(ctx) {
     const stale = canWrite && m.built && !!m.wk?.lists?.length;
     if (stale && !editing) editCode().then(() => draw(), () => { /* no note until a later draw loads it */ });
     const drift = stale && editor ? editor.drift(monday, m) : 0;
-    $('week-drift').hidden = !drift;
-    $('week-state-note').textContent = !m.lists.length ? '' : m.built ? [m.wk?.built ? `Built ${new Date(m.wk.built).toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })}.` : '',
+    $('week-drift').hidden = !drift || !ready;
+    // ('Not built yet' only once the week's records are in: before that it may be built)
+    $('week-state-note').textContent = !ready ? 'Loading…' : !m.lists.length ? '' : m.built ? [m.wk?.built ? `Built ${new Date(m.wk.built).toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })}.` : '',
       drift ? `The Lists tab has changed since (${drift} list${drift === 1 ? '' : 's'}).` : ''].filter(Boolean).join(' ')
       : `Not built yet.${canWrite && !m.callsMade ? ` Calls for ${m.unmade.map(mo => MONTH_NAMES[Number(mo.slice(5)) - 1]).join(' and ')} are not made yet, so post-call days are not kept clear.` : ''}`;
     $('week-table').hidden = show !== 'grid';
@@ -418,7 +424,7 @@ export function weekScreen(ctx) {
     fill($('week-mine'), me ? mine?.mineCard({ name: me, days, lists: m.lists, grid: m.grid, sec, calls: m.calls, leave: m.leave, built: m.built, holidays: m.holidays,
       rosters: /** @type {any} */ (store.get('rosters')), today: todayKey() })
       : !canWrite && !asked && m.people.length > 0 && askCard(m.people));
-    empty.show(!m.lists.length);
+    empty.show(store.loaded('lists') && !m.lists.length);
 
     fill($('week-chips'), days.map(d => h('button', { type: 'button', class: `wk-daychip${d === todayKey() ? ' is-today' : ''}`, 'aria-pressed': String(d === selected), dataset: { day: d }, onclick: () => { selected = d; draw(); } },
       h('span', {}, weekdayName(d)), h('span', { class: 'small' }, String(Number(d.slice(8)))))));

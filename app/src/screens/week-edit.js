@@ -7,7 +7,7 @@
 // week with hand changes asks to keep them (they go to the builder as asks), replace them, or cancel.
 import { undoToast } from '@core/ui';
 import { $, h } from '../dom.js';
-import { REFUSED } from '../items.js';
+import { LOADING, REFUSED } from '../items.js';
 import { shortDay } from '../roster/dates.js';
 import { conText } from '../roster/model.js';
 import { sectionsOf, shortOptions, whyNot } from '../roster/sections.js';
@@ -16,6 +16,7 @@ import { applyEdit, applyEdits, keptCount, keptAsks, mergeOverrides, undoFields 
 import { listsDrift } from '../roster/lists-drift.js';
 import { slotsFor } from '../data/lists.js';
 import { editSheet } from './sheet.js';
+import { WEEK_NEEDS } from './week.js';
 
 /** @typedef {ReturnType<typeof import('./week.js').weekModel>} Model */
 /** @typedef {import('../roster/week-edits.js').GridEdit} GridEdit */
@@ -32,6 +33,8 @@ export function weekEdit({ ctx, model, monday }) {
   // the kit's Undo toast on the page's toaster (whose show hands back that toast's dismiss)
   const undo = undoToast({ show: (text, o) => { const gone = toast(text, o); return () => { if (typeof gone === 'function') gone(); }; } }, { ms: 6000 });
   let building = false;
+  /** true (and says so) while some of what the week is built from has not arrived yet */
+  const waiting = () => { if (store.ready(WEEK_NEEDS)) return false; toast(LOADING); return true; };
 
   /**
    * Saves some fields of a week, with Undo: it puts those fields back as they were, on the week as it is by then.
@@ -47,6 +50,7 @@ export function weekEdit({ ctx, model, monday }) {
 
   /** a grid edit, or several saved as one (one Undo), made on the week as it is now @param {string} mon @param {GridEdit | GridEdit[]} e @param {string} said */
   async function saveGrid(mon, e, said) {
+    if (waiting()) return;
     const now = model(mon);
     await save(mon, now, { lists: now.built && now.wk?.lists?.length ? now.wk.lists : slotsFor(now.templates, mon, now.wk?.overrides), grid: applyEdits(now.grid, [e].flat()) }, said);
   }
@@ -74,6 +78,7 @@ export function weekEdit({ ctx, model, monday }) {
    * @param {string} mon @param {Changes} changes @param {GridEdit} [edit]  a grid edit saved with it
    */
   async function saveOverrides(mon, changes, edit) {
+    if (waiting()) return;
     const now = model(mon);
     const overrides = mergeOverrides(now.wk?.overrides ?? [], changes);
     /** @type {Record<string, unknown>} */
@@ -88,7 +93,7 @@ export function weekEdit({ ctx, model, monday }) {
   }
 
   async function build() {
-    if (building || !ctx.canWrite()) return;
+    if (building || !ctx.canWrite() || waiting()) return;
     const mon = monday(), m = model(mon);
     if (!m.lists.length) { toast('Add the weekly lists first (Lists tab).'); return; }
     if (!m.built || !m.grid.some(r => r.juniors.length)) { await rebuild(mon, []); return; }
@@ -121,7 +126,7 @@ export function weekEdit({ ctx, model, monday }) {
    * @param {string} mon @param {import('../roster/week-edits.js').Ask[]} asks  the hand placements to keep
    */
   async function rebuild(mon, asks) {
-    if (building) return;
+    if (building || waiting()) return;
     building = true; $('week-build').setAttribute('disabled', '');
     try {
       const { buildWeek } = await import('../roster/week.js');
@@ -140,7 +145,7 @@ export function weekEdit({ ctx, model, monday }) {
         !now.callsMade && 'Calls are not made yet: post-call not kept clear.',
       ].filter(Boolean);
       await save(mon, now, { grid, lists, seed, built: Date.now() }, said.length ? `Built. ${said.join(' ')}` : 'Built');
-    } finally { building = false; $('week-build').removeAttribute('disabled'); }
+    } finally { building = false; $('week-build').toggleAttribute('disabled', !store.ready(WEEK_NEEDS)); }
   }
 
   /** @param {Model} m  the week as drawn (words and warnings) @param {string} day @param {'AM' | 'PM'} session @param {string} name @param {string} list */
@@ -192,7 +197,7 @@ export function weekEdit({ ctx, model, monday }) {
 
   /** "Check against Epic" (screens/epic.js, loaded when first used) */
   async function epicSheet() {
-    if (!ctx.canWrite()) return;
+    if (!ctx.canWrite() || waiting()) return;
     const { epicSheet: open } = await import('./epic.js');
     const mon = monday();
     open({ m: model(mon), monday: mon, sheet, toast, saveOverrides: changes => saveOverrides(mon, changes) });
@@ -224,5 +229,5 @@ export function weekEdit({ ctx, model, monday }) {
     return d.added.length + d.removed.length + d.changed.length;
   }
 
-  return { build, moveSheet, addSheet, weekListSheet, epicSheet, shortButtons, takeOff, takeOffAll, drift };
+  return { build, busy: () => building, moveSheet, addSheet, weekListSheet, epicSheet, shortButtons, takeOff, takeOffAll, drift };
 }
