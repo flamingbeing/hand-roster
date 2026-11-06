@@ -113,7 +113,7 @@ export function buildWeek(o) {
       /** @param {ListSlot} l @param {string} name */
       const put = (l, name) => { placed.get(l.id)?.push(name); taken[session].add(name); const st = stats[name]; st.sessions++; if (l.kind === 'clinic' || l.kind === 'hot') st.clinic++; else st.ot++; };
 
-      // 1. asked-for people first
+      // 1. asked-for people first (an ask is by hand: a locum's limits don't apply)
       for (const r of o.requests ?? []) {
         if (r.type !== 'list-person' || r.day !== day || (r.session !== 'both' && r.session !== session)) continue;
         const l = order.find(x => sameName(r.list, x) && x.need > (placed.get(x.id)?.length ?? 0));

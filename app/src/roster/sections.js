@@ -3,7 +3,7 @@
 // buildWeek (week.js), so a hand-edited grid is judged the way a built one was. Also here: picking the parts of the stored
 // months that a week or a month needs (callsAround, monthCells, ...). Pure.
 import { addDays, rangeDays, mondayOf, monthDays } from './dates.js';
-import { callMapOf, callRow, isJunior, leads, leaveIndex, minOf, regLed, TIERS } from './model.js';
+import { callMapOf, callRow, canWork, isJunior, leads, leaveIndex, minOf, regLed, TIERS } from './model.js';
 import { juniorsOn } from './grid.js';
 
 /** @typedef {import('./model.js').Person} Person */
@@ -155,7 +155,7 @@ export function shortOptions({ gap, lists, grid, people, free }) {
   const who = new Map(people.map(p => [p.name, p]));
   // a list without the lead it must have (a registrar; a HOT clinic also an R3) takes only someone who can lead it
   const needsReg = regLed(list) && !juniorsOn(grid, gap.day, gap.session, list.id).some(n => leads(list, who.get(n)));
-  const fits = (/** @type {string} */ n) => (!needsReg || leads(list, who.get(n))) && !(who.get(n)?.siteOnly && who.get(n)?.site && who.get(n)?.site !== list.site);
+  const fits = (/** @type {string} */ n) => { const p = who.get(n); return !!p && (!needsReg || leads(list, p)) && canWork(p, list); };
   /** @type {ShortOption[]} */
   const out = [];
 
