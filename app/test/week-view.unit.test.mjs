@@ -4,6 +4,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { gridRows, juniorsOn, listOf, move, place, unplace } from '../src/roster/grid.js';
 import { sectionsOf, whyNot } from '../src/roster/sections.js';
+import { settleLists } from '../src/roster/model.js';
+import { weeks } from '../src/data/plans.js';
 import { callsAround, monthCells, shiftMonth, callMapIn, firstWeek, makerWeek, firstMonth } from '../src/roster/sections.js';
 import { setCall, lockedMap, lockKey, mergeCalls } from '../src/roster/calls-edit.js';
 import { buildWeek } from '../src/roster/week.js';
@@ -61,6 +63,14 @@ test('sections: leave, post-call (PM only), on call, free and short lists are wo
   assert.equal('Dr Eve Test' in free, false, 'consultants are not juniors');
   assert.deepEqual(s.short.map(x => [x.list, x.need, x.got]), [['b', 1, 0], ['c', 1, 0]], 'below the minimum (1 when a list wants any)');
   assert.deepEqual(s.under.map(x => [x.list, x.need, x.got]), [['a', 2, 1]], 'at its minimum but fewer than it wants');
+});
+
+test('sections: a built week keeps a list run by another team off the Short panel', () => {
+  const snap = weeks.clean({ lists: [{ id: 'x', site: 'NTFGH', kind: 'ot', name: 'OT 9', day: MON, session: 'AM', consultant: null, status: 'open', need: 2, external: true }] }).lists;
+  const settled = settleLists(/** @type {any} */ (snap), {});
+  assert.equal(settled[0].need, 0);
+  const s = sectionsOf({ monday: MON, people, leave: [], calls: [], lists: settled, grid: [] });
+  assert.deepEqual(s.short, []);
 });
 
 test('sections: whyNot names leave, on call, post-call and a double booking', () => {
