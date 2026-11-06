@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { gridRows, juniorsOn, listOf, move, place, unplace } from '../src/roster/grid.js';
-import { sectionsOf, whyNot } from '../src/roster/sections.js';
+import { clashesOf, callsUnmade, sectionsOf, whyNot } from '../src/roster/sections.js';
 import { settleLists } from '../src/roster/model.js';
 import { weeks } from '../src/data/plans.js';
 import { callsAround, monthCells, shiftMonth, callMapIn, firstWeek, makerWeek, firstMonth } from '../src/roster/sections.js';
@@ -84,6 +84,37 @@ test('sections: whyNot names leave, on call, post-call and a double booking', ()
   assert.deepEqual(whyNot({ ...base, name: 'Dr Ann Test', session: 'PM' }), ['Dr Ann Test is post-call then']);
   assert.deepEqual(whyNot({ ...base, name: 'Dr Cat Test', session: 'AM', list: 'b' }), ['Dr Cat Test is already on another list that session']);
   assert.deepEqual(whyNot({ ...base, name: 'Dr Cat Test', session: 'AM', list: 'a' }), []);
+});
+
+test('sections: clashes on a built grid: leave or calls changed since the build, never on a public holiday', () => {
+  const TUE = '2026-11-03';
+  /** @type {import('../src/roster/grid.js').GridRow[]} */
+  const grid = [
+    { day: MON, session: 'AM', list: 'a', juniors: ['Dr Ann Test', 'Dr Cat Test'] },
+    { day: MON, session: 'PM', list: 'c', juniors: ['Dr Ann Test', 'Dr Ben Test'] },
+    { day: TUE, session: 'AM', list: 'a', juniors: ['Dr Dan Test'] },
+  ];
+  // leave for the AM only flags the AM row, not the PM one
+  const amLeave = clashesOf({ grid, leave: [{ name: 'Dr Ann Test', from: MON, to: MON, session: 'AM' }], calls: [] });
+  assert.deepEqual(amLeave, [{ day: MON, session: 'AM', list: 'a', name: 'Dr Ann Test', why: ['on leave then'] }]);
+  // a call the day before: post-call takes the PM (the AM can still be rostered); on call that day takes both
+  const calls = [{ date: '2026-11-01', con: null, reg: 'Dr Ben Test', moNuh: null, moNtf: null }, { date: TUE, con: null, reg: null, moNuh: 'Dr Dan Test', moNtf: null }];
+  assert.deepEqual(clashesOf({ grid, leave: [], calls }).map(c => [c.day, c.session, c.name, c.why.join()]),
+    [[MON, 'PM', 'Dr Ben Test', 'post-call then'], [TUE, 'AM', 'Dr Dan Test', 'on call that day']]);
+  // a double booking is the move sheet's to say, not a clash
+  assert.deepEqual(clashesOf({ grid: [...grid, { day: MON, session: 'AM', list: 'b', juniors: ['Dr Cat Test'] }], leave: [], calls: [] }), []);
+  // nothing on a public holiday (its lists are closed)
+  assert.deepEqual(clashesOf({ grid, leave: [{ name: 'Dr Ann Test', from: MON, to: MON }], calls, holidays: [MON, TUE] }), []);
+});
+
+test('inputs: a week whose Monday or Friday month has no calls made says so', () => {
+  const made = { id: '2026-11', calls: [{ date: '2026-11-01', con: null, reg: 'Dr Ann Test', moNuh: null, moNtf: null }] };
+  const empty = { id: '2026-12', calls: [{ date: '2026-12-01', con: null, reg: null, moNuh: null, moNtf: null }] };
+  assert.deepEqual(callsUnmade([made], MON), []);
+  assert.deepEqual(callsUnmade([], MON), ['2026-11']);
+  // 30 Nov to 4 Dec: December's roster has rows but no one on them
+  assert.deepEqual(callsUnmade([made, empty], '2026-11-30'), ['2026-12']);
+  assert.deepEqual(callsUnmade([made, { ...empty, calls: [{ date: '2026-12-02', reg2: 'Dr Ben Test' }] }], '2026-11-30'), []);
 });
 
 test('inputs: calls around a week come from both months; month cells start on a Monday', () => {

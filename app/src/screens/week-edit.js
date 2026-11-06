@@ -83,8 +83,9 @@ export function weekEdit({ ctx, model, monday }) {
       const res = buildWeek({ monday: mon, lists, people: now.people, leave: now.leave, calls: now.calls, holidays: now.holidays, seed });
       const short = res.problems.filter(p => p.got < p.min || p.noReg).length;
       // the lists are kept as the template stood, unsettled, so a holiday or leave taken away later reopens them
-      await save(mon, now, { grid: gridRows(res.grid), lists, seed, built: Date.now() },
-        short ? `Built. ${short} list${short === 1 ? ' is' : 's are'} below the minimum: see Short.` : 'Built');
+      // the month's calls not made yet: built all the same, but post-call days are not known, so say so
+      const said = [short ? `Built. ${short} list${short === 1 ? ' is' : 's are'} below the minimum: see Short.` : 'Built', !now.callsMade && 'Calls are not made yet: post-call not kept clear.'];
+      await save(mon, now, { grid: gridRows(res.grid), lists, seed, built: Date.now() }, said.filter(Boolean).join(short ? ' ' : '. '));
     } finally { building = false; $('week-build').removeAttribute('disabled'); }
   }
 

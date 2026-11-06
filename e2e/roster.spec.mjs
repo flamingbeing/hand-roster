@@ -103,3 +103,26 @@ test('a roster maker moves a junior on the grid and puts them back with Undo', a
   await expect(on(a)).toBeVisible();
   await expect(on(b)).toHaveCount(0);
 });
+
+test('a built week marks a junior on a list on a day they are now on leave, and the clash opens the move sheet', async ({ phone }) => {
+  const page = await phone();
+  await signIn(page, 'member');
+  await openWeek(page);
+  // a week of its own, eleven on
+  for (let i = 0; i < 11; i++) await page.locator('#week-next').click();
+  await expect(page.locator('#week-title')).toHaveClass(/is-away/);
+  const mon = /** @type {string} */ (await page.locator('#week-grid .wk-day').first().getAttribute('data-day'));
+  const [a, name] = [uniq('OT C'), uniq('Dr Ben Test')];
+  const list = { id: a, site: 'NUH', kind: 'ot', name: a, day: mon, session: 'AM', consultant: null, rooms: null, patients: null, status: 'open', need: 2, consultantOnLeave: false };
+  await db.put(`spaces/_/weeks/${mon}`, { lists: [list], grid: [{ day: mon, session: 'AM', list: a, juniors: [name] }], seed: 1, built: Date.now(), updatedAt: Date.now() });
+  const on = page.locator(`#week-table .wt-list[data-list="${a}"] .wt-name`, { hasText: name });
+  await expect(on).toBeVisible({ timeout: 15_000 });
+  await expect(on).not.toHaveClass(/is-clash/);
+  // leave added after the build
+  await db.put(`spaces/_/leave/${uniq('lv')}`, { name, from: mon, to: mon, session: 'both', updatedAt: Date.now() });
+  await expect(on).toHaveClass(/is-clash/, { timeout: 15_000 });
+  await expect(on).toHaveAttribute('aria-label', /Clash: on leave then/);
+  const line = page.locator('#week-short .sh-option', { hasText: `${name} on NUH ${a}: on leave then` });
+  await clickOpens(line, page.locator('#edit-sheet'));
+  await expect(page.locator('#edit-title')).toHaveText(name);
+});

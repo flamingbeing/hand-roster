@@ -15,9 +15,9 @@
 import { icon, loadState, emptyState, openMenu } from '@core/ui';
 import { ICONS } from '../icons.js';
 import { $, sectionScreen, h, fill } from '../dom.js';
-import { addDays, mondayOf, nextWorkday, rangeDays, shortDay, weekday, weekdayName, MONTHS, todayKey } from '../roster/dates.js';
+import { addDays, mondayOf, nextWorkday, rangeDays, shortDay, weekday, weekdayName, MONTHS, MONTH_NAMES, todayKey } from '../roster/dates.js';
 import { TIERS, TIER_LABEL, conText, dayType, leads, minOf, regLed, settleLists, tierPlanOf } from '../roster/model.js';
-import { callsAround } from '../roster/sections.js';
+import { callsAround, callsUnmade, clashesOf } from '../roster/sections.js';
 import { listName, sectionsOf } from '../roster/sections.js';
 import { juniorsOn, weekBuilt } from '../roster/grid.js';
 import { firstWeek, makerWeek } from '../roster/sections.js';
@@ -54,7 +54,8 @@ export function weekModel(store, mon) {
   const lists = settleLists(built && wk?.lists?.length ? wk.lists : slotsFor(templates, mon, wk?.overrides), { leave, holidays });
   /** @param {string} day @returns {import('../roster/model.js').TierPlan} the call tiers of that day's month */
   const planOn = day => tierPlanOf(rosters.find(r => r.id === day.slice(0, 7))?.tierPlan);
-  return { wk, templates, built, lists, grid, people, leave, calls, holidays, planOn };
+  const unmade = callsUnmade(/** @type {any} */ (rosters), mon);   // a build can't keep their post-call days clear
+  return { wk, templates, built, lists, grid, people, leave, calls, holidays, planOn, unmade, callsMade: !unmade.length };
 }
 
 /**
@@ -71,6 +72,8 @@ export function weekScreen(ctx) {
   let editing = null;
   /** @type {ReturnType<typeof import('./week-edit.js').weekEdit> | null} */
   let editor = null;
+  /** @type {Map<string, string>} the roster maker's clashes (clashesOf) by day|session|name, why */
+  let clashAt = new Map();
   const editCode = () => (editing ??= import('./week-edit.js').then(x => (editor = x.weekEdit({ ctx, model, monday: () => monday })),
     e => { editing = null; throw e; }));   // (offline before it was ever loaded: the next tap tries again)
   /** @param {(e: NonNullable<typeof editor>) => unknown} job */
@@ -193,6 +196,17 @@ export function weekScreen(ctx) {
       }))];
   }
 
+  /** Clashes, each opening the move sheet @param {ReturnType<typeof model>} m @param {ReturnType<typeof clashesOf>} list */
+  const clashPanel = (m, list) => list.length > 0 && [h('h2', {}, `Clashes: ${list.length}`),
+    h('div', { class: 'sh-options' }, list.map(c => {
+      const l = m.lists.find(x => x.id === c.list);
+      return h('button', { type: 'button', class: 'sh-option', onclick: () => edit(e => e.moveSheet(m, c.day, c.session, c.name, c.list)) },
+        `${weekdayName(c.day)} ${Number(c.day.slice(8))} ${c.session} · ${c.name} on ${l ? `${l.site} ${listName(l)}` : 'a list'}: ${c.why.join(', ')}`);
+    }))];
+  /** a junior's button on a list, marked when it clashes @param {ReturnType<typeof model>} m @param {import('../roster/model.js').ListSlot} l @param {string} n @param {string} cls */
+  const nameBtn = (m, l, n, cls) => { const why = clashAt.get(`${l.day}|${l.session}|${n}`);
+    return { type: 'button', class: why ? `${cls} is-clash` : cls, dataset: { name: n }, 'aria-label': `${n}: move or take off${why ? `. Clash: ${why}` : ''}`, onclick: () => edit(e => e.moveSheet(m, l.day, l.session, n, l.id)) }; };
+
   /**
    * The Grid: the week as the hand-made sheet lays it out. Days across; AM and PM by site down, each cell the lists of that
    * session as "Consultant LIST" with the juniors under; then on call, leave, post-call and free. For those who may edit, a
@@ -221,7 +235,7 @@ export function weekScreen(ctx) {
         ], { label: head }) }, head) : h('span', { class: 'wt-head' }, head),
         (flag || l.rooms) && h('span', { class: 'wt-flag' }, [l.rooms, flag].filter(Boolean).join(' · ')),
         (juniors.length > 0 || short) && h('div', { class: 'wt-names' },
-          juniors.flatMap((n, i) => [i > 0 && ', ', canWrite ? h('button', { type: 'button', class: 'wt-name', dataset: { name: n }, 'aria-label': `${n}: move or take off`, onclick: () => edit(e => e.moveSheet(m, l.day, l.session, n, l.id)) }, n)
+          juniors.flatMap((n, i) => [i > 0 && ', ', canWrite ? h('button', nameBtn(m, l, n, 'wt-name'), n)
             : h('span', { class: 'wt-name' }, n)]),
           short && h('span', { class: 'wt-need' }, juniors.length < min ? `needs ${min - juniors.length}` : l.kind === 'hot' ? 'needs a reg or R3' : 'needs a reg')));
     };
@@ -265,7 +279,7 @@ export function weekScreen(ctx) {
         canWrite && h('button', { type: 'button', class: 'wk-edit', 'aria-label': `Change ${l.name} for this week`, onclick: () => edit(e => e.weekListSheet(l)) }, icon(ICONS.pencil))),
       noteBits.length > 0 && h('div', { class: 'wk-note small' }, noteBits.join(' · ')),
       (open || juniors.length > 0) && h('div', { class: 'wk-juniors' },
-        juniors.map(n => h('button', { type: 'button', class: 'wk-chip', disabled: !canWrite, dataset: { name: n }, 'aria-label': `${n}: move or take off`, onclick: () => edit(e => e.moveSheet(m, l.day, l.session, n, l.id)) }, n)),
+        juniors.map(n => h('button', { ...nameBtn(m, l, n, 'wk-chip'), disabled: !canWrite }, n)),
         open && short && m.built && h('span', { class: 'wk-need small' }, juniors.length < min ? `needs ${min - juniors.length} more` : l.kind === 'hot' ? 'needs a registrar or R3' : 'needs a registrar'),
         open && under && m.built && h('span', { class: 'wk-want small' }, `could take ${l.need - juniors.length} more`),
         open && canWrite && juniors.length < Math.max(l.need, 1) + 1 && h('button', { type: 'button', class: 'wk-add', 'aria-label': `Add a junior to ${l.name}`, onclick: () => edit(e => e.addSheet(m, l.day, l.session, l)) }, icon(ICONS.plus))));
@@ -300,8 +314,11 @@ export function weekScreen(ctx) {
     if (away) $('week-title').setAttribute('aria-label', `${weekTitle(monday)}. Back to this week`); else $('week-title').removeAttribute('aria-label');
     $('week-show-grid').setAttribute('aria-pressed', String(show === 'grid'));
     $('week-show-day').setAttribute('aria-pressed', String(show === 'day'));
-    fill($('week-short'), shortPanel(m, sec));
-    $('week-state-note').textContent = !m.lists.length ? '' : m.built ? (m.wk?.built ? `Built ${new Date(m.wk.built).toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })}.` : '') : 'Not built yet.';
+    const clashes = m.built && canWrite ? clashesOf({ grid: m.grid, leave: m.leave, calls: m.calls, holidays: m.holidays }) : [];
+    clashAt = new Map(clashes.map(c => [`${c.day}|${c.session}|${c.name}`, c.why.join(', ')]));
+    fill($('week-short'), shortPanel(m, sec), clashPanel(m, clashes));
+    $('week-state-note').textContent = !m.lists.length ? '' : m.built ? (m.wk?.built ? `Built ${new Date(m.wk.built).toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })}.` : '')
+      : `Not built yet.${canWrite && !m.callsMade ? ` Calls for ${m.unmade.map(mo => MONTH_NAMES[Number(mo.slice(5)) - 1]).join(' and ')} are not made yet, so post-call days are not kept clear.` : ''}`;
     $('week-table').hidden = show !== 'grid';
     $('week-chips').hidden = $('week-grid').hidden = show !== 'day';
     if (show === 'grid') fill($('week-table'), weekTable(m, sec, days));
