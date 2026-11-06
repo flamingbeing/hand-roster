@@ -7,11 +7,12 @@ import { $, h, fill } from '../dom.js';
 import { REFUSED } from '../items.js';
 import { GRADES, RANKS, SITES, WORKS, byTeam } from '../data/people.js';
 
+import { editSheet } from './sheet.js';
+import { rowList, heading } from './rows.js';
+
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 /** @param {string[]} w @returns {string} 'Mon, Wed AM' */
 const worksText = w => DAY_NAMES.map((d, i) => { const am = w.includes(`${i + 1}AM`), pm = w.includes(`${i + 1}PM`); return am && pm ? d : am ? `${d} AM` : pm ? `${d} PM` : ''; }).filter(Boolean).join(', ');
-import { editSheet } from './sheet.js';
-import { rowList, heading } from './rows.js';
 
 /** @param {import('./context.js').Context} ctx */
 export function create(ctx) {
@@ -40,7 +41,7 @@ export function create(ctx) {
     const others = rows().filter(r => r.id !== row?.id && r.active !== false).map(r => r.name.toLowerCase());
     // "Works on": Mon to Fri, AM and PM; none ticked = every session
     const ticks = new Map(WORKS.map(k => [k, h('input', { type: 'checkbox', checked: !!row?.works?.includes(k), 'aria-label': `${DAY_NAMES[Number(k[0]) - 1]} ${k.slice(1)}` })]));
-    const works = h('div', { class: 'ep-wrap' }, h('p', { class: 'small' }, 'Works on (none ticked: every day)'),
+    const works = h('div', { class: 'ep-wrap' }, h('p', { class: 'small' }, 'Works on, for day lists (none ticked: every day; calls are set apart)'),
       h('table', { class: 'ep-table pp-works' }, h('thead', {}, h('tr', {}, h('th', {}), DAY_NAMES.map(d => h('th', {}, d)))),
         h('tbody', {}, ['AM', 'PM'].map(s => h('tr', {}, h('th', {}, s), [1, 2, 3, 4, 5].map(d => h('td', {}, ticks.get(`${d}${s}`))))))));
     sheet.open({
