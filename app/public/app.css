@@ -248,7 +248,3 @@ body { margin: 0; }
 .app-mark { flex: none; border-radius: 22%; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .pp-works input { width: 1.2rem; height: 1.2rem; }
-
-/* stopgap until the app-ui bump with app-ui#114: the tap menu's popover layer kept the browser's [popover] look
-   (fit-content size, border, overflow) and clipped the Share menu to a small square */
-.ui-menu-layer { width: auto; height: auto; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: none; color: inherit; overflow: visible; }
