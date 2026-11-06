@@ -58,8 +58,13 @@ test('copy for WhatsApp says when there is nothing built to copy; the calls tab 
   const page = await phone();
   await signIn(page, 'viewer');   // (a viewer has More on an unbuilt week; the maker has Epic and Build there)
   await openWeek(page);
-  await share(page, 'Copy for WhatsApp');
+  await share(page, 'Copy the whole week');
+  await expect(page.locator('#toasts')).toContainText('The week of');
   await expect(page.locator('#toasts')).toContainText('not built yet');
+  // the next working day is named in its item
+  await page.locator('#week-more').click();
+  await expect(page.getByRole('menuitem', { name: /^Copy next working day \((Mon|Tue|Wed|Thu|Fri) \d+ [A-Z][a-z]{2}\)$/ })).toBeVisible();
+  await page.keyboard.press('Escape');
   await openTab(page, 'calls');
   await expect(page.locator('#calls-xlsx')).toBeVisible();
 });

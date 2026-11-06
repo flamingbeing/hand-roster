@@ -4,12 +4,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { weekLayout, coreRows, handSections, handGrid, callsLayout, weekRange, weekTitleText, longDay, colName, TALLY, HAND_COLS } from '../src/roster/layout.js';
-import { whatsappText } from '../src/roster/whatsapp.js';
+import { whatsappText, weekText, DAY_SEPARATOR } from '../src/roster/whatsapp.js';
 import { buildWeekWorkbook, buildHandWorkbook, buildCallsWorkbook, sheetName } from '../src/roster/xlsx.js';
 import { nextWorkday } from '../src/roster/dates.js';
 import { gridRows } from '../src/roster/grid.js';
 import { sectionsOf } from '../src/roster/sections.js';
-import { isJunior } from '../src/roster/model.js';
+import { isJunior, settleLists } from '../src/roster/model.js';
 
 const MON = '2026-11-02', TUE = '2026-11-03', SAT = '2026-11-07';
 const people = [
@@ -49,6 +49,9 @@ test('titles: the hand-made roster title and the week range across months and ye
   assert.equal(longDay(TUE), 'Tue 3 Nov 2026');
   assert.equal(nextWorkday('2026-11-06'), '2026-11-09');
   assert.equal(nextWorkday('2026-11-02'), '2026-11-03');
+  assert.equal(nextWorkday('2026-11-06', []), '2026-11-09');
+  assert.equal(nextWorkday('2026-11-07', ['2026-11-09']), '2026-11-10', 'a Monday holiday is skipped');
+  assert.equal(nextWorkday('2026-12-24', ['2026-12-25']), '2026-12-28', 'a Friday holiday is skipped, then the weekend');
 });
 
 test('core rows: DEPARTMENTS plus seven days, sections, list header then juniors, closed clinics', () => {
@@ -153,6 +156,26 @@ test('whatsapp text: tomorrow\'s lists by site, on call, leave, post-call and fr
   assert.ok(sat.includes('No lists at the weekend.') && sat.includes('CON: Dr Eve Test') && !sat.includes('MO (NUH)'));
   assert.equal(whatsappText('2026-12-01', base), '', 'a day outside the week gives nothing');
   assert.ok(!/[*_~`]/.test(whatsappText(MON, base)), 'plain text, no markup characters');
+});
+
+test('whatsapp text: a public holiday says so in its title, its lists read as closed', () => {
+  const o = { ...base, holidays: [MON], lists: settleLists(lists, { holidays: [MON] }) };
+  const t = whatsappText(MON, o).split('\n');
+  assert.equal(t[0], 'HRM roster, Mon 2 Nov 2026 (public holiday)');
+  assert.ok(t.includes('CLINIC (closed): Dr Dan Test') && t.includes('CON: Dr Fay Test'));
+  assert.equal(whatsappText(TUE, o).split('\n')[0], 'HRM roster, Tue 3 Nov 2026', 'only the holiday is marked');
+});
+
+test('whatsapp week text: the five weekdays in order, a blank line and a separator between them, an empty day left out', () => {
+  const t = weekText(base);
+  const days = t.split(`\n\n${DAY_SEPARATOR}\n\n`);
+  assert.equal(days.length, 5);
+  assert.deepEqual(days.map(d => d.split('\n')[0]), ['Mon 2 Nov', 'Tue 3 Nov', 'Wed 4 Nov', 'Thu 5 Nov', 'Fri 6 Nov'].map(d => `HRM roster, ${d} 2026`));
+  assert.equal(days[0], whatsappText(MON, base));
+  assert.ok(!t.includes('Sat 7 Nov') && !/[*_~`]/.test(t), 'no weekend, no markup characters');
+  // a day with no text (outside the week) is left out: no empty block, no doubled separator
+  const some = weekText(base, [MON, '2026-12-01', TUE]);
+  assert.equal(some, `${whatsappText(MON, base)}\n\n${DAY_SEPARATOR}\n\n${whatsappText(TUE, base)}`);
 });
 
 /** @param {import('../src/roster/layout.js').HandGrid} g */

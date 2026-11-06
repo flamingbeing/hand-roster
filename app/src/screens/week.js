@@ -118,8 +118,12 @@ export function weekScreen(ctx) {
   $('week-more').replaceChildren(icon(ICONS.ellipsis), 'More');
   $('week-more').addEventListener('click', () => {
     const canWrite = ctx.canWrite(), m = model();
+    // chat text of the day on screen, of the next working day (holidays skipped) or of the week on screen (7 Nov 2026)
+    const next = nextWorkday(todayKey(), m.holidays), here = dayOnScreen();
     openMenu($('week-more'), [
-      { label: 'Copy for WhatsApp', icon: ICONS.clipboardCopy, run: () => copyTomorrow() },
+      ...(here !== next ? [{ label: `Copy ${dayName(here)} for WhatsApp`, icon: ICONS.clipboardCopy, run: () => copyDay(here) }] : []),
+      { label: `Copy next working day (${dayName(next)})`, icon: ICONS.clipboardCopy, run: () => copyDay(next) },
+      { label: 'Copy the whole week', icon: ICONS.clipboardCopy, run: () => copyWeek() },
       { label: 'Excel (CORE)', icon: ICONS.download, run: () => exportXlsx('core') },
       { label: 'Excel (hand grid)', icon: ICONS.download, run: () => exportXlsx('hand') },
       { label: 'Print', icon: ICONS.printer, run: () => printWeek() },
@@ -183,15 +187,34 @@ export function weekScreen(ctx) {
       toast(`Saved ${await (style === 'hand' ? x.exportHandGrid(o) : x.exportWeek(o))}`);
     }, 'Could not make the Excel file.');
   }
-  /** copies the next working day's roster as chat text */
-  async function copyTomorrow() {
+  /** @param {string} day @returns {string} 'Tue 10 Nov' */
+  const dayName = day => `${weekdayName(day)} ${shortDay(day)}`;
+  /** @returns {string} the day being looked at: Day's chosen day; on the Grid the first weekday from today on, else Monday */
+  const dayOnScreen = () => {
+    if (show === 'day') return selected;
+    const today = todayKey();
+    return rangeDays(monday, addDays(monday, 4)).find(d => d >= today) ?? monday;
+  };
+  /** @param {Awaited<ReturnType<typeof exportCode>>} x @param {string} text @param {string} what  for the toast ('Tue 10 Nov') */
+  async function copied(x, text, what) {
+    toast(await x.copyText(text) ? `Copied ${what}. Paste it into WhatsApp.` : 'Could not copy. Allow the clipboard and try again.');
+  }
+  /** copies one day's roster as chat text @param {string} day */
+  async function copyDay(day) {
     await guarded(async () => {
-      const day = nextWorkday(todayKey()), mon = mondayOf(day);
-      const m = model(mon);
-      if (!m.built) { toast(`${shortDay(day)} is not built yet. Build that week first.`); return; }
+      const mon = mondayOf(day), m = model(mon);
+      if (!m.built) { toast(`${dayName(day)} is not built yet. Build that week first.`); return; }
       const x = await exportCode();
-      const text = x.whatsappText(day, layoutInput(m, mon));
-      toast(await x.copyText(text) ? `Copied ${weekdayName(day)} ${shortDay(day)}. Paste it into WhatsApp.` : 'Could not copy. Allow the clipboard and try again.');
+      await copied(x, x.whatsappText(day, layoutInput(m, mon)), dayName(day));
+    }, 'Could not copy.');
+  }
+  /** copies the week on screen, Monday to Friday, as chat text */
+  async function copyWeek() {
+    await guarded(async () => {
+      const mon = monday, m = model(mon);
+      if (!m.built) { toast(`The week of ${shortDay(mon)} is not built yet. Build it first.`); return; }
+      const x = await exportCode();
+      await copied(x, x.weekText(layoutInput(m, mon)), `the week of ${shortDay(mon)}`);
     }, 'Could not copy.');
   }
 

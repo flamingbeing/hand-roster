@@ -35,10 +35,13 @@ export const mondayOf = day => addDays(day, -((weekday(day) + 6) % 7));
 export const rangeDays = (from, to) => { const out = []; for (let d = from; d <= to; d = addDays(d, 1)) out.push(d); return out; };
 export const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-/** @param {string} day @returns {string} the next Monday to Friday after it ('2026-11-06' gives '2026-11-09') */
-export function nextWorkday(day) {
+/**
+ * @param {string} day @param {string[]} [holidays] public holidays, skipped like a weekend
+ * @returns {string} the next Monday to Friday after it that is not a holiday ('2026-11-06' gives '2026-11-09')
+ */
+export function nextWorkday(day, holidays = []) {
   let d = addDays(day, 1);
-  while (isWeekend(d)) d = addDays(d, 1);
+  while (isWeekend(d) || holidays.includes(d)) d = addDays(d, 1);
   return d;
 }
 /** @param {string} day @returns {string} '12 Oct' */
