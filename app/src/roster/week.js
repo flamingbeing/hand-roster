@@ -148,7 +148,7 @@ export function buildWeek(o) {
         while ((placed.get(l.id)?.length ?? 0) < upTo) {
           let best = null;
           let bestScore = Infinity;
-          // registrars are kept back while there are no more of them than emergency slots still without one (an MO does
+          // registrars go last (the slot is still filled when nobody else is free) while there are no more of them than emergency slots still without one (an MO does
           // elsewhere what only a registrar does there)
           const regsLeft = l.emergency ? Infinity : juniors.filter(p => p.grade === 'reg' && available(p, session)).length;
           const keepRegs = regsLeft <= eot.filter(e => !(placed.get(e.id) ?? []).some(n => juniors.find(x => x.name === n)?.grade === 'reg')).length;

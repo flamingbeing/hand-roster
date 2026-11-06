@@ -131,6 +131,7 @@ test('requests: a name, a day, cannot or want, and one tier or none', async () =
   const put = (data, id = 'q') => as('member').set(`spaces/_/requests/${id}`, data, at);
   assert.equal((await put(base)).ok, true);
   assert.equal((await put({ ...base, type: 'cannot', tier: 'moNtf' })).ok, true);
+  assert.equal((await put({ ...base, tier: 'reg2' })).ok, true, 'REG 2');
   assert.equal((await put({ ...base, tier: null })).ok, true, 'null clears');
   assert.equal((await put({ ...base, type: 'maybe' })).ok, false);
   assert.equal((await put({ ...base, tier: 'night' })).ok, false);

@@ -105,9 +105,14 @@ export function weekScreen(ctx) {
     return { wk, templates, built, lists, grid, people, leave, calls, holidays, planOn };
   }
 
+  /** @param {ReturnType<typeof model>} m @param {string} mon @returns {import('../roster/model.js').TierPlan} both months' tiers when the week crosses a month end */
+  const weekPlan = (m, mon) => {
+    const a = m.planOn(mon), b = m.planOn(addDays(mon, 6));
+    return /** @type {any} */ (Object.fromEntries(Object.entries(a).map(([d, ts]) => [d, [...new Set([...ts, ...b[/** @type {keyof typeof b} */ (d)]])]])));
+  };
   /** @param {ReturnType<typeof model>} m @param {string} mon @returns {import('../roster/layout.js').WeekLayoutInput} what the sheet, the print and the chat text are made from */
   const layoutInput = (m, mon) => ({
-    monday: mon, lists: m.lists, grid: m.grid, people: m.people, leave: m.leave, calls: m.calls, holidays: m.holidays, tierPlan: m.planOn(mon),
+    monday: mon, lists: m.lists, grid: m.grid, people: m.people, leave: m.leave, calls: m.calls, holidays: m.holidays, tierPlan: weekPlan(m, mon),
     built: m.built, patients: !!app.settings.get('showPatients'),
   });
 
@@ -153,8 +158,10 @@ export function weekScreen(ctx) {
     try {
       const { buildWeek } = await import('../roster/week.js');
       const seed = (m.wk?.seed ?? 0) + 1;
-      const res = buildWeek({ monday, lists: slotsFor(m.templates, monday, m.wk?.overrides), people: m.people, leave: m.leave, calls: m.calls, holidays: m.holidays, seed });
-      const refused = await app.data.weeks.upsert(monday, m.wk, { grid: gridRows(res.grid), lists: res.lists, seed, built: Date.now() });
+      const raw = slotsFor(m.templates, monday, m.wk?.overrides);
+      const res = buildWeek({ monday, lists: raw, people: m.people, leave: m.leave, calls: m.calls, holidays: m.holidays, seed });
+      // the lists are kept as the template stood, unsettled, so a holiday or leave taken away later reopens them
+      const refused = await app.data.weeks.upsert(monday, m.wk, { grid: gridRows(res.grid), lists: raw, seed, built: Date.now() });
       const short = res.problems.filter(p => p.got < p.min || p.noReg).length;
       toast(refused ? REFUSED : short ? `Built. ${short} list${short === 1 ? ' is' : 's are'} below the minimum: see Short.` : 'Built');
     } finally { building = false; $('week-build').removeAttribute('disabled'); }
@@ -163,7 +170,7 @@ export function weekScreen(ctx) {
   /** @param {Record<string, unknown>} fields the week's grid and lists, saved */
   async function saveGrid(fields) {
     const m = model();
-    toast(await app.data.weeks.upsert(monday, m.wk, { lists: m.lists, ...fields }) ? REFUSED : 'Saved');
+    toast(await app.data.weeks.upsert(monday, m.wk, { lists: m.built && m.wk?.lists?.length ? m.wk.lists : slotsFor(m.templates, monday, m.wk?.overrides), ...fields }) ? REFUSED : 'Saved');
   }
 
   /** @param {ReturnType<typeof model>} m @param {string} day @param {'AM' | 'PM'} session @param {string} name @param {string} list */
@@ -224,7 +231,7 @@ export function weekScreen(ctx) {
       // (an emergency slot's need and minimum are the rule's: kept out of the change unless typed differently)
       onSave: v => saveOverrides(m, [[l.id, { consultant: v.consultant || null, patients: v.patients, status: v.status, away: v.away,
         need: l.emergency && v.need === l.need ? undefined : v.need ?? l.need,
-        min: v.min == null || v.min === minOf({ ...l, need: v.need ?? l.need, min: undefined }) || (l.emergency && v.min === minOf(l)) ? undefined : v.min }]]),
+        min: v.min == null || v.min === minOf(l) ? had ? m.wk?.overrides?.find(o => o.id === l.id)?.min : undefined : v.min }]]),
       ...(had ? { deleteLabel: 'Back to the usual', onDelete: () => saveOverrides(m, [[l.id, null]]) } : {}),
     });
   }
@@ -249,7 +256,7 @@ export function weekScreen(ctx) {
     if (m.built && m.wk?.lists?.length) {
       const ids = new Set(changes.map(([id]) => id));
       const now = new Map(slotsFor(m.templates, monday, overrides).filter(x => ids.has(x.id)).map(x => [x.id, x]));
-      fields.lists = m.wk.lists.map(x => { const n = now.get(x.id); return n ? settleLists([n], { leave: m.leave, holidays: m.holidays })[0] : x; });
+      fields.lists = m.wk.lists.map(x => now.get(x.id) ?? x);
     }
     toast(await app.data.weeks.upsert(monday, m.wk, fields) ? REFUSED : 'Saved');
   }

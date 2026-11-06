@@ -51,7 +51,7 @@ export function shortOptions({ gap, lists, grid, people, free }) {
     const regs = on.filter(n => grade.get(n) === 'reg');
     const movable = l.emergency ? on.filter(n => grade.get(n) !== 'reg' || regs.length > 1) : on;
     for (const n of movable.filter(fits)) {
-      const cost = l.emergency ? `the emergency slot ${listName(l)} loses its MO` : `${listName(l)} drops to ${on.length - 1} of the ${l.need} it wants`;
+      const cost = l.emergency ? `the emergency slot ${listName(l)} loses ${grade.get(n) === 'reg' ? 'a registrar' : 'its MO'}` : `${listName(l)} drops to ${on.length - 1} of the ${l.need} it wants`;
       moves.push({ o: { kind: 'move', name: n, from: l.id, text: `Move ${n} from ${l.name}`, cost }, rank: l.emergency ? 0 : 1 });
     }
   }
