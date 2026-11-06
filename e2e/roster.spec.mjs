@@ -160,3 +160,41 @@ test('a built week marks a junior on a list on a day they are now on leave, and 
   await clickOpens(line, page.locator('#edit-sheet'));
   await expect(page.locator('#edit-title')).toHaveText(name);
 });
+
+test('This is me: a name picked from More stands out on the grid, with a My week card on top', async ({ phone }) => {
+  const page = await phone();
+  await signIn(page, 'member');
+  await openWeek(page);
+  // a week of its own, fifteen on
+  for (let i = 0; i < 15; i++) await page.locator('#week-next').click();
+  await expect(page.locator('#week-title')).toHaveClass(/is-away/);
+  const mon = /** @type {string} */ (await page.locator('#week-grid .wk-day').first().getAttribute('data-day'));
+  const [a, name, other] = [uniq('OT M'), uniq('Dr Mia Test'), uniq('Dr Ned Test')];
+  for (const n of [name, other]) await db.put(`spaces/_/people/${n}`, { name: n, grade: 'mo', rank: 'MO', active: true, updatedAt: Date.now() });
+  const list = { id: a, site: 'NUH', kind: 'ot', name: a, day: mon, session: 'AM', consultant: null, rooms: null, patients: null, status: 'open', need: 2, consultantOnLeave: false };
+  await db.put(`spaces/_/weeks/${mon}`, { lists: [list], grid: [{ day: mon, session: 'AM', list: a, juniors: [name, other] }], seed: 1, built: Date.now(), updatedAt: Date.now() });
+  const on = (/** @type {string} */ n) => page.locator(`#week-table .wt-list[data-list="${a}"] .wt-name`, { hasText: n });
+  await expect(on(name)).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('#week-table .is-me')).toHaveCount(0);
+  await expect(page.locator('#week-mine')).toBeEmpty();
+  // More, This is me: the picker loads on this tap
+  await page.locator('#week-more').click();
+  await clickOpens(page.getByRole('menuitem', { name: 'This is me' }), page.locator('#edit-sheet'));
+  await expect(page.locator(`#ef-me option[value="${name}"]`)).toHaveText(`${name} (MO)`, { timeout: 15_000 });
+  await page.locator('#ef-me').selectOption(name);
+  await page.locator('#edit-save').click();
+  await expect(on(name)).toHaveClass(/is-me/);
+  await expect(on(other)).not.toHaveClass(/is-me/);
+  const card = page.locator('#week-mine details.wk-mine');
+  await expect(card).toBeVisible();
+  await expect(card).toHaveAttribute('open', '');
+  await expect(card.locator('summary')).toContainText(`My week: ${name}`);
+  await expect(card.locator(`li[data-day="${mon}"]`)).toContainText(`AM NUH ${a}`);
+  // Nobody: the marks and the card go
+  await page.locator('#week-more').click();
+  await clickOpens(page.getByRole('menuitem', { name: 'This is me' }), page.locator('#edit-sheet'));
+  await page.locator('#ef-me').selectOption('');
+  await page.locator('#edit-save').click();
+  await expect(page.locator('#week-table .is-me')).toHaveCount(0);
+  await expect(page.locator('#week-mine')).toBeEmpty();
+});
