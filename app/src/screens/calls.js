@@ -13,6 +13,7 @@ import { setCall, lockedMap, problemLines, callChoices } from '../roster/calls-e
 import { callMapIn, firstMonth, monthCells, shiftMonth } from '../roster/sections.js';
 import { callRow, callRowsOf, DAY_TYPES, TIERS, TIER_LABEL, dayType, tierPlanOf, tiersShown } from '../roster/model.js';
 import { MONTHS, monthDays, shortDay, weekdayName, todayKey } from '../roster/dates.js';
+import { holidaysIn, readHolidays } from '../roster/holidays.js';
 import { activePeople } from '../data/people.js';
 import { leaveOf, requestsOf } from '../data/leave.js';
 import { editSheet } from './sheet.js';
@@ -135,21 +136,36 @@ export function create(ctx) {
 
   function monthSheet() {
     const m = model();
+    // Singapore's public holidays for the month (roster/holidays.js): Suggest adds the weekday ones; the admin still saves
+    const pub = holidaysIn(month);
+    const named = [pub.suggest.length && `Singapore: ${pub.suggest.map(p => `${shortDay(p.day)} ${p.name}`).join(', ')}.`,
+      pub.weekendNames.length && `On a weekend (not added): ${pub.weekendNames.join(', ')}.`].filter(Boolean).join(' ');
+    const outOfMonth = `use YYYY-MM-DD within ${monthTitle(month)}`;
+    const suggestBtn = h('button', { type: 'button', id: 'calls-suggest-holidays', disabled: !pub.suggest.length, onclick: () => {
+      const area = /** @type {HTMLTextAreaElement} */ ($('ef-holidays'));
+      const typed = area.value.split(/[\n,;]+/).map(e => e.trim()).filter(Boolean);
+      area.value = [...new Set([...typed, ...pub.suggest.map(p => p.day)])].sort().join('\n');
+      area.dispatchEvent(new Event('input'));   // (the sheet redraws its warnings on input)
+    } }, icon(ICONS.calendar), 'Suggest public holidays');
     sheet.open({
       title: `${monthTitle(month)}: settings`, saveLabel: 'Save',
       note: 'Public holidays close that day’s lists on the Week tab. REG 2 can be set on any day by hand.',
       values: { holidays: m.holidays.join('\n'), minGap: m.minGap, ...Object.fromEntries(DAY_TYPES.map(([d]) => [`plan-${d}`, m.plan[d].join(',')])) },
       fields: [
-        { key: 'holidays', label: 'Public holidays (one day per line, YYYY-MM-DD)', type: 'area', max: 400 },
+        { key: 'holidays', label: 'Public holidays (one day per line, YYYY-MM-DD)', type: 'area', max: 400,
+          hint: named || 'No Singapore public holidays known for this month.' },
         { key: 'minGap', label: 'Days clear between one person’s calls', type: 'number', min: 1, max: 7, hint: '2 means call on Monday, next on Thursday at the earliest.' },
         ...DAY_TYPES.map(([d, label]) => ({ key: `plan-${d}`, label: `On call on ${label.toLowerCase()}`, type: /** @type {const} */ ('select'),
           options: [...PLAN_CHOICES, ...(PLAN_CHOICES.some(c => c.join(',') === m.plan[d].join(',')) ? [] : [m.plan[d]])].map(c => /** @type {[string, string]} */ ([c.join(','), planLabel(c)])) })),
       ],
+      body: { node: h('div', { class: 'cl-suggest' }, suggestBtn), read: () => ({}) },
+      // a typo, a day that does not exist or a day of another month is named here, never dropped unseen
+      warn: v => { const { ignored } = readHolidays(v.holidays, month); return ignored.length ? [`Ignored: ${ignored.join(', ')} (${outOfMonth}).`] : []; },
       onSave: async v => {
-        const holidays = String(v.holidays).split(/[\s,;]+/).filter(Boolean);
+        const { days: holidays, ignored } = readHolidays(v.holidays, month);
         const tierPlan = Object.fromEntries(DAY_TYPES.map(([d]) => [d, String(v[`plan-${d}`]).split(',').filter(Boolean)]));
         const refused = await app.data.rosters.upsert(month, m.roster, { holidays, tierPlan, ...(v.minGap == null ? {} : { minGap: v.minGap }) });
-        toast(refused ? REFUSED : 'Saved');
+        toast(refused ? REFUSED : ignored.length ? `Saved. Ignored: ${ignored.join(', ')} (${outOfMonth}).` : 'Saved');
       },
     });
   }
@@ -172,6 +188,8 @@ export function create(ctx) {
     const shownTiers = tiersShown(m.plan, m.calls);
     const bad = new Set(check.problems.map(p => `${p.date}|${p.tier}`));
     stateNote.textContent = any ? (m.roster?.built ? `Made ${new Date(m.roster.built).toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })}. ${check.empty.length ? `${check.empty.length} empty.` : ''}` : '') : (canWrite ? 'No calls yet. Tap Make calls.' : 'No calls yet.');
+    // (the maker may have forgotten them: Singapore has a weekday public holiday this month)
+    if (canWrite && !m.holidays.length && holidaysIn(month).suggest.length) stateNote.textContent = `${stateNote.textContent.trim()} Public holidays not set for this month (Settings).`.trim();
 
     /** @param {string} date */
     const cell = date => {
