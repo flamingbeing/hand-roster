@@ -15,6 +15,8 @@ export const OPTIONS = {
   showPatients: { scope: 'device', default: false },
   // the tab bar's order and the tabs off it (this device; Settings, Tab bar)
   tabs: { scope: 'device', default: { order: [], hidden: [] }, clean: cleanTabs },
+  // "This is me" (Week, More): a person's name, kept on this device only (no email, no account link)
+  me: { scope: 'device', default: '', clean: v => (typeof v === 'string' && v.length <= 60 ? v : '') },
   // add: options
 };
 

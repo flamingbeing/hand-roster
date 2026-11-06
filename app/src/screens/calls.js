@@ -15,7 +15,7 @@ import { callMapIn, firstMonth, monthCells, shiftMonth } from '../roster/section
 import { callRow, callRowsOf, DAY_TYPES, TIERS, TIER_LABEL, dayType, tierPlanOf, tiersShown } from '../roster/model.js';
 import { MONTHS, monthDays, shortDay, weekdayName, todayKey } from '../roster/dates.js';
 import { holidaysIn, readHolidays } from '../roster/holidays.js';
-import { activePeople } from '../data/people.js';
+import { activePeople, meOf } from '../data/people.js';
 import { leaveOf, requestsOf } from '../data/leave.js';
 import { editSheet } from './sheet.js';
 
@@ -56,6 +56,7 @@ export function create(ctx) {
 
   store.on(['people', 'leave', 'requests', 'rosters'], () => draw());
   ctx.onRole(() => draw());
+  app.settings.watch('me', () => draw());   // "This is me" (Week, More): the name marked here too
 
   /** @param {number} n */
   const step = n => { month = shiftMonth(month, n); draw(); };
@@ -197,6 +198,7 @@ export function create(ctx) {
     if (!store.loaded('people')) return;
     const m = model();
     const canWrite = ctx.canWrite();
+    const me = meOf(app.settings.get('me'), m.people);
     empty.show(!m.people.length && canWrite);
     const prev = h('button', { type: 'button', 'aria-label': 'Previous month', onclick: () => step(-1) }, icon(ICONS.chevronLeft));
     const next = h('button', { type: 'button', 'aria-label': 'Next month', onclick: () => step(1) }, icon(ICONS.chevronRight));
@@ -228,7 +230,7 @@ export function create(ctx) {
       const locked = new Set((m.roster?.locked ?? []));
       return h('button', { type: 'button', role: 'listitem', class: `cl-day type-${type}${date === todayKey() ? ' is-today' : ''}`, disabled: !canWrite, dataset: { day: date }, 'aria-label': `${weekdayName(date)} ${shortDay(date)}: edit calls`, onclick: () => daySheet(date) },
         h('span', { class: 'cl-date' }, h('b', {}, String(Number(date.slice(8)))), h('span', { class: 'cl-wd' }, weekdayName(date)), m.holidays.includes(date) && h('span', { class: 'cl-ph small' }, 'PH')),
-        h('span', { class: 'cl-tiers' }, shown.map(t => h('span', { class: `cl-tier${row?.[t] ? '' : ' is-empty'}${bad.has(`${date}|${t}`) ? ' is-bad' : ''}${row?.[t] && locked.has(`${date}|${t}`) ? ' is-hand' : ''}`, title: row?.[t] ?? '' },
+        h('span', { class: 'cl-tiers' }, shown.map(t => h('span', { class: `cl-tier${row?.[t] ? '' : ' is-empty'}${bad.has(`${date}|${t}`) ? ' is-bad' : ''}${row?.[t] && locked.has(`${date}|${t}`) ? ' is-hand' : ''}${me && row?.[t] === me ? ' is-me' : ''}`, title: row?.[t] ?? '' },
           h('i', {}, SHORT[t]), h('span', {}, row?.[t] ?? '–')))));
     };
     fill(cal, monthCells(month).map(d => d ? cell(d) : h('span', { class: 'cl-blank', 'aria-hidden': 'true' })));
@@ -237,7 +239,7 @@ export function create(ctx) {
       h('h3', {}, 'Calls per person'),
       h('table', { class: 'cl-table' },
         h('thead', {}, h('tr', {}, h('th', {}, 'Name'), h('th', {}, 'Total'), h('th', {}, 'Off days'), shownTiers.map(t => h('th', {}, SHORT[t])))),
-        h('tbody', {}, check.counts.map(c => h('tr', {}, h('th', { scope: 'row' }, c.name, c.offRoster && h('span', { class: 'cl-off small' }, ' (not on roster)')), h('td', {}, String(c.total)), h('td', {}, String(c.weekend)), shownTiers.map(t => h('td', {}, c.tiers[t] ? String(c.tiers[t]) : '·'))))))]);
+        h('tbody', {}, check.counts.map(c => h('tr', { class: c.name === me ? 'is-me' : '' }, h('th', { scope: 'row' }, c.name, c.offRoster && h('span', { class: 'cl-off small' }, ' (not on roster)')), h('td', {}, String(c.total)), h('td', {}, String(c.weekend)), shownTiers.map(t => h('td', {}, c.tiers[t] ? String(c.tiers[t]) : '·'))))))]);
 
     // in date order; the maker taps a line to open its day (a viewer reads them)
     const lines = [...check.problems.map(p => ({ date: p.date, text: readDays(p.text) })),

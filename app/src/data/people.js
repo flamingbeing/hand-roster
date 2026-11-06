@@ -56,3 +56,6 @@ export const personOf = r => ({
 });
 /** @param {PersonRow[]} rows @returns {import('../roster/model.js').Person[]} the active people, in name order */
 export const activePeople = rows => rows.filter(r => r.active !== false && !r._deleted).map(personOf).sort((a, b) => a.name.localeCompare(b.name));
+/** "This is me" (the device's `me` option): the name while it is an active person, else '' (a renamed or deleted person drops out)
+ * @param {unknown} me @param {{ name: string }[]} people the active people @returns {string} */
+export const meOf = (me, people) => (typeof me === 'string' && people.some(p => p.name === me) ? me : '');

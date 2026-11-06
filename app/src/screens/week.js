@@ -12,6 +12,8 @@
 // consultant (their leave is not in the junior leave calendar); the Short panel offers ways to fill a list below its minimum.
 // The edits (screens/week-edit.js) load on the roster maker's first edit or Build, so a viewer never loads them; each
 // saves from the week as it is then and can be undone from its toast (6 Nov 2026).
+// "This is me" (More) keeps a name on this device: it stands out wherever it shows, with a My week card on top
+// (screens/week-mine.js, loaded once a name is set) (7 Nov 2026).
 import { icon, loadState, emptyState, openMenu } from '@core/ui';
 import { ICONS } from '../icons.js';
 import { $, sectionScreen, h, fill } from '../dom.js';
@@ -22,16 +24,18 @@ import { listName, sectionsOf } from '../roster/sections.js';
 import { juniorsOn, weekBuilt } from '../roster/grid.js';
 import { firstWeek, makerWeek } from '../roster/sections.js';
 import { slotsFor } from '../data/lists.js';
-import { activePeople } from '../data/people.js';
+import { activePeople, meOf } from '../data/people.js';
 import { leaveOf } from '../data/leave.js';
 
 const SESSIONS = /** @type {const} */ ([['AM', 'Morning'], ['PM', 'Afternoon']]);
 const SITE_ORDER = ['NUH', 'NTFGH'];
+/** "This is me" (meOf): marked wherever the name shows, in bold, the accent and underlined (not by colour alone) */
+let me = '';
 /** names as small chips, each with an optional note (AM, PM, on call); commas kept for copy and screen readers
  * @param {(string | [string, string])[]} list */
 const names = list => h('p', { class: 'wk-names' }, list.map((x, i) => {
   const [n, note] = Array.isArray(x) ? x : [x, ''];
-  return h('span', { class: 'wk-name' }, n, note && h('i', {}, ` ${note}`), i < list.length - 1 && h('span', { class: 'visually-hidden' }, ','));
+  return h('span', { class: n === me ? 'wk-name is-me' : 'wk-name' }, n, note && h('i', {}, ` ${note}`), i < list.length - 1 && h('span', { class: 'visually-hidden' }, ','));
 }));
 
 /** @param {string} monday @returns {string} '2 – 6 Nov 2026' */
@@ -97,6 +101,7 @@ export function weekScreen(ctx) {
   ctx.onRole(() => draw());
   app.settings.watch('defaultSite', () => { site = String(app.settings.get('defaultSite') || 'all'); draw(); });
   app.settings.watch('showPatients', () => draw());
+  app.settings.watch('me', () => draw());
   site = String(app.settings.get('defaultSite') || 'all');
 
   /** @param {number} n */
@@ -115,6 +120,7 @@ export function weekScreen(ctx) {
       { label: 'Excel (CORE)', icon: ICONS.download, run: () => exportXlsx('core') },
       { label: 'Excel (hand grid)', icon: ICONS.download, run: () => exportXlsx('hand') },
       { label: 'Print', icon: ICONS.printer, run: () => printWeek() },
+      { label: 'This is me', icon: ICONS.userCheck, run: () => guarded(async () => (await mineCode()).pickMe(app, m.people), 'Could not open that. Try again.') },
       ...(canWrite && m.built && m.lists.length ? [null, { label: 'Check against Epic', icon: ICONS.listChecks, run: () => edit(e => e.epicSheet()) },
         { label: 'Build again', icon: ICONS.refreshCw, run: () => edit(e => e.build()) }] : []),
     ], { label: 'More' });
@@ -129,6 +135,13 @@ export function weekScreen(ctx) {
   $('week-epic').addEventListener('click', () => edit(e => e.epicSheet()));
   $('week-build').replaceChildren(icon(ICONS.sparkles), 'Build week');
   $('week-build').addEventListener('click', () => edit(e => e.build()));
+
+  // the picker and the My week card (screens/week-mine.js), loaded when the picker opens or a name is set
+  /** @type {Promise<typeof import('./week-mine.js')> | null} */
+  let mineLoad = null;
+  /** @type {typeof import('./week-mine.js') | null} */
+  let mine = null;
+  const mineCode = () => (mineLoad ??= import('./week-mine.js').then(x => (mine = x), e => { mineLoad = null; throw e; }));
 
   /** everything a week is drawn from, as of now @param {string} [mon] a Monday (default: the week on screen) */
   function model(mon = monday) { return weekModel(store, mon); }
@@ -205,7 +218,7 @@ export function weekScreen(ctx) {
     }))];
   /** a junior's button on a list, marked when it clashes @param {ReturnType<typeof model>} m @param {import('../roster/model.js').ListSlot} l @param {string} n @param {string} cls */
   const nameBtn = (m, l, n, cls) => { const why = clashAt.get(`${l.day}|${l.session}|${n}`);
-    return { type: 'button', class: why ? `${cls} is-clash` : cls, dataset: { name: n }, 'aria-label': `${n}: move or take off${why ? `. Clash: ${why}` : ''}`, onclick: () => edit(e => e.moveSheet(m, l.day, l.session, n, l.id)) }; };
+    return { type: 'button', class: `${cls}${why ? ' is-clash' : ''}${n === me ? ' is-me' : ''}`, dataset: { name: n }, 'aria-label': `${n}: move or take off${why ? `. Clash: ${why}` : ''}`, onclick: () => edit(e => e.moveSheet(m, l.day, l.session, n, l.id)) }; };
 
   /**
    * The Grid: the week as the hand-made sheet lays it out. Days across; AM and PM by site down, each cell the lists of that
@@ -236,14 +249,17 @@ export function weekScreen(ctx) {
         (flag || l.rooms) && h('span', { class: 'wt-flag' }, [l.rooms, flag].filter(Boolean).join(' · ')),
         (juniors.length > 0 || short) && h('div', { class: 'wt-names' },
           juniors.flatMap((n, i) => [i > 0 && ', ', canWrite ? h('button', nameBtn(m, l, n, 'wt-name'), n)
-            : h('span', { class: 'wt-name' }, n)]),
+            : h('span', { class: n === me ? 'wt-name is-me' : 'wt-name' }, n)]),
           short && h('span', { class: 'wt-need' }, juniors.length < min ? `needs ${min - juniors.length}` : l.kind === 'hot' ? 'needs a reg or R3' : 'needs a reg')));
     };
     /** @param {string} label @param {string} sub @param {(d: string) => unknown} cell @param {string} [cls] */
     const row = (label, sub, cell, cls = '') => h('tr', { class: cls },
       h('th', { scope: 'row' }, label, sub && h('span', { class: 'wt-sub' }, sub)), days.map(d => h('td', { class: m.holidays.includes(d) ? 'is-ph' : '' }, cell(d))));
     /** @param {(string | [string, string])[]} list */
-    const plain = list => list.length ? h('p', { class: 'wt-plain' }, list.map(x => (Array.isArray(x) ? (x[1] ? `${x[0]} (${x[1]})` : x[0]) : x)).join(', ')) : null;
+    const plain = list => list.length ? h('p', { class: 'wt-plain' }, list.flatMap((x, i) => {
+      const [n, note] = Array.isArray(x) ? x : [x, ''], t = note ? `${n} (${note})` : n;
+      return [i > 0 && ', ', n === me ? h('b', { class: 'is-me' }, t) : t];
+    })) : null;
     return h('table', { class: 'wt' },
       h('thead', {}, h('tr', {}, h('th', { scope: 'col' }, h('span', { class: 'visually-hidden' }, 'Session')),
         days.map(d => h('th', { scope: 'col', class: d === todayKey() ? 'is-today' : '' }, weekdayName(d), h('span', { class: 'wt-sub' }, shortDay(d)), m.holidays.includes(d) && h('span', { class: 'wt-ph' }, 'PH'))))),
@@ -254,7 +270,7 @@ export function weekScreen(ctx) {
           .map(entry), i === 0 ? 'wt-first' : ''))),
         row('On call', '', d => {
           const plan = m.planOn(d)[dayType(d, m.holidays)];
-          return h('dl', { class: 'wt-oncall' }, TIERS.filter(t => plan.includes(t) || sec.onCall[d][t]).map(t => [h('dt', {}, TIER_LABEL[t]), h('dd', {}, sec.onCall[d][t] ?? '–')]));
+          return h('dl', { class: 'wt-oncall' }, TIERS.filter(t => plan.includes(t) || sec.onCall[d][t]).map(t => [h('dt', {}, TIER_LABEL[t]), h('dd', { class: sec.onCall[d][t] === me ? 'is-me' : '' }, sec.onCall[d][t] ?? '–')]));
         }, 'wt-first'),
         row('Leave', '', d => plain(sec.leave[d])),
         row('Post-call', '', d => plain(sec.postCall[d])),
@@ -294,6 +310,7 @@ export function weekScreen(ctx) {
       if (mon !== monday) { monday = mon; selected = mon; }
     }
     const m = model();
+    me = meOf(app.settings.get('me'), m.people);
     const sec = sectionsOf({ monday, people: m.people, leave: m.leave, calls: m.calls, lists: m.lists, grid: m.grid, holidays: m.holidays });
     const days = sec.days;
     if (!days.includes(selected)) selected = days[0];
@@ -322,6 +339,10 @@ export function weekScreen(ctx) {
     $('week-table').hidden = show !== 'grid';
     $('week-chips').hidden = $('week-grid').hidden = show !== 'day';
     if (show === 'grid') fill($('week-table'), weekTable(m, sec, days));
+    if (me && !mine) mineCode().then(() => draw(), () => { /* no card until a later draw loads it */ });
+    fill($('week-mine'), me ? mine?.mineCard({ name: me, days, lists: m.lists, grid: m.grid, sec, calls: m.calls, leave: m.leave, built: m.built, holidays: m.holidays,
+      rosters: /** @type {any} */ (store.get('rosters')), today: todayKey() })
+      : !canWrite && !m.built && m.lists.length > 0 && h('p', { class: 'small' }, 'Tap More, then This is me, to see your days.'));
     empty.show(!m.lists.length);
 
     fill($('week-chips'), days.map(d => h('button', { type: 'button', class: `wk-daychip${d === todayKey() ? ' is-today' : ''}`, 'aria-pressed': String(d === selected), dataset: { day: d }, onclick: () => { selected = d; draw(); } },
@@ -343,7 +364,7 @@ export function weekScreen(ctx) {
         }),
         h('div', { class: 'wk-extras' },
           h('h3', {}, 'On call'),
-          h('dl', { class: 'wk-oncall' }, tiers.map(t => [h('dt', {}, TIER_LABEL[t]), h('dd', {}, sec.onCall[d][t] ?? '–')])),
+          h('dl', { class: 'wk-oncall' }, tiers.map(t => [h('dt', {}, TIER_LABEL[t]), h('dd', { class: sec.onCall[d][t] === me ? 'is-me' : '' }, sec.onCall[d][t] ?? '–')])),
           sec.leave[d].length > 0 && h('div', { class: 'wk-line' }, h('h3', {}, 'Leave'), names(sec.leave[d])),
           sec.postCall[d].length > 0 && h('div', { class: 'wk-line' }, h('h3', {}, 'Post-call'), names(sec.postCall[d])),
           m.built && sec.free[d].length > 0 && h('div', { class: 'wk-line' }, h('h3', {}, 'Free'),

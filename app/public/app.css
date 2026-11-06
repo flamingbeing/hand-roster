@@ -241,10 +241,19 @@ select { padding: .5rem 2rem .5rem .65rem; }
   .rl-block > .rl-head:first-child { margin-top: 0; }
 }
 
+/* "This is me": the device's own name, bold, the accent and underlined so it is not colour alone (a clash or a problem still shows) */
+.is-me:not(.cl-tier):not(tr), .cl-tier.is-me:not(.is-bad) > span, .cl-table tr.is-me th { font-weight: 700; color: var(--accent); text-decoration: underline 2px; text-underline-offset: .2em; }
+.wk-mine { border: 1px solid var(--line); border-radius: var(--card-r, var(--radius)); background: var(--surface); padding: .5rem .7rem; margin-block: var(--gap); }
+.wk-mine summary { cursor: pointer; }
+.wk-mine ul { list-style: none; margin: .4rem 0 0; padding: 0; }
+.wk-mine li { padding: .2rem .4rem; border-radius: var(--radius); }
+.wk-mine li.is-today { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.wk-mine p { margin: .3rem 0 0; color: var(--muted); }
+
 /* ---- print: the whole week on one landscape page ---- */
 @page { size: A4 landscape; margin: 10mm; }
 @media print {
-  .ui-bar, .ui-tabbar, .ui-sidebar, .wk-bar, .wk-chips, .sh-panel, #toasts, .wk-add, #week-state-note, .ui-large-title, .status-line, #conflict-sheet, #refused-list { display: none !important; }
+  .ui-bar, .ui-tabbar, .ui-sidebar, .wk-bar, .wk-chips, .sh-panel, #toasts, .wk-add, #week-state-note, #week-mine, .ui-large-title, .status-line, #conflict-sheet, #refused-list { display: none !important; }
   .print-only { display: block; font-weight: 600; margin: 0 0 4mm; }
   .ui-screen { display: block !important; position: static !important; transform: none !important; overflow: visible !important; }
   .ui-screen:not(#week-page) { display: none !important; }
