@@ -1,8 +1,10 @@
-// The Leave tab's pure helpers (roster/leave-view.js): a run of request days, their clash lines, and the month groups.
+// The Leave tab's pure helpers (roster/leave-view.js): a run of request days, their clash lines, the month groups, and
+// which pasted leave lines are new.
 // Invented names only.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { expandDays, groupByMonth, requestRangeClashes } from '../src/roster/leave-view.js';
+import { expandDays, groupByMonth, requestRangeClashes, newLeaveRows, pastePreview, leaveKey, MAX_BAD } from '../src/roster/leave-view.js';
+import { parseInfo } from '../src/roster/parse-info.js';
 import { MAX_DAYS, MAX_LINES } from '../src/roster/leave-clash.js';
 
 const ANN = 'Dr Ann Test';
@@ -46,4 +48,67 @@ test('the clash lines of a run name each day, and past the cap are counted', () 
   assert.equal(all.length, MAX_LINES + 1);
   assert.equal(all.at(-1), `And ${calls.length - MAX_LINES} more.`);
   assert.deepEqual(requestRangeClashes({ name: ANN, from: '2026-11-01', to: '2026-11-30', type: 'want', rosters }), []);
+});
+
+const BO = 'Dr Bo Test';
+
+test('pasted leave: rows already there and repeats inside the paste are skipped', () => {
+  const existing = [{ id: 'a', name: ANN, from: '2026-10-12', to: '2026-10-16', session: 'both' }, { id: 'b', name: BO, from: '2026-10-20', to: '2026-10-20', session: 'both', _deleted: true }];
+  const parsed = [
+    { name: ANN, from: '2026-10-12', to: '2026-10-16' },
+    { name: BO, from: '2026-10-20', to: '2026-10-20' },
+    { name: BO, from: '2026-10-20', to: '2026-10-20' },
+    { name: ` ${ANN} `, from: '2026-10-19', to: '2026-10-19', note: 'Course' },
+  ];
+  const { rows, dup } = newLeaveRows(parsed, existing);
+  assert.equal(dup, 2, 'the kept row and the repeat; a deleted row does not count');
+  assert.deepEqual(rows, [
+    { name: BO, from: '2026-10-20', to: '2026-10-20', session: 'both', note: null },
+    { name: ANN, from: '2026-10-19', to: '2026-10-19', session: 'both', note: 'Course' },
+  ]);
+});
+
+test('pasted leave: AM and PM of the same day are kept apart, and all day is its own row', () => {
+  const existing = [{ id: 'a', name: BO, from: '2026-10-14', to: '2026-10-14', session: 'AM' }];
+  const { rows, dup } = newLeaveRows([
+    { name: BO, from: '2026-10-14', to: '2026-10-14', session: 'AM' },
+    { name: BO, from: '2026-10-14', to: '2026-10-14', session: 'PM' },
+    { name: BO, from: '2026-10-14', to: '2026-10-14' },
+  ], existing);
+  assert.equal(dup, 1);
+  assert.deepEqual(rows.map(r => r.session), ['PM', 'both']);
+  // a kept row with no part of the day is all day
+  assert.equal(leaveKey({ name: BO, from: '2026-10-14', to: '2026-10-14' }), leaveKey({ name: BO, from: '2026-10-14', to: '2026-10-14', session: 'both' }));
+});
+
+test('pasted leave: a range over a month end and over the year end is read and kept whole', () => {
+  const info = parseInfo(`${ANN} 30 Oct to 2 Nov (away Fri to Mon)\n${BO} 30 Dec to 2 Jan`, { year: 2026, start: 'leave' });
+  assert.deepEqual(info.problems, []);
+  const { rows } = newLeaveRows(info.leave, [{ id: 'x', name: ANN, from: '2026-10-30', to: '2026-10-31' }]);
+  assert.deepEqual(rows.map(r => [r.name, r.from, r.to]), [[ANN, '2026-10-30', '2026-11-02'], [BO, '2026-12-30', '2027-01-02']]);
+});
+
+test('pasted leave: lines with no heading read as leave; the preview counts and names what it could not read', () => {
+  const text = `${ANN} 12 to 16 Oct (away Mon to Fri)\n${BO} 14 Oct (away Wed AM)\nnonsense\nDr Cy Test 31 Feb\nCalls (Reg / NUH MO / NTF MO)\nMon 12 Oct (A / B / C)\nTue 12 Oct (A / B / C)`;
+  const info = parseInfo(text, { year: 2026, start: 'leave' });
+  assert.equal(info.leave.length, 2);
+  assert.equal(info.leave[1].session, 'AM');
+  const picked = newLeaveRows(info.leave, [{ id: 'a', name: ANN, from: '2026-10-12', to: '2026-10-16', session: 'both' }]);
+  assert.deepEqual(pastePreview(info, picked), [
+    '1 leave row to add, 1 already there.',
+    'Line 3 not read: not a leave line (Name 12 to 16 Oct).',
+    'Line 4 not read: not a real date.',
+    'Calls go on the Calls tab.',
+  ]);
+  // without the start option the same lines are before any heading
+  assert.equal(parseInfo(`${ANN} 12 Oct`, { year: 2026 }).problems[0].reason, 'before a Leave or Calls heading');
+  assert.deepEqual(pastePreview(parseInfo('', { year: 2026, start: 'leave' }), { rows: [], dup: 0 }), []);
+});
+
+test('pasted leave: past MAX_BAD unread lines the rest are counted', () => {
+  const info = parseInfo(Array.from({ length: MAX_BAD + 2 }, (_, i) => `junk ${i}`).join('\n'), { year: 2026, start: 'leave' });
+  const lines = pastePreview(info, newLeaveRows(info.leave, []));
+  assert.equal(lines[0], '0 leave rows to add.');
+  assert.equal(lines.length, 1 + MAX_BAD + 1);
+  assert.equal(lines.at(-1), 'And 2 more lines not read.');
 });
