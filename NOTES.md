@@ -101,8 +101,10 @@ lines per day. `coreRows` lays them out like the CORE sheet (DEPARTMENTS column,
 `handSections` stacks them one row per section like the hand-made grid (headers "Consultant SITE List rooms - patients");
 `whatsapp.js` reads the same blocks for one day. `xlsx.js` takes ExcelJS as a parameter (so tests load the vendored file in node
 and read the workbook back); `screens/export.js` loads ExcelJS with a script tag on first use (`script-src 'self'` allows it),
-saves the file through a blob link, draws the print sheet into `#week-print-sheet` (shown only in print, replacing the day
-cards once drawn; Ctrl+P re-draws it through `beforeprint` after one button use) and copies text.
+saves the file through a blob link, draws the print sheet into `#week-print-sheet` (shown only in print, replacing the view
+on screen once drawn; Ctrl+P re-draws it through `beforeprint` once the code is in: a button loads it, a laptop loads it when
+first idle) and copies text. Calls prints its month on its own (`html[data-print="calls"]`, set by its Print or by Ctrl+P on
+that tab); without it the print CSS prints the Week.
 
 - ExcelJS is the browser build from the owner's other roster app (MIT, licence beside it); never edit the vendored file.
 - No PDF library: the print sheet is HTML and CSS (`@page` A4 landscape) and the browser saves it as PDF.

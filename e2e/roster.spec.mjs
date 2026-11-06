@@ -94,6 +94,44 @@ test('a laptop: the side bar with icons and a hide button, the pages use the wid
   await expect(page.locator('#calls-host .cl-day').first()).toBeVisible();
 });
 
+test('a 1000 px laptop: the Day cards follow the page width, printing shows one thing, Calls prints its month', async ({ sized }) => {
+  const page = await sized(1000);
+  await signIn(page, 'member');
+  await expect(page.locator('#week-table')).toBeVisible();
+  // printed (Ctrl+P, no Print button): the grid on screen, or the hand-made grid, never two of them
+  const printed = () => page.evaluate(() => ['.wt-scroll', '.wk-grid', '.pr-sheet']
+    .filter(s => /** @type {HTMLElement} */ (document.querySelector(`#week-view ${s}`)).checkVisibility()));
+  await page.emulateMedia({ media: 'print' });
+  expect(await printed()).toHaveLength(1);
+  await page.emulateMedia({ media: 'screen' });
+  // Day: five cards of at least 11rem each, or one day at a time with the day chips (the side bar's 280 px counted)
+  await page.locator('#week-show-day').click();
+  await expect(page.locator('#week-grid')).toBeVisible();
+  const roomy = () => page.evaluate(() => {
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    return /** @type {HTMLElement} */ (document.querySelector('#week-chips')).checkVisibility()
+      || [...document.querySelectorAll('.wk-day')].every(d => d.getBoundingClientRect().width >= 11 * rem);
+  });
+  expect(await roomy()).toBe(true);
+  await page.emulateMedia({ media: 'print' });
+  expect(await printed()).toHaveLength(1);
+  await page.emulateMedia({ media: 'screen' });
+  // the side bar hidden: the page is wider, and still no card is squeezed
+  await page.locator('.ui-side-toggle').click();
+  await expect(page.locator('html[data-side-hidden]')).toHaveCount(1);
+  await expect.poll(roomy).toBe(true);
+  // Calls has Print; with html[data-print="calls"] (its Print, or Ctrl+P on that tab) the month prints, not the Week
+  await page.locator('.ui-side-toggle').click();
+  await expect(page.locator('html[data-side-hidden]')).toHaveCount(0);
+  await page.locator('#side [data-tab-page="#calls-page"]').click();
+  await expect(page.locator('#calls-page').getByRole('button', { name: 'Print' })).toBeVisible();
+  await page.evaluate(() => { document.documentElement.dataset.print = 'calls'; });
+  await page.emulateMedia({ media: 'print' });
+  await expect(page.locator('#calls-page')).toBeVisible();
+  await expect(page.locator('#week-page')).toBeHidden();
+  await expect(page.locator('#calls-print')).toBeHidden();
+});
+
 test('calls: a call given to someone off the roster is listed; a tap on the line opens its day, the holder kept', async ({ phone }) => {
   const page = await phone();
   await signIn(page, 'member');

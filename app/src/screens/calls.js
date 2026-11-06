@@ -3,7 +3,8 @@
 // roster/calls.js), a table of how many calls each person has,
 // and what breaks a rule. A tap on a day sets its calls by hand; a call set by hand is kept when the calls are made again,
 // until the maker taps Release them.
-// A phone shows the days as a list, a wider screen as a month grid.
+// A narrow page shows the days as a list, a page about 52rem wide or more as a month grid. Print (or Ctrl+P on this tab)
+// prints the month on one landscape page: the grid and the calls per person (7 Nov 2026).
 import { icon, confirmModal, emptyState, undoToast } from '@core/ui';
 import { ICONS } from '../icons.js';
 import { $, h, fill } from '../dom.js';
@@ -83,6 +84,16 @@ export function create(ctx) {
       const { exportCalls } = await import('./export.js');
       toast(`Saved ${await exportCalls({ month, calls: m.calls, holidays: m.holidays, counts: check.counts, tierPlan: m.plan })}`);
     } catch (e) { toast(e instanceof Error && e.message ? e.message : 'Could not make the Excel file.'); }
+  }
+
+  // the print CSS (app.css) prints the Week unless html[data-print="calls"]: set when this tab is the one shown (cleared
+  // otherwise too, in case a browser never said afterprint)
+  const root = document.documentElement;
+  window.addEventListener('beforeprint', () => { if ($('calls-page').hidden) delete root.dataset.print; else root.dataset.print = 'calls'; });
+  window.addEventListener('afterprint', () => { delete root.dataset.print; });
+  function printMonth() {
+    root.dataset.print = 'calls';
+    window.print();
   }
 
   async function make() {
@@ -205,6 +216,7 @@ export function create(ctx) {
     fill(bar, prev, h('h2', { class: 'cl-title', id: 'calls-title' }, monthTitle(month)), next,
       h('span', { class: 'cl-bar-end' },
         h('button', { type: 'button', id: 'calls-xlsx', onclick: exportXlsx }, icon(ICONS.download), 'Excel'),
+        h('button', { type: 'button', id: 'calls-print', onclick: printMonth }, icon(ICONS.printer), 'Print'),
         canWrite && h('button', { type: 'button', onclick: monthSheet }, 'Settings'),
         canWrite && h('button', { type: 'button', class: 'ui-primary', id: 'calls-make', disabled: busy, onclick: make }, icon(ICONS.sparkles), 'Make calls')));
     const byDate = new Map(m.calls.map(c => [c.date, c]));
