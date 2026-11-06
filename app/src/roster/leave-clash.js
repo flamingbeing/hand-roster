@@ -64,10 +64,12 @@ export function leaveClashes({ name, from, to, session, rosters, weeks, leave = 
 
 /**
  * The clash of a call request ([] when none): a "cannot" on a day the person is already on call. "Would like" gives none.
- * @param {{ name: string, date: string, type: string, rosters: RosterLike[] }} o
+ * `sayDay` names the day in the line (a run of requests) rather than "that day".
+ * @param {{ name: string, date: string, type: string, rosters: RosterLike[], sayDay?: boolean }} o
  * @returns {string[]}
  */
-export function requestClashes({ name, date, type, rosters }) {
+export function requestClashes({ name, date, type, rosters, sayDay = false }) {
   if (type !== 'cannot' || !name || !isDay(date)) return [];
-  return tiersOf(callsBetween(rosters, date, date).get(date), name).map(t => `${name} is on call (${t}) on that day. Change that call on the Calls tab.`);
+  const when = sayDay ? dayText(date) : 'that day';
+  return tiersOf(callsBetween(rosters, date, date).get(date), name).map(t => `${name} is on call (${t}) on ${when}. Change that call on the Calls tab.`);
 }

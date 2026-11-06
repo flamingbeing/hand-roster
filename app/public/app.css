@@ -25,6 +25,8 @@ select { padding: .5rem 2rem .5rem .65rem; }
 .rl-row.is-dim .rl-main { color: var(--muted); }
 .big .rl-row .ui-row { padding-block: 1rem; font-size: 1.1rem; }
 .rl-more { margin-block: .25rem var(--gap); }
+.rl-who { display: inline-flex; align-items: center; gap: .4rem; margin-inline-start: auto; color: var(--muted); }
+.rl-month { font-size: .8rem; font-weight: 600; color: var(--muted); margin: .6rem 0 .2rem; }
 .print-only { display: none; }
 
 /* ---- Week ---- */
