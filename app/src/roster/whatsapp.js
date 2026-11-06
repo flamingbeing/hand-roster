@@ -1,7 +1,9 @@
 // The chat text of one day's roster, or of the week's five days ("Copy ... for WhatsApp"): plain lines, no markup, short
-// enough to read on a phone. Made from the same blocks as the sheet and the print (layout.js), so the three always agree. Pure.
-import { addDays, weekdayName } from './dates.js';
+// enough to read on a phone. Made from the same blocks as the sheet and the print (layout.js), so the three always agree.
+// The month's calls have their own text (Calls, Copy), with the tiers and labels of the calls sheet. Pure.
+import { addDays, weekdayName, shortDay, monthDays, MONTH_NAMES } from './dates.js';
 import { longDay, weekLayout } from './layout.js';
+import { DEFAULT_TIER_PLAN, TIERS, TIER_LABEL, dayType } from './model.js';
 
 /** @typedef {import('./layout.js').WeekLayoutInput} WeekLayoutInput */
 
@@ -60,4 +62,36 @@ export const DAY_SEPARATOR = '----------';
  */
 export function weekText(o, days = [0, 1, 2, 3, 4].map(i => addDays(o.monday, i))) {
   return days.map(d => whatsappText(d, o)).filter(Boolean).join(`\n\n${DAY_SEPARATOR}\n\n`);
+}
+
+/**
+ * The month's calls as chat text (Calls, Copy; 7 Nov 2026). The whole month: a line a day with the tiers that day uses (its
+ * kind of day's tiers in the plan, and any entered outside it, as the calls sheet shows them), an empty one as '-', and a
+ * blank line before each Monday so the weekends stand out; a day the plan gives no tiers says 'no calls'. With `name`: only that person's calls, a line each.
+ * @param {{ month: string, calls: import('./model.js').CallDay[], holidays?: string[], tierPlan?: import('./model.js').TierPlan, name?: string }} o
+ * @returns {string}
+ */
+export function callsText({ month, calls, holidays = [], tierPlan = DEFAULT_TIER_PLAN, name }) {
+  const by = new Map(calls.filter(c => c.date.startsWith(month)).map(c => [c.date, c]));
+  const [y, m] = month.split('-').map(Number);
+  const when = `${MONTH_NAMES[m - 1]} ${y}`;
+  /** @param {string} date @returns {string} 'Mon 2 Nov' or 'Mon 2 Nov (PH)' */
+  const dateOf = date => `${weekdayName(date)} ${shortDay(date)}${holidays.includes(date) ? ' (PH)' : ''}`;
+  if (name) {
+    const lines = monthDays(month).flatMap(date => {
+      const row = by.get(date);
+      const mine = TIERS.filter(t => row?.[t] === name);
+      return mine.length ? [`${dateOf(date)}: ${mine.map(t => TIER_LABEL[t]).join(', ')}`] : [];
+    });
+    return [`Your calls, ${when}: ${lines.length}`, '', ...(lines.length ? lines : ['None this month'])].join('\n');
+  }
+  /** @type {string[]} */
+  const out = [`On call, ${when}`, ''];
+  monthDays(month).forEach((date, i) => {
+    const row = by.get(date), plan = tierPlan[dayType(date, holidays)];
+    if (i > 0 && weekdayName(date) === 'Mon') out.push('');
+    const tiers = TIERS.filter(t => plan.includes(t) || row?.[t]);
+    out.push(`${dateOf(date)}: ${tiers.length ? tiers.map(t => `${TIER_LABEL[t]} ${row?.[t] || '-'}`).join(' · ') : 'no calls'}`);
+  });
+  return out.join('\n');
 }

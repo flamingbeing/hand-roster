@@ -54,7 +54,7 @@ test('the week downloads as the CORE sheet and as the hand-made grid, and prints
   await expect(page.locator('#week-title')).not.toHaveClass(/is-away/);
 });
 
-test('copy for WhatsApp says when there is nothing built to copy; the calls tab has its Excel button', async ({ phone }) => {
+test('copy for WhatsApp says when there is nothing built to copy; the calls tab has its Excel and Copy buttons', async ({ phone }) => {
   const page = await phone();
   await signIn(page, 'viewer');   // (a viewer has More on an unbuilt week; the maker has Epic and Build there)
   await openWeek(page);
@@ -67,4 +67,8 @@ test('copy for WhatsApp says when there is nothing built to copy; the calls tab 
   await page.keyboard.press('Escape');
   await openTab(page, 'calls');
   await expect(page.locator('#calls-xlsx')).toBeVisible();
+  // a viewer may copy the month too (no "This is me" here, so no menu): it says there is nothing yet, or that it copied
+  // (the other specs share the space and may have made this month's calls)
+  await page.locator('#calls-copy').click();
+  await expect(page.locator('#toasts')).toContainText(/No calls yet\.|Copied the calls for [A-Z][a-z]+\. Paste it into WhatsApp\.|Could not copy/);
 });
