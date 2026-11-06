@@ -43,6 +43,8 @@ select { padding: .5rem 2rem .5rem .65rem; }
 #week-prev, #week-next, .cl-bar > button:first-child, .cl-bar > button:nth-of-type(2) { width: var(--tap, 2.75rem); height: var(--tap, 2.75rem); padding: 0; justify-content: center; border-radius: 50%; }
 #calls-make { order: -1; }
 .wk-bar-end > button, .cl-bar-end > button { flex: 1 1 auto; justify-content: center; }
+.cl-suggest { margin-block: 0 var(--gap); }
+.cl-suggest button { display: inline-flex; align-items: center; gap: .35rem; }
 @media (min-width: 700px) {
   .wk-bar { grid-template-columns: auto auto auto 1fr auto; grid-template-areas: "prev title next mid end"; }
   .wk-mid { padding-inline-start: .5rem; }
