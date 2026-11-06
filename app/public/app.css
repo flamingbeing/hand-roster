@@ -181,6 +181,8 @@ select { padding: .5rem 2rem .5rem .65rem; }
 .cl-tier.is-empty span { color: var(--muted); }
 .cl-tier.is-bad span { color: var(--danger); text-decoration: underline wavy; }
 .cl-tier.is-hand span { font-weight: 600; }
+.cl-state button { margin-inline-start: .5rem; }
+.cl-hand-key { margin-block: .5rem 0; }
 .cl-counts, .cl-problems { margin-top: var(--pad); overflow-x: auto; }
 .cl-counts h3, .cl-problems h3 { font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
 .cl-table { border-collapse: collapse; width: 100%; font-size: .9rem; }

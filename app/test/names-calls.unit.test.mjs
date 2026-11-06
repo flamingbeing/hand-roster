@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { matchName } from '../src/roster/names.js';
 import { checkCalls } from '../src/roster/calls-check.js';
-import { callChoices } from '../src/roster/calls-edit.js';
+import { applyDayEdit, callChoices, handCount, setCall } from '../src/roster/calls-edit.js';
 
 const people = [{ name: 'Ann Test' }, { name: 'Bea Sample' }, { name: 'Bea Other' }, { name: 'Cy Example Long' }];
 
@@ -106,4 +106,28 @@ test('callChoices: the one holding the call now stays a choice when off the rost
   const out = callChoices({ date: '2026-12-05', tier: 'con', people: [{ name: 'Dr Ann Test', grade: 'con' }], calls: [{ date: '2026-12-05', con: 'Dr Gone Test' }], current: 'Dr Gone Test' });
   assert.deepEqual(out.map(([v]) => v), ['', 'Dr Ann Test', 'Dr Gone Test']);
   assert.match(out[2][1], /not on the roster/);
+});
+
+test('applyDayEdit: a day sheet saves onto the month as it is now, not as it was when the sheet opened', () => {
+  // the sheet opened on 2 Dec with CON Dr Ann Test and REG Dr Bea Test
+  const before = { con: 'Dr Ann Test', reg: 'Dr Bea Test', reg2: null };
+  // meanwhile another maker set 9 Dec's CON and changed 2 Dec's REG
+  let now = setCall([{ date: '2026-12-02', con: 'Dr Ann Test', reg: 'Dr Bea Test' }], [], '2026-12-09', 'con', 'Dr Cy Test');
+  now = setCall(now.calls, now.locked, '2026-12-02', 'reg', 'Dr Di Test');
+  // this sheet changes only CON
+  const out = applyDayEdit(now.calls, now.locked, '2026-12-02', before, { con: 'Dr Ed Test', reg: 'Dr Bea Test', reg2: null });
+  const day = out.calls.find(c => c.date === '2026-12-02');
+  assert.equal(day?.con, 'Dr Ed Test');
+  assert.equal(day?.reg, 'Dr Di Test', 'a tier left alone keeps the other maker\'s name');
+  assert.equal(out.calls.find(c => c.date === '2026-12-09')?.con, 'Dr Cy Test', 'another day\'s call stays');
+  assert.deepEqual([...out.locked].sort(), ['2026-12-02|con', '2026-12-02|reg', '2026-12-09|con']);
+  // emptying a tier unlocks it; nothing changed gives the month back as it is
+  assert.deepEqual(applyDayEdit(out.calls, out.locked, '2026-12-02', { con: 'Dr Ed Test' }, { con: '' }).locked.sort(), ['2026-12-02|reg', '2026-12-09|con']);
+  assert.equal(applyDayEdit(out.calls, out.locked, '2026-12-02', before, before).calls, out.calls);
+});
+
+test('handCount: counts the calls set by hand that still hold a name', () => {
+  const calls = [{ date: '2026-12-02', con: 'Dr Ann Test', reg: 'Dr Bea Test', moNuh: null }];
+  assert.equal(handCount(['2026-12-02|con', '2026-12-02|reg', '2026-12-02|moNuh', '2026-12-03|con'], calls), 2);
+  assert.equal(handCount([], calls), 0);
 });

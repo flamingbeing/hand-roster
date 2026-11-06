@@ -60,7 +60,8 @@ export function solveCalls(o) {
   const days = monthDays(o.month);
   const lv = leaveIndex(o.leave ?? []);
   const holidays = o.holidays ?? [];
-  const requests = o.requests ?? [];
+  // only the month's own requests: one dated in another month has no slot here (a 'want' would be reported as not met)
+  const requests = (o.requests ?? []).filter(r => r.date.startsWith(`${o.month}-`));
 
   const people = o.people.filter(p => TIERS.some(t => canTake(p, t)));
   const idx = new Map(people.map((p, i) => [p.name, i]));

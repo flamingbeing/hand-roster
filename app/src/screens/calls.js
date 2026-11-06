@@ -1,7 +1,8 @@
 // The Calls tab (#calls-page): a month's on-call roster. A calendar of the tiers (CON, REG, MO NUH, MO NTFGH every day by
 // default; Settings sets the tiers per kind of day; REG 2 on the days it is entered by hand), "Make calls" (the solver,
 // roster/calls.js), a table of how many calls each person has,
-// and what breaks a rule. A tap on a day sets its calls by hand; a call set by hand is kept when the calls are made again.
+// and what breaks a rule. A tap on a day sets its calls by hand; a call set by hand is kept when the calls are made again,
+// until the maker taps Release them.
 // A phone shows the days as a list, a wider screen as a month grid.
 import { icon, confirmModal, emptyState, undoToast } from '@core/ui';
 import { ICONS } from '../icons.js';
@@ -9,7 +10,7 @@ import { $, h, fill } from '../dom.js';
 import { REFUSED } from '../items.js';
 import { solveCalls } from '../roster/calls.js';
 import { checkCalls } from '../roster/calls-check.js';
-import { setCall, lockedMap, problemLines, callChoices } from '../roster/calls-edit.js';
+import { applyDayEdit, handCount, lockedMap, problemLines, callChoices } from '../roster/calls-edit.js';
 import { callMapIn, firstMonth, monthCells, shiftMonth } from '../roster/sections.js';
 import { callRow, callRowsOf, DAY_TYPES, TIERS, TIER_LABEL, dayType, tierPlanOf, tiersShown } from '../roster/model.js';
 import { MONTHS, monthDays, shortDay, weekdayName, todayKey } from '../roster/dates.js';
@@ -44,11 +45,14 @@ export function create(ctx) {
   const host = $('calls-host');
   const empty = emptyState(host, { title: 'No people yet', hint: 'Add the doctors on the People tab first.' });
   const bar = h('div', { class: 'cl-bar' });
-  const stateNote = h('p', { class: 'small', role: 'status' });
+  const stateNote = h('span', { role: 'status' });
+  // (Release them: the maker's way to let Make calls redo the calls set by hand)
+  const releaseSlot = h('span');
+  const handKey = h('p', { class: 'small cl-hand-key' });
   const cal = h('div', { class: 'cl-cal', role: 'list', 'aria-label': 'Calls by day' });
   const counts = h('div', { class: 'cl-counts' });
   const problemsBox = h('div', { class: 'cl-problems' });
-  host.append(bar, stateNote, cal, counts, problemsBox);
+  host.append(bar, h('p', { class: 'small cl-state' }, stateNote, releaseSlot), cal, handKey, counts, problemsBox);
 
   store.on(['people', 'leave', 'requests', 'rosters'], () => draw());
   ctx.onRole(() => draw());
@@ -56,14 +60,15 @@ export function create(ctx) {
   /** @param {number} n */
   const step = n => { month = shiftMonth(month, n); draw(); };
 
-  function model() {
-    const roster = /** @type {import('../data/plans.js').RosterRow | undefined} */ (store.row('rosters', month));
+  /** the month's roster and what its calls depend on, as the store holds them now @param {string} [mon] (default: the month on screen) */
+  function model(mon = month) {
+    const roster = /** @type {import('../data/plans.js').RosterRow | undefined} */ (store.row('rosters', mon));
     const people = activePeople(/** @type {any} */ (store.get('people')));
     const leave = leaveOf(/** @type {any} */ (store.get('leave')));
     const requests = requestsOf(/** @type {any} */ (store.get('requests')));
-    const prevRoster = /** @type {import('../data/plans.js').RosterRow | undefined} */ (store.row('rosters', shiftMonth(month, -1)));
-    const nextRoster = /** @type {import('../data/plans.js').RosterRow | undefined} */ (store.row('rosters', shiftMonth(month, 1)));
-    const prior = callMapIn([...(prevRoster?.calls ?? []), ...(nextRoster?.calls ?? [])].filter(c => c.date < `${month}-01`), shiftMonth(month, -1));
+    const prevRoster = /** @type {import('../data/plans.js').RosterRow | undefined} */ (store.row('rosters', shiftMonth(mon, -1)));
+    const nextRoster = /** @type {import('../data/plans.js').RosterRow | undefined} */ (store.row('rosters', shiftMonth(mon, 1)));
+    const prior = callMapIn([...(prevRoster?.calls ?? []), ...(nextRoster?.calls ?? [])].filter(c => c.date < `${mon}-01`), shiftMonth(mon, -1));
     const plan = tierPlanOf(roster?.tierPlan);
     return { roster, people, leave, requests, prior, calls: roster?.calls ?? [], holidays: roster?.holidays ?? [], minGap: roster?.minGap ?? 2, plan };
   }
@@ -81,22 +86,29 @@ export function create(ctx) {
 
   async function make() {
     if (busy || !ctx.canWrite()) return;
-    const m = model(), mon = month;   // (the month on screen may change while it works)
-    const locked = lockedMap(m.roster?.locked ?? [], m.calls);
-    const hand = Object.keys(locked).length;
-    const anyCalls = m.calls.some(c => TIERS.some(t => c[t]));
+    const mon = month, open = model(mon);   // (the month on screen may change while it works)
+    const hand = handCount(open.roster?.locked ?? [], open.calls);
+    const anyCalls = open.calls.some(c => TIERS.some(t => c[t]));
     // asked only once calls were set by hand (the month is being worked on); a month only made by the app is made again
-    if (anyCalls && hand > 0 && !await confirmModal(`Make the calls for ${monthTitle(mon)} again? The ${hand} you set by hand stay; the rest will be made new.`, { title: 'Make calls', yes: 'Make calls' })) return;
+    if (anyCalls && hand > 0 && !await confirmModal(`Make the calls for ${monthTitle(mon)} again? The ${hand} set by hand stay; the rest will be made new. To have those made new too, tap Release them first.`, { title: 'Make calls', yes: 'Make calls' })) return;
     busy = true; $('calls-make').setAttribute('disabled', ''); stateNote.textContent = 'Making the calls…';
     try {
       await new Promise(r => setTimeout(r, 30));   // let the note paint before the solver holds the page
+      // the month as it is now (another maker may have saved while the question was open)
+      const m = model(mon);
+      const locked = lockedMap(m.roster?.locked ?? [], m.calls);
       const seed = (m.roster?.seed ?? 0) + 1;
       // the month as it was, for Undo (no month yet: an empty one)
       const was = { calls: m.roster?.calls ?? [], locked: m.roster?.locked ?? [], problems: m.roster?.problems ?? [], seed: m.roster?.seed, built: m.roster?.built ?? 0 };
       const res = solveCalls({ month: mon, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, seed, prior: m.prior, locked, tiers: m.plan, iterations: 20000 });
-      const refused = await app.data.rosters.upsert(mon, m.roster, { calls: callRowsOf(res.assignments), problems: problemLines(res.problems), seed, built: Date.now() });
-      if (refused) toast(REFUSED);
-      else undo.show(res.problems.length ? `Made. ${res.problems.length} thing${res.problems.length === 1 ? '' : 's'} to look at.` : 'Made', () => putBack(mon, was));
+      const calls = callRowsOf(res.assignments);
+      const refused = await app.data.rosters.upsert(mon, m.roster, { calls, problems: problemLines(res.problems), seed, built: Date.now() });
+      if (refused) { toast(REFUSED); return; }
+      // the same lines the page's To look at list shows, so the two agree; unmet requests are said apart
+      const check = checkCalls({ month: mon, calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, tiers: m.plan });
+      const look = check.problems.length + check.empty.length, unmet = res.problems.filter(p => p.rule === 'want').length;
+      const said = [look && `${look} thing${look === 1 ? '' : 's'} to look at.`, unmet && `${unmet} request${unmet === 1 ? '' : 's'} not met.`].filter(Boolean).join(' ');
+      undo.show(said ? `Made. ${said}` : 'Made', () => putBack(mon, was));
     } finally { busy = false; $('calls-make').removeAttribute('disabled'); draw(); }
   }
 
@@ -105,9 +117,19 @@ export function create(ctx) {
     if (await app.data.rosters.upsert(mon, /** @type {any} */ (store.row('rosters', mon)), was)) toast(REFUSED);
   }
 
+  /** Release them: the month's hand-set calls unlocked (names and calls stay), so Make calls may change them; Undo locks them again */
+  async function release() {
+    if (!ctx.canWrite()) return;
+    const mon = month, now = model(mon);
+    const locked = now.roster?.locked ?? [];
+    if (!locked.length) return;
+    if (await app.data.rosters.upsert(mon, now.roster, { locked: [] })) toast(REFUSED);
+    else undo.show('Released. Make calls may now change them.', () => putBack(mon, { locked }));
+  }
+
   /** @param {string} date */
   function daySheet(date) {
-    const m = model();
+    const mon = month, m = model(mon);   // (options and warnings read the month as it was when the sheet opened)
     const plan = m.plan[dayType(date, m.holidays)];
     // (REG 2 is offered every day: the roster has one on a few days, entered by hand)
     const tiers = TIERS.filter(t => plan.includes(t) || t === 'reg2' || m.calls.find(c => c.date === date)?.[t]);
@@ -121,26 +143,26 @@ export function create(ctx) {
       warn: v => {
         const next = Object.fromEntries(tiers.map(t => [t, v[t] || null]));
         const calls = [...m.calls.filter(c => c.date !== date), { date, ...callRow({ ...row, ...next }) }];
-        return checkCalls({ month, calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, tiers: m.plan })
+        return checkCalls({ month: mon, calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, tiers: m.plan })
           .problems.filter(p => p.date === date || (next[p.tier] === p.name && Math.abs(Date.parse(p.date) - Date.parse(date)) <= 4 * 864e5)).map(p => readDays(p.text));
       },
+      // saved onto the month as it is now: only the tiers changed here, so another maker's save meanwhile stays
       onSave: async v => {
-        const mon = month, was = { calls: m.calls, locked: m.roster?.locked ?? [] };
-        let state = was;
-        for (const t of tiers) if ((v[t] || null) !== (row?.[t] ?? null)) state = setCall(state.calls, state.locked, date, t, v[t] || null);
-        const refused = await app.data.rosters.upsert(mon, m.roster, { calls: state.calls, locked: state.locked });
+        const now = model(mon), was = { calls: now.calls, locked: now.roster?.locked ?? [] };
+        const state = applyDayEdit(was.calls, was.locked, date, Object.fromEntries(tiers.map(t => [t, row?.[t] ?? null])), Object.fromEntries(tiers.map(t => [t, v[t] || null])));
+        const refused = await app.data.rosters.upsert(mon, now.roster, { calls: state.calls, locked: state.locked });
         if (refused) toast(REFUSED); else undo.show('Saved', () => putBack(mon, was));
       },
     });
   }
 
   function monthSheet() {
-    const m = model();
+    const mon = month, m = model(mon);
     // Singapore's public holidays for the month (roster/holidays.js): Suggest adds the weekday ones; the admin still saves
-    const pub = holidaysIn(month);
+    const pub = holidaysIn(mon);
     const named = [pub.suggest.length && `Singapore: ${pub.suggest.map(p => `${shortDay(p.day)} ${p.name}`).join(', ')}.`,
       pub.weekendNames.length && `On a weekend (not added): ${pub.weekendNames.join(', ')}.`].filter(Boolean).join(' ');
-    const outOfMonth = `use YYYY-MM-DD within ${monthTitle(month)}`;
+    const outOfMonth = `use YYYY-MM-DD within ${monthTitle(mon)}`;
     const suggestBtn = h('button', { type: 'button', id: 'calls-suggest-holidays', disabled: !pub.suggest.length, onclick: () => {
       const area = /** @type {HTMLTextAreaElement} */ ($('ef-holidays'));
       const typed = area.value.split(/[\n,;]+/).map(e => e.trim()).filter(Boolean);
@@ -148,7 +170,7 @@ export function create(ctx) {
       area.dispatchEvent(new Event('input'));   // (the sheet redraws its warnings on input)
     } }, icon(ICONS.calendar), 'Suggest public holidays');
     sheet.open({
-      title: `${monthTitle(month)}: settings`, saveLabel: 'Save',
+      title: `${monthTitle(mon)}: settings`, saveLabel: 'Save',
       note: 'Public holidays close that day’s lists on the Week tab. REG 2 can be set on any day by hand.',
       values: { holidays: m.holidays.join('\n'), minGap: m.minGap, ...Object.fromEntries(DAY_TYPES.map(([d]) => [`plan-${d}`, m.plan[d].join(',')])) },
       fields: [
@@ -160,11 +182,12 @@ export function create(ctx) {
       ],
       body: { node: h('div', { class: 'cl-suggest' }, suggestBtn), read: () => ({}) },
       // a typo, a day that does not exist or a day of another month is named here, never dropped unseen
-      warn: v => { const { ignored } = readHolidays(v.holidays, month); return ignored.length ? [`Ignored: ${ignored.join(', ')} (${outOfMonth}).`] : []; },
+      warn: v => { const { ignored } = readHolidays(v.holidays, mon); return ignored.length ? [`Ignored: ${ignored.join(', ')} (${outOfMonth}).`] : []; },
       onSave: async v => {
-        const { days: holidays, ignored } = readHolidays(v.holidays, month);
+        const { days: holidays, ignored } = readHolidays(v.holidays, mon);
         const tierPlan = Object.fromEntries(DAY_TYPES.map(([d]) => [d, String(v[`plan-${d}`]).split(',').filter(Boolean)]));
-        const refused = await app.data.rosters.upsert(month, m.roster, { holidays, tierPlan, ...(v.minGap == null ? {} : { minGap: v.minGap }) });
+        // only these fields, onto the month as it is now (another maker may have saved calls meanwhile)
+        const refused = await app.data.rosters.upsert(mon, model(mon).roster, { holidays, tierPlan, ...(v.minGap == null ? {} : { minGap: v.minGap }) });
         toast(refused ? REFUSED : ignored.length ? `Saved. Ignored: ${ignored.join(', ')} (${outOfMonth}).` : 'Saved');
       },
     });
@@ -187,9 +210,15 @@ export function create(ctx) {
     const check = checkCalls({ month, calls: m.calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, tiers: m.plan });
     const shownTiers = tiersShown(m.plan, m.calls);
     const bad = new Set(check.problems.map(p => `${p.date}|${p.tier}`));
-    stateNote.textContent = any ? (m.roster?.built ? `Made ${new Date(m.roster.built).toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })}. ${check.empty.length ? `${check.empty.length} empty.` : ''}` : '') : (canWrite ? 'No calls yet. Tap Make calls.' : 'No calls yet.');
+    const hand = handCount(m.roster?.locked ?? [], m.calls);
+    let state = any ? (m.roster?.built ? `Made ${new Date(m.roster.built).toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })}. ${check.empty.length ? `${check.empty.length} empty.` : ''}` : '') : (canWrite ? 'No calls yet. Tap Make calls.' : 'No calls yet.');
     // (the maker may have forgotten them: Singapore has a weekday public holiday this month)
-    if (canWrite && !m.holidays.length && holidaysIn(month).suggest.length) stateNote.textContent = `${stateNote.textContent.trim()} Public holidays not set for this month (Settings).`.trim();
+    if (canWrite && !m.holidays.length && holidaysIn(month).suggest.length) state = `${state.trim()} Public holidays not set for this month (Settings).`;
+    if (canWrite && hand) state = `${state.trim()} ${hand} set by hand.`;
+    stateNote.textContent = state.trim();
+    fill(releaseSlot, canWrite && hand > 0 && !busy && h('button', { type: 'button', id: 'calls-release', onclick: release }, 'Release them'));
+    handKey.textContent = hand ? 'Bold: set by hand, kept when the calls are made again.' : '';
+    handKey.hidden = !hand;
 
     /** @param {string} date */
     const cell = date => {
@@ -199,7 +228,7 @@ export function create(ctx) {
       const locked = new Set((m.roster?.locked ?? []));
       return h('button', { type: 'button', role: 'listitem', class: `cl-day type-${type}${date === todayKey() ? ' is-today' : ''}`, disabled: !canWrite, dataset: { day: date }, 'aria-label': `${weekdayName(date)} ${shortDay(date)}: edit calls`, onclick: () => daySheet(date) },
         h('span', { class: 'cl-date' }, h('b', {}, String(Number(date.slice(8)))), h('span', { class: 'cl-wd' }, weekdayName(date)), m.holidays.includes(date) && h('span', { class: 'cl-ph small' }, 'PH')),
-        h('span', { class: 'cl-tiers' }, shown.map(t => h('span', { class: `cl-tier${row?.[t] ? '' : ' is-empty'}${bad.has(`${date}|${t}`) ? ' is-bad' : ''}${locked.has(`${date}|${t}`) ? ' is-hand' : ''}`, title: row?.[t] ?? '' },
+        h('span', { class: 'cl-tiers' }, shown.map(t => h('span', { class: `cl-tier${row?.[t] ? '' : ' is-empty'}${bad.has(`${date}|${t}`) ? ' is-bad' : ''}${row?.[t] && locked.has(`${date}|${t}`) ? ' is-hand' : ''}`, title: row?.[t] ?? '' },
           h('i', {}, SHORT[t]), h('span', {}, row?.[t] ?? '–')))));
     };
     fill(cal, monthCells(month).map(d => d ? cell(d) : h('span', { class: 'cl-blank', 'aria-hidden': 'true' })));
