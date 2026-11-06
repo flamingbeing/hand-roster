@@ -60,7 +60,7 @@ async function routeUiRetry(context) {
   });
 }
 
-// Hermetic for the rest: the pages load the sync and update modules from core.anawj.com, a stylesheet from
+// Hermetic for the rest: the pages load the sync module from core.anawj.com, a stylesheet from
 // design.flamingbeing.com and (Firebase Auth's SDK) Google's gapi scripts. A stalled fetch to any of them made tests swing
 // with the internet, so those core files come from e2e/fixtures/core/ (a copy of the pinned versions: refresh with
 // tools/refresh-core-fixtures.sh after changing a version), the stylesheet is empty and the Google hosts are refused. A
