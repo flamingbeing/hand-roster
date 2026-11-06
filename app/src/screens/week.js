@@ -267,12 +267,17 @@ export function weekScreen(ctx) {
       }))];
   }
 
-  /** Clashes, each opening the move sheet @param {ReturnType<typeof model>} m @param {ReturnType<typeof clashesOf>} list */
+  /**
+   * Clashes, each opening the move sheet, with Take off beside it; Take them all off when two or more (one save, one Undo)
+   * @param {ReturnType<typeof model>} m @param {ReturnType<typeof clashesOf>} list
+   */
   const clashPanel = (m, list) => list.length > 0 && [h('h2', {}, `Clashes: ${list.length}`),
+    list.length > 1 && h('button', { type: 'button', class: 'sh-all', onclick: () => edit(e => e.takeOffAll(list)) }, 'Take them all off'),
     h('div', { class: 'sh-options' }, list.map(c => {
-      const l = m.lists.find(x => x.id === c.list);
-      return h('button', { type: 'button', class: 'sh-option', onclick: () => edit(e => e.moveSheet(m, c.day, c.session, c.name, c.list)) },
-        `${weekdayName(c.day)} ${Number(c.day.slice(8))} ${c.session} · ${c.name} on ${l ? `${l.site} ${listName(l)}` : 'a list'}: ${c.why.join(', ')}`);
+      const l = m.lists.find(x => x.id === c.list), on = l ? `${l.site} ${listName(l)}` : 'a list';
+      return h('div', { class: 'sh-clash' }, h('button', { type: 'button', class: 'sh-option', onclick: () => edit(e => e.moveSheet(m, c.day, c.session, c.name, c.list)) },
+        `${weekdayName(c.day)} ${Number(c.day.slice(8))} ${c.session} · ${c.name} on ${on}: ${c.why.join(', ')}`),
+        h('button', { type: 'button', class: 'sh-off', 'aria-label': `Take ${c.name} off ${on}`, onclick: () => edit(e => e.takeOff(m, c)) }, 'Take off'));
     }))];
   /** a junior's button on a list, marked when it clashes @param {ReturnType<typeof model>} m @param {import('../roster/model.js').ListSlot} l @param {string} n @param {string} cls */
   const nameBtn = (m, l, n, cls) => { const why = clashAt.get(`${l.day}|${l.session}|${n}`);
