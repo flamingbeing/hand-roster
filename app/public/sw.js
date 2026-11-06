@@ -43,6 +43,7 @@ const SHELL = [
   'src/roster/holidays.js',
   'src/roster/layout.js',
   'src/roster/leave-clash.js',
+  'src/roster/leave-view.js',
   'src/roster/model.js',
   'src/roster/names.js',
   'src/roster/parse-info.js',
