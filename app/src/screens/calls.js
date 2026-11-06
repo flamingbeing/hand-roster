@@ -182,5 +182,7 @@ export function create(ctx) {
       ? [h('h3', {}, 'To look at'), h('ul', { class: 'cl-problem-list' }, lines.slice(0, 40).map(t => h('li', {}, t))), lines.length > 40 && h('p', { class: 'small' }, `and ${lines.length - 40} more`)]
       : [h('p', { class: 'small ok' }, 'No rule is broken.')]));
   }
+  // drawn now as well: the data may all be in before this tab first opens, and then no change comes to draw it
+  draw();
   return { draw };
 }

@@ -13,6 +13,7 @@ import { weekday } from './dates.js';
  * @property {'con' | 'reg' | 'mo'} grade  juniors are 'reg' (registrars, ACs, fellows) and 'mo'
  * @property {string} [rank]  'Reg', 'AC', 'Fellow', 'MO', 'R3' (third-year resident: an MO who can run a HOT clinic), 'HC', 'Locum', 'Outposter', 'Consultant'
  * @property {string} [site]  home site, 'NUH' or 'NTFGH' (a soft preference)
+ * @property {string} [team]  free text ('Team 1'); a junior is put with a consultant of their own team when all else is equal
  * @property {boolean} [extra]  outposter: shown on a list when added by hand, never placed or put on call
  * @property {boolean} [noCall]  never on call
  * @property {boolean} [siteOnly]  works only at their home site: lists and calls (a locum hired by one hospital)

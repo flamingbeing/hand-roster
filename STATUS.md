@@ -34,8 +34,13 @@
 
 ## Decisions (dated)
 
+- 2026-11-06: the week builder puts a junior with a consultant of their own team, as its lowest rule (owner): only between
+  people every other rule scores the same (`roster/week.js`). Laptop layout like Todo's (owner: "a proper tablet/desktop UI"):
+  app-ui's wide side bar (`html[data-wide-side]`, 280 px, hide button) with the tabs' icons; from 840 px the week and the calls
+  run wide and People, Lists and Leave lay their groups in columns; no menu button or "Off the tab bar" once the side bar shows.
+  Calls now draws when first opened (it stayed blank until a change came).
 - 2026-11-05: people have an optional free-text team ("Team 1"); People shows them by team (the default, owner) or by grade (a toggle anyone
-  can use, kept on the device). Teams are not used by the solver.
+  can use, kept on the device).
 
 - 2026-11-04: the signed-out page is app-ui's `signInScreen` (app-ui rc.90): icon, name, one line, Continue with Google;
   Forget this device only while this phone keeps a copy.

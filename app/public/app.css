@@ -12,7 +12,7 @@ select { padding: .5rem 2rem .5rem .65rem; }
 .rl-bar, .cl-bar, .wk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-block: 0 var(--gap); }
 .rl-bar:empty { display: none; }
 .pp-views { display: flex; gap: .35rem; margin-inline-end: auto; }
-.pp-view { flex: none; padding: .35rem .8rem; }
+.pp-views > .pp-view { flex: none; padding: .35rem .8rem; white-space: nowrap; }
 .rl-bar button, .cl-bar button, .wk-bar button, .rl-more { display: inline-flex; align-items: center; gap: .35rem; }
 .rl-block { margin-block: 0 var(--pad); }
 .rl-head { display: flex; align-items: baseline; gap: .5rem; font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: var(--gap) 0 .25rem; }
@@ -202,6 +202,32 @@ select { padding: .5rem 2rem .5rem .65rem; }
 .field-check input { flex: none; width: 1.3rem; height: 1.3rem; margin: 0; }
 .warn { color: var(--danger); margin: 0 0 var(--gap); min-height: 1.2em; }
 #edit-body textarea { width: 100%; }
+
+/* ---- tablet and laptop: the side bar is always there ----
+   From 600 px the side bar shows, so the bar's menu button (the phone's drawer) and Settings' "Off the tab bar" (the phone's
+   tab bar) go; the side links get the tabs' icons. From 840 px (html[data-wide-side], app-ui's wide side bar: 280 px, a hide
+   button) the pages use the room: the week and the calls run wide, People, Lists and Leave lay their groups in columns
+   (as Todo's desktop layout, 4 Nov 2026); Settings keeps the kit's reading width. */
+.side-icon { display: none; }
+@media (min-width: 600px) {
+  .ui-bar-menu { display: none; }
+  #settings-host .ui-settings-top { display: none; }
+  .side-icon { display: inline-flex; flex: none; color: var(--muted); }
+  .side-icon > svg { width: 1.15rem; height: 1.15rem; }
+  .ui-side-link { justify-content: flex-start; gap: .6rem; }
+  .ui-side-link[aria-current="page"] .side-icon { color: inherit; }
+  .ui-sidebar-name { display: flex; align-items: center; gap: .5rem; white-space: nowrap; font-size: 1.05rem; }
+}
+@media (min-width: 840px) {
+  .ui-sidebar-name { font-size: 1.15rem; }
+  #week-page, #calls-page { max-width: 96rem; padding-inline: var(--pad); box-sizing: border-box; }
+  #people-page, #lists-page, #leave-page { max-width: 84rem; padding-inline: var(--pad); box-sizing: border-box; }
+  :is(#people-page, #lists-page, #leave-page, #calls-page) > :not(.ui-large-title) { max-width: none; }
+  .rl-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr)); gap: var(--pad) calc(var(--pad) * 1.5); align-items: start; }
+  /* a note, the past-items button or an empty state spans the columns */
+  .rl-body > :not(.rl-block) { grid-column: 1 / -1; }
+  .rl-block > .rl-head:first-child { margin-top: 0; }
+}
 
 /* ---- print: the whole week on one landscape page ---- */
 @page { size: A4 landscape; margin: 10mm; }

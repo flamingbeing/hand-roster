@@ -8,7 +8,8 @@
 // minimum includes a registrar), then a
 // registrar for each emergency slot, then the lists' extras (a second OT or MSP junior), then an emergency slot's MO.
 // Registrars are preferred on OT and MSP lists, MOs on clinics; sessions are balanced across the week; a list's PM keeps
-// its AM juniors. Deterministic from the seed. Pure: no page, no clock.
+// its AM juniors. Lowest of all (owner, 6 Nov 2026): a junior goes with a consultant of their own team, but only between
+// people every other rule scores the same. Deterministic from the seed. Pure: no page, no clock.
 import { addDays, mondayOf, rangeDays } from './dates.js';
 import { TIERS, callMapOf, canWork, conText, consOf, isJunior, worksOn, leaveIndex, leads, minOf, regLed, settleLists } from './model.js';
 
@@ -70,6 +71,8 @@ export function buildWeek(o) {
   const calls = callMapOf(o.calls ?? []);
   const postCallAm = o.postCallAm ?? true;
   const juniors = o.people.filter(isJunior);
+  /** @type {Map<string, string | undefined>} */
+  const teamOf = new Map(o.people.map(p => [p.name, p.team?.trim().toLowerCase()]));
   const holidays = o.holidays ?? [];
   /** @param {string} day @returns {string[]} */
   const onCallOn = day => TIERS.map(t => calls[day]?.[t]).filter(/** @returns {n is string} */ n => !!n);
@@ -158,11 +161,14 @@ export function buildWeek(o) {
           // lists and emergency slots still without one (an MO does elsewhere what only a registrar does there)
           const regsLeft = regLed(l) && lacksLead(l) ? Infinity : juniors.filter(p => p.grade === 'reg' && available(p, session)).length;
           const keepRegs = regsLeft <= [...msp, ...eot].filter(e => regLed(e) && lacksLead(e)).length;
+          const teams = new Set(consOf(l).map(n => teamOf.get(n)).filter(t => !!t));
           for (const p of juniors) {
             if (!may(p, l) || !canWork(p, l) || !available(p, session)) continue;
             const st = stats[p.name];
             const wantsOt = l.kind === 'ot' || l.kind === 'msp';
-            let v = st.sessions * 3 + (wantsOt ? st.ot : st.clinic) * 1.5 + rnd() * 0.5;
+            // every rule below moves the score by a multiple of 0.5, so the team (0.25) and the random pick (under 0.25) only
+            // break ties, the team first
+            let v = st.sessions * 3 + (wantsOt ? st.ot : st.clinic) * 1.5 + rnd() * 0.25 + (teams.has(teamOf.get(p.name)) ? 0 : 0.25);
             v += wantsOt ? (p.grade === 'reg' ? 0 : 4) : (p.grade === 'mo' ? 0 : 2);
             if (p.site && (l.site === 'NUH' || l.site === 'NTFGH') && p.site !== l.site) v += 2;
             if (keepRegs && p.grade === 'reg') v += 20;

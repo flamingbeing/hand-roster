@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="glass">
+<html lang="en" class="glass" data-wide-side>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
@@ -50,7 +50,7 @@
   <script type="module" src="src/app.js"></script>
 </head>
 <body>
-  <!-- The kit shell (ui/shell/shell.css): a bar and tab bar on a phone (the tabs are swipeable pages), a side bar from 600 px,
+  <!-- The kit shell (ui/shell/shell.css): a bar and tab bar on a phone (the tabs are swipeable pages), a side bar from 600 px (from 840 px the kit's wide side bar: html[data-wide-side]),
        the side bar as a drawer on a phone. src/shell.js starts it. A new app adds its pages as .ui-tab-page sections and a
        tab and a side link for each. -->
   <div class="ui-shell">
@@ -66,12 +66,12 @@
 
     <nav class="ui-sidebar" id="side" aria-label="Sections">
       <p class="ui-sidebar-name"><img class="app-mark" src="icons/icon.svg" alt="" width="28" height="28">Hand Roster</p>
-      <a class="ui-side-link" href="./" data-tab-page="#week-page" aria-current="page">Week</a>
-      <a class="ui-side-link" href="./" data-tab-page="#calls-page">Calls</a>
-      <a class="ui-side-link" href="./" data-tab-page="#people-page">People</a>
-      <a class="ui-side-link" href="./" data-tab-page="#lists-page">Lists</a>
-      <a class="ui-side-link" href="./" data-tab-page="#leave-page">Leave and requests</a>
-      <a class="ui-side-link" href="./" data-tab-page="#settings-page" id="side-settings">Settings</a>
+      <a class="ui-side-link" href="./" data-tab-page="#week-page" aria-current="page"><span class="side-icon" data-icon="calendar" aria-hidden="true"></span>Week</a>
+      <a class="ui-side-link" href="./" data-tab-page="#calls-page"><span class="side-icon" data-icon="phone" aria-hidden="true"></span>Calls</a>
+      <a class="ui-side-link" href="./" data-tab-page="#people-page"><span class="side-icon" data-icon="users" aria-hidden="true"></span>People</a>
+      <a class="ui-side-link" href="./" data-tab-page="#lists-page"><span class="side-icon" data-icon="clipboardList" aria-hidden="true"></span>Lists</a>
+      <a class="ui-side-link" href="./" data-tab-page="#leave-page"><span class="side-icon" data-icon="calendarX" aria-hidden="true"></span>Leave and requests</a>
+      <a class="ui-side-link" href="./" data-tab-page="#settings-page" id="side-settings"><span class="side-icon" data-icon="menu" aria-hidden="true"></span>Settings</a>
     </nav>
 
     <main class="ui-screens">

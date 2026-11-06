@@ -31,3 +31,27 @@ test('a person added in the data shows on the People tab', async ({ phone }) => 
   await openTab(page, 'people');
   await expect(page.locator('#people-host')).toContainText(name, { timeout: 15_000 });
 });
+
+test('a laptop: the side bar with icons and a hide button, the pages use the width, Calls draws on first open', async ({ sized }) => {
+  const page = await sized(1280);
+  await signIn(page, 'member');
+  await expect(page.locator('html[data-wide-ready]')).toHaveCount(1);
+  await expect(page.locator('.ui-side-toggle')).toBeVisible();
+  await expect(page.locator('.ui-bar-menu')).toBeHidden();
+  await expect(page.locator('.ui-tabbar')).toBeHidden();
+  await expect(page.locator('#side .side-icon svg')).toHaveCount(6);
+  // the week grid runs past the kit's 800 px reading width
+  expect((await page.locator('#week-page').boundingBox())?.width).toBeGreaterThan(900);
+  // two teams sit side by side (the other tests' people are in the same space: found by name)
+  const names = [uniq('Dr A'), uniq('Dr B')];
+  for (const [i, name] of names.entries()) await db.put(`spaces/_/people/${name}`, { name, grade: 'reg', rank: 'Reg', team: uniq(`Team ${i}`), active: true, updatedAt: Date.now() });
+  await page.locator('#side [data-tab-page="#people-page"]').click();
+  const blockOf = (/** @type {string} */ name) => page.locator('#people-host .rl-block', { hasText: name });
+  await expect(blockOf(names[1])).toBeVisible({ timeout: 15_000 });
+  const [a, b] = [await blockOf(names[0]).boundingBox(), await blockOf(names[1]).boundingBox()];
+  expect(a && b && (Math.abs(a.y - b.y) < 2 || Math.abs(a.x - b.x) > 100)).toBe(true);
+  expect((await page.locator('#people-host .rl-block').first().boundingBox())?.width).toBeLessThan(700);
+  await page.locator('#side [data-tab-page="#calls-page"]').click();
+  await expect(page.locator('#calls-title')).toBeVisible();
+  await expect(page.locator('#calls-host .cl-day').first()).toBeVisible();
+});
