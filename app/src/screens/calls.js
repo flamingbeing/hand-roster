@@ -11,7 +11,7 @@ import { $, h, fill } from '../dom.js';
 import { REFUSED } from '../items.js';
 import { solveCalls } from '../roster/calls.js';
 import { checkCalls } from '../roster/calls-check.js';
-import { applyDayEdit, handCount, lockedMap, problemLines, callChoices } from '../roster/calls-edit.js';
+import { applyDayEdit, handCount, lockedMap, problemLines, callChoices, dayLabel } from '../roster/calls-edit.js';
 import { callMapIn, firstMonth, monthCells, shiftMonth } from '../roster/sections.js';
 import { callRow, callRowsOf, DAY_TYPES, TIERS, TIER_LABEL, dayType, tierPlanOf, tiersShown } from '../roster/model.js';
 import { MONTHS, monthDays, shortDay, weekdayName, todayKey } from '../roster/dates.js';
@@ -50,7 +50,8 @@ export function create(ctx) {
   // (Release them: the maker's way to let Make calls redo the calls set by hand)
   const releaseSlot = h('span');
   const handKey = h('p', { class: 'small cl-hand-key' });
-  const cal = h('div', { class: 'cl-cal', role: 'list', 'aria-label': 'Calls by day' });
+  // (a maker's days are buttons in a group; a viewer's are items of a list: role set in draw)
+  const cal = h('div', { class: 'cl-cal', 'aria-label': 'Calls by day' });
   const counts = h('div', { class: 'cl-counts' });
   const problemsBox = h('div', { class: 'cl-problems' });
   host.append(bar, h('p', { class: 'small cl-state' }, stateNote, releaseSlot), cal, handKey, counts, problemsBox);
@@ -70,9 +71,11 @@ export function create(ctx) {
     const requests = requestsOf(/** @type {any} */ (store.get('requests')));
     const prevRoster = /** @type {import('../data/plans.js').RosterRow | undefined} */ (store.row('rosters', shiftMonth(mon, -1)));
     const nextRoster = /** @type {import('../data/plans.js').RosterRow | undefined} */ (store.row('rosters', shiftMonth(mon, 1)));
-    const prior = callMapIn([...(prevRoster?.calls ?? []), ...(nextRoster?.calls ?? [])].filter(c => c.date < `${mon}-01`), shiftMonth(mon, -1));
+    // the months either side, for the gap rule across the month's ends: a call on the 30th too close to one already made on the 1st is flagged and avoided
+    const prior = callMapIn(prevRoster?.calls ?? [], shiftMonth(mon, -1));
+    const after = callMapIn(nextRoster?.calls ?? [], shiftMonth(mon, 1));
     const plan = tierPlanOf(roster?.tierPlan);
-    return { roster, people, leave, requests, prior, calls: roster?.calls ?? [], holidays: roster?.holidays ?? [], minGap: roster?.minGap ?? 2, plan };
+    return { roster, people, leave, requests, prior, after, calls: roster?.calls ?? [], holidays: roster?.holidays ?? [], minGap: roster?.minGap ?? 2, plan };
   }
 
   /** the month's calls as an Excel file (date rows by the four tiers, then the counts) */
@@ -80,7 +83,7 @@ export function create(ctx) {
     const m = model();
     if (!m.calls.some(c => TIERS.some(t => c[t]))) { toast('Make the calls first.'); return; }
     try {
-      const check = checkCalls({ month, calls: m.calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, tiers: m.plan });
+      const check = checkCalls({ month, calls: m.calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, after: m.after, tiers: m.plan });
       const { exportCalls } = await import('./export.js');
       toast(`Saved ${await exportCalls({ month, calls: m.calls, holidays: m.holidays, counts: check.counts, tierPlan: m.plan })}`);
     } catch (e) { toast(e instanceof Error && e.message ? e.message : 'Could not make the Excel file.'); }
@@ -112,12 +115,12 @@ export function create(ctx) {
       const seed = (m.roster?.seed ?? 0) + 1;
       // the month as it was, for Undo (no month yet: an empty one)
       const was = { calls: m.roster?.calls ?? [], locked: m.roster?.locked ?? [], problems: m.roster?.problems ?? [], seed: m.roster?.seed, built: m.roster?.built ?? 0 };
-      const res = solveCalls({ month: mon, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, seed, prior: m.prior, locked, tiers: m.plan, iterations: 20000 });
+      const res = solveCalls({ month: mon, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, seed, prior: m.prior, after: m.after, locked, tiers: m.plan, iterations: 20000 });
       const calls = callRowsOf(res.assignments);
       const refused = await app.data.rosters.upsert(mon, m.roster, { calls, problems: problemLines(res.problems), seed, built: Date.now() });
       if (refused) { toast(REFUSED); return; }
       // the same lines the page's To look at list shows, so the two agree; unmet requests are said apart
-      const check = checkCalls({ month: mon, calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, tiers: m.plan });
+      const check = checkCalls({ month: mon, calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, after: m.after, tiers: m.plan });
       const look = check.problems.length + check.empty.length, unmet = res.problems.filter(p => p.rule === 'want').length;
       const said = [look && `${look} thing${look === 1 ? '' : 's'} to look at.`, unmet && `${unmet} request${unmet === 1 ? '' : 's'} not met.`].filter(Boolean).join(' ');
       undo.show(said ? `Made. ${said}` : 'Made', () => putBack(mon, was));
@@ -151,11 +154,11 @@ export function create(ctx) {
       values: Object.fromEntries(tiers.map(t => [t, row?.[t] ?? ''])),
       fields: tiers.map(t => ({ key: t, label: TIER_LABEL[t], type: /** @type {const} */ ('select'),
         // free people first, each with their calls this month and why they may not be free
-        options: () => callChoices({ date, tier: t, people: m.people, calls: m.calls, prior: m.prior, leave: m.leave, requests: m.requests, minGap: m.minGap, current: row?.[t] }) })),
+        options: () => callChoices({ date, tier: t, people: m.people, calls: m.calls, prior: m.prior, after: m.after, leave: m.leave, requests: m.requests, minGap: m.minGap, current: row?.[t] }) })),
       warn: v => {
         const next = Object.fromEntries(tiers.map(t => [t, v[t] || null]));
         const calls = [...m.calls.filter(c => c.date !== date), { date, ...callRow({ ...row, ...next }) }];
-        return checkCalls({ month: mon, calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, tiers: m.plan })
+        return checkCalls({ month: mon, calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, after: m.after, tiers: m.plan })
           .problems.filter(p => p.date === date || (next[p.tier] === p.name && Math.abs(Date.parse(p.date) - Date.parse(date)) <= 4 * 864e5)).map(p => readDays(p.text));
       },
       // saved onto the month as it is now: only the tiers changed here, so another maker's save meanwhile stays
@@ -221,7 +224,7 @@ export function create(ctx) {
         canWrite && h('button', { type: 'button', class: 'ui-primary', id: 'calls-make', disabled: busy, onclick: make }, icon(ICONS.sparkles), 'Make calls')));
     const byDate = new Map(m.calls.map(c => [c.date, c]));
     const any = m.calls.some(c => TIERS.some(t => c[t]));
-    const check = checkCalls({ month, calls: m.calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, tiers: m.plan });
+    const check = checkCalls({ month, calls: m.calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, after: m.after, tiers: m.plan });
     const shownTiers = tiersShown(m.plan, m.calls);
     const bad = new Set(check.problems.map(p => `${p.date}|${p.tier}`));
     const hand = handCount(m.roster?.locked ?? [], m.calls);
@@ -234,16 +237,23 @@ export function create(ctx) {
     handKey.textContent = hand ? 'Bold: set by hand, kept when the calls are made again.' : '';
     handKey.hidden = !hand;
 
+    const locked = new Set(m.roster?.locked ?? []), today = todayKey();
+    // a maker's day is a button that opens its sheet; a viewer's a list item (no disabled button). Either way it reads its calls
+    // aloud (the bold and the wavy line said as words), since a label replaces what is inside (7 Nov 2026)
+    cal.setAttribute('role', canWrite ? 'group' : 'list');
     /** @param {string} date */
     const cell = date => {
       const row = byDate.get(date), type = dayType(date, m.holidays);
       const plan = m.plan[type];
-      const shown = TIERS.filter(t => plan.includes(t) || row?.[t]);
-      const locked = new Set((m.roster?.locked ?? []));
-      return h('button', { type: 'button', role: 'listitem', class: `cl-day type-${type}${date === todayKey() ? ' is-today' : ''}`, disabled: !canWrite, dataset: { day: date }, 'aria-label': `${weekdayName(date)} ${shortDay(date)}: edit calls`, onclick: () => daySheet(date) },
+      const tiers = TIERS.filter(t => plan.includes(t) || row?.[t])
+        .map(t => ({ t, name: row?.[t] ?? null, bad: bad.has(`${date}|${t}`), hand: !!row?.[t] && locked.has(`${date}|${t}`) }));
+      const label = dayLabel(date, m.holidays.includes(date), tiers) + (canWrite ? ' Tap to edit calls.' : '');
+      const props = canWrite ? { type: 'button', onclick: () => daySheet(date) } : { role: 'listitem' };
+      return h(canWrite ? 'button' : 'div', { ...props, class: `cl-day type-${type}${date === today ? ' is-today' : ''}`, dataset: { day: date }, 'aria-label': label },
         h('span', { class: 'cl-date' }, h('b', {}, String(Number(date.slice(8)))), h('span', { class: 'cl-wd' }, weekdayName(date)), m.holidays.includes(date) && h('span', { class: 'cl-ph small' }, 'PH')),
-        h('span', { class: 'cl-tiers' }, shown.map(t => h('span', { class: `cl-tier${row?.[t] ? '' : ' is-empty'}${bad.has(`${date}|${t}`) ? ' is-bad' : ''}${row?.[t] && locked.has(`${date}|${t}`) ? ' is-hand' : ''}${me && row?.[t] === me ? ' is-me' : ''}`, title: row?.[t] ?? '' },
-          h('i', {}, SHORT[t]), h('span', {}, row?.[t] ?? '–')))));
+        h('span', { class: 'cl-tiers' }, tiers.map(x => h('span', { class: `cl-tier${x.name ? '' : ' is-empty'}${x.bad ? ' is-bad' : ''}${x.hand ? ' is-hand' : ''}${me && x.name === me ? ' is-me' : ''}`, title: x.name ?? '' },
+          h('i', {}, SHORT[x.t]), h('span', {}, x.name ?? '–'),
+          x.bad && h('span', { class: 'visually-hidden' }, ' (problem)'), x.hand && h('span', { class: 'visually-hidden' }, ' (set by hand)')))));
     };
     fill(cal, monthCells(month).map(d => d ? cell(d) : h('span', { class: 'cl-blank', 'aria-hidden': 'true' })));
 

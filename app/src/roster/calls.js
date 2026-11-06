@@ -1,5 +1,6 @@
 // The monthly on-call solver. For every day it fills the tiers that day has (CON, REG, REG 2, MO NUH, MO NTFGH) from the people
-// who may take them. Hard rules: nobody on leave, nobody on two tiers in a day, a minimum gap between a person's calls,
+// who may take them. Hard rules: nobody on leave, nobody on two tiers in a day, a minimum gap between a person's calls (the
+// month before and, once made, the month after counted),
 // "cannot" requests, locked entries kept. Soft: even call totals (scaled to the days a person is around), even weekend and
 // public holiday calls, even spread of tiers, calls spaced out, "want" requests, juniors on their own grade's tiers.
 // Method (the idea of flamingbeing's roster-core solver, much smaller): greedy construction hardest slot first, then
@@ -28,6 +29,7 @@ import { DEFAULT_TIER_PLAN, TIERS, canTake, dayType, isOffDay, leaveIndex } from
  * @property {number} [iterations]  annealing budget (default 30000)
  * @property {boolean} [fill]  false: fill nothing, only judge the locked entries (the calls check; default true)
  * @property {CallMap} [prior]  the weeks before the month, for the gap rule at its start
+ * @property {CallMap} [after]  the weeks after the month (next month's calls, already made), for the gap rule at its end
  * @property {CallMap} [locked]  entries to keep exactly (a hand edit, or a call already given)
  *
  * @typedef {{ date: string, tier: Tier, name?: string | null, rule: 'unfilled' | 'gap' | 'leave' | 'cannot' | 'double' | 'tier' | 'locked' | 'want', text: string }} CallProblem
@@ -108,6 +110,16 @@ export function solveCalls(o) {
       for (const t of TIERS) { const n = o.prior[date]?.[t]; const i = n ? idx.get(n) : undefined; if (i !== undefined) priorDays[i].push(off); }
     }
   }
+  // next month's calls, as day offsets past the month's last day (the mirror of prior: a call made here may not sit too close to one there)
+  /** @type {number[][]} */
+  const afterDays = people.map(() => []);
+  if (o.after) {
+    for (const date of Object.keys(o.after).sort()) {
+      const off = diffDays(days[0], date);
+      if (off < days.length || off > days.length - 1 + minGap + 8) continue;
+      for (const t of TIERS) { const n = o.after[date]?.[t]; const i = n ? idx.get(n) : undefined; if (i !== undefined) afterDays[i].push(off); }
+    }
+  }
   // wanted: person -> day -> tier or '*'
   /** @type {Map<string, string>} */
   const wants = new Map();
@@ -135,7 +147,7 @@ export function solveCalls(o) {
       if (poolOf[p] === 'reg' && sl.tier !== 'reg' && sl.tier !== 'reg2') soft += W.grade; // a registrar on an MO tier
     }
     for (let p = 0; p < P; p++) {
-      const d = dd[p];
+      const d = afterDays[p].length ? [...dd[p], ...afterDays[p]] : dd[p];
       for (let k = 1; k < d.length; k++) {
         const gap = d[k] - d[k - 1];
         if (gap <= minGap) hard += gap === 0 ? 2 : 1;
@@ -256,9 +268,15 @@ export function solveCalls(o) {
       if (!canTake(people[p], sl.tier)) problems.push({ date: sl.date, tier: sl.tier, name, rule: 'tier', text: `${name} cannot take ${sl.tier}` });
     });
     for (const [name, list] of mine) {
-      const all = [...priorDays[idx.get(name) ?? 0], ...list];
+      const all = [...priorDays[idx.get(name) ?? 0], ...list, ...afterDays[idx.get(name) ?? 0]];
       for (let k = 1; k < all.length; k++) {
-        if (all[k] - all[k - 1] <= minGap) {
+        if (all[k - 1] >= days.length) break;   // (two calls next month: that month's own problem)
+        if (all[k] >= days.length && all[k] - all[k - 1] <= minGap) {
+          // a call next month too soon after one here: dated on this month's day, the one that can still move
+          const date = addDays(days[0], all[k - 1]), then = addDays(days[0], all[k]);
+          const tier = slots.find(sl => sl.di === all[k - 1] && assignments[sl.date][sl.tier] === name)?.tier ?? 'con';
+          problems.push({ date, tier, name, rule: 'gap', text: `${name} is on call again on ${then}, ${all[k] - all[k - 1] - 1} clear day(s) after ${date}` });
+        } else if (all[k] - all[k - 1] <= minGap) {
           const date = addDays(days[0], all[k]);
           const tier = slots.find(sl => sl.di === all[k] && assignments[sl.date][sl.tier] === name)?.tier ?? 'con';
           problems.push({ date, tier, name, rule: all[k] === all[k - 1] ? 'double' : 'gap', text: `${name} is on call again after ${all[k] - all[k - 1] - 1} clear day(s) on ${date}` });
