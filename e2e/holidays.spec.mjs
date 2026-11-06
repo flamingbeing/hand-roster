@@ -15,7 +15,7 @@ test('calls settings: suggest public holidays, a mistyped day is ignored and sai
   const want = 2027 * 12 + 9;
   for (let i = 0; i < 36 && await shown() !== want; i++) await page.getByRole('button', { name: await shown() < want ? 'Next month' : 'Previous month' }).click();
   await expect(page.locator('#calls-title')).toHaveText(title);
-  await expect(page.locator('#calls-host > p[role="status"]')).toContainText('Public holidays not set for this month', { timeout: 15_000 });
+  await expect(page.locator('#calls-host .cl-state [role="status"]')).toContainText('Public holidays not set for this month', { timeout: 15_000 });
   await page.locator('#calls-host').getByRole('button', { name: 'Settings', exact: true }).click();
   await expect(page.locator('#edit-sheet')).toBeVisible();
   await expect(page.locator('#edit-sheet')).toContainText('28 Oct Deepavali');
@@ -26,5 +26,5 @@ test('calls settings: suggest public holidays, a mistyped day is ignored and sai
   await page.locator('#edit-save').click();
   await expect(page.locator('#toasts')).toContainText('Saved. Ignored: 28 Oct');
   await expect.poll(async () => (await db.get(`spaces/_/rosters/${month}`))?.holidays, { timeout: 15_000 }).toEqual(['2027-10-28']);
-  await expect(page.locator('#calls-host > p[role="status"]')).not.toContainText('Public holidays not set');
+  await expect(page.locator('#calls-host .cl-state [role="status"]')).not.toContainText('Public holidays not set');
 });
