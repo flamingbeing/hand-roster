@@ -63,6 +63,8 @@ test('people: a name, a grade from the list, a site from the list; no extra fiel
   assert.equal((await put({ name: 'Dr Bea Test', updatedAt: 1 })).ok, false, 'grade is required');
   assert.equal((await put({ ...base, grade: 'nurse' })).ok, false);
   assert.equal((await put({ ...base, rank: 'Reg', site: 'NUH', active: true, noCall: false, extra: false })).ok, true);
+  assert.equal((await put({ ...base, moCalls: true })).ok, true, 'MO calls only');
+  assert.equal((await put({ ...base, moCalls: 'yes' })).ok, false);
   assert.equal((await put({ ...base, rank: null, site: null })).ok, true, 'null clears');
   assert.equal((await put({ ...base, rank: 'x'.repeat(21) })).ok, false);
   assert.equal((await put({ ...base, site: 'Elsewhere' })).ok, false);

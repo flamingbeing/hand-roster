@@ -37,13 +37,13 @@ service cloud.firestore {
     match /spaces/{g}/people/{id} {
       allow read: if can(g, ['admin', 'member', 'viewer']);
       allow create, update: if can(g, ['admin', 'member']) && stamped()
-        && request.resource.data.keys().hasOnly(['name', 'grade', 'rank', 'site', 'team', 'active', 'noCall', 'extra', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
+        && request.resource.data.keys().hasOnly(['name', 'grade', 'rank', 'site', 'team', 'active', 'noCall', 'moCalls', 'extra', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
         && str(request.resource.data, 'name', 60)
         && oneOfStr(request.resource.data, 'grade', ['con', 'reg', 'mo'])
         && optStr(request.resource.data, 'rank', 20)
         && optOneOf(request.resource.data, 'site', ['NUH', 'NTFGH'])
         && optStr(request.resource.data, 'team', 30)
-        && optBool(request.resource.data, 'active') && optBool(request.resource.data, 'noCall') && optBool(request.resource.data, 'extra')
+        && optBool(request.resource.data, 'active') && optBool(request.resource.data, 'noCall') && optBool(request.resource.data, 'moCalls') && optBool(request.resource.data, 'extra')
         && recordOk(request.resource.data);
       allow delete: if can(g, ['admin', 'member']);
     }

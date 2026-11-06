@@ -36,15 +36,17 @@ export const clean = cleaner({
   team: optText(30),
   active: bool,
   noCall: bool,
+  moCalls: bool,
   extra: bool,
 });
 
-/** @typedef {import('./ops.js').Row & { name: string, grade: 'con' | 'reg' | 'mo', rank?: string | null, site?: string | null, team?: string | null, active?: boolean, noCall?: boolean, extra?: boolean }} PersonRow */
+/** @typedef {import('./ops.js').Row & { name: string, grade: 'con' | 'reg' | 'mo', rank?: string | null, site?: string | null, team?: string | null, active?: boolean, noCall?: boolean, moCalls?: boolean, extra?: boolean }} PersonRow */
+// moCalls: a registrar who takes the MO call tiers only (owner, 6 Nov 2026: not REG level for calls; still a registrar on lists)
 
 /** @param {PersonRow} r @returns {import('../roster/model.js').Person} the engine's person */
 export const personOf = r => ({
   name: r.name, grade: r.grade, ...(r.rank ? { rank: r.rank } : {}), ...(r.site ? { site: r.site } : {}),
-  ...(r.noCall ? { noCall: true } : {}), ...(r.extra || r.rank === 'Outposter' ? { extra: true } : {}),
+  ...(r.noCall ? { noCall: true } : {}), ...(r.moCalls && r.grade !== 'con' ? { tiers: /** @type {import('../roster/model.js').Tier[]} */ (['moNuh', 'moNtf']) } : {}), ...(r.extra || r.rank === 'Outposter' ? { extra: true } : {}),
 });
 /** @param {PersonRow[]} rows @returns {import('../roster/model.js').Person[]} the active people, in name order */
 export const activePeople = rows => rows.filter(r => r.active !== false && !r._deleted).map(personOf).sort((a, b) => a.name.localeCompare(b.name));
