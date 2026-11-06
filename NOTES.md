@@ -99,7 +99,7 @@ text changed). Nothing is saved, so there is no format to migrate.
 `roster/layout.js` builds a week as blocks (a session at a site, each on-call tier, leave, post-call, free), each with its
 lines per day. `coreRows` lays them out like the CORE sheet (DEPARTMENTS column, a header row then a row per junior);
 `handSections` stacks them one row per section like the hand-made grid (headers "Consultant SITE List rooms - patients");
-`whatsapp.js` reads the same blocks for one day. `xlsx.js` takes ExcelJS as a parameter (so tests load the vendored file in node
+`whatsapp.js` reads the same blocks for a day or the week. `xlsx.js` takes ExcelJS as a parameter (so tests load the vendored file in node
 and read the workbook back); `screens/export.js` loads ExcelJS with a script tag on first use (`script-src 'self'` allows it),
 saves the file through a blob link, draws the print sheet into `#week-print-sheet` (shown only in print, replacing the view
 on screen once drawn; Ctrl+P re-draws it through `beforeprint` once the code is in: a button loads it, a laptop loads it when
