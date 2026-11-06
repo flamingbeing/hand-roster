@@ -159,8 +159,12 @@ select { padding: .5rem 2rem .5rem .65rem; }
 .ui-screen:has(.wt-scroll:not([hidden])) > :not(.ui-large-title) { max-width: none; }
 .status-line:has([data-state="synced"]) { display: none; }   /* the bar's cloud says it too; the chip shows only when something waits or fails */
 .wk-session + .wk-session, .wk-extras { border-top: 1px solid var(--line); padding-top: .25rem; }
-@media (min-width: 900px) {
-  /* five columns, the whole week; the day chips are not needed */
+/* the Week and the Calls go by the page's width, not the window's: the side bar takes 176 or 280 px of it, and hiding it
+   gives the wide layout (7 Nov 2026) */
+#week-page { container: week-page / inline-size; }
+#calls-page { container: calls-page / inline-size; }
+@container week-page (min-width: 58rem) {
+  /* five columns of at least 11rem, the whole week; the day chips are not needed */
   .wk-chips { display: none; }
   .wk-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--gap); align-items: start; }
   .wk-day { display: block; }
@@ -198,7 +202,7 @@ select { padding: .5rem 2rem .5rem .65rem; }
 .cl-problem:hover { text-decoration-color: currentColor; }
 .cl-off { color: var(--muted); font-weight: 400; }
 .ok { color: var(--ok, inherit); }
-@media (min-width: 700px) {
+@container calls-page (min-width: 52rem) {
   .cl-cal { grid-template-columns: repeat(7, minmax(0, 1fr)); }
   .cl-blank { display: block; }
   .cl-day { flex-direction: column; align-items: stretch; justify-content: flex-start; align-content: flex-start; }
@@ -250,24 +254,55 @@ select { padding: .5rem 2rem .5rem .65rem; }
 .wk-mine li.is-today { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .wk-mine p { margin: .3rem 0 0; color: var(--muted); }
 
-/* ---- print: the whole week on one landscape page ---- */
+/* ---- print: one landscape page, one thing on it (7 Nov 2026) ----
+   The Week unless html[data-print="calls"] (screens/calls.js): the hand-made grid once drawn (export.js; a laptop loads it
+   when idle), else the view on screen, Grid or Day. */
 @page { size: A4 landscape; margin: 10mm; }
 @media print {
   .ui-bar, .ui-tabbar, .ui-sidebar, .wk-bar, .wk-chips, .sh-panel, #toasts, .wk-add, #week-state-note, #week-mine, .ui-large-title, .status-line, #conflict-sheet, #refused-list { display: none !important; }
   .print-only { display: block; font-weight: 600; margin: 0 0 4mm; }
+  .ui-shell { display: block !important; }   /* (the kit's grid keeps the side bar's column, empty, in print) */
   .ui-screen { display: block !important; position: static !important; transform: none !important; overflow: visible !important; }
-  .ui-screen:not(#week-page) { display: none !important; }
-  .wk-grid { display: grid !important; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3mm; }
+  html:not([data-print="calls"]) .ui-screen:not(#week-page), html[data-print="calls"] .ui-screen:not(#calls-page) { display: none !important; }
+  :is(.wk-grid, .wt-scroll)[hidden], #week-view:has(.pr-sheet.is-ready) :is(.wk-grid, .wt-scroll) { display: none !important; }
+  .wk-grid:not([hidden]) { display: grid !important; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3mm; }
   .wk-day { display: block !important; break-inside: avoid; font-size: 8pt; }
   .wk-list { break-inside: avoid; padding: 1mm 2mm; background: none; }
   .wk-chip { border: 0; padding: 0 1mm; background: none; }
+  .wt-scroll { overflow: visible; margin: 0; padding: 0; }
+  .wt th[scope=row], .wt thead th:first-child { position: static; background: none; }
   body { background: #fff; color: #000; }
-  /* once the hand-made grid is drawn (Print, or Ctrl+P after one use), it replaces the day cards */
-  #week-view:has(.pr-sheet.is-ready) .wk-grid { display: none !important; }
   .pr-sheet.is-ready { display: block; }
   .pr-table thead { display: table-header-group; }
   .pr-table tr { break-inside: avoid; }
   .pr-table, .pr-title, .pr-table th, .pr-line { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* the Calls month: the grid at about 8pt, the calls per person beside it (31 days of four tiers fit); weekends tinted */
+  #calls-page { max-width: none; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  #calls-host { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 5mm; align-items: start; max-width: none; padding: 0; color: #000; }
+  .cl-bar > button, .cl-bar-end, .cl-state, .cl-problems, #calls-host > .empty-state { display: none !important; }
+  .cl-bar { grid-column: 1; grid-row: 1; margin: 0 0 2mm; }
+  .cl-title { margin: 0; font-size: 12pt; }
+  .cl-title::before { content: "Calls: "; }
+  .cl-cal { grid-column: 1; grid-row: 2; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1mm; }
+  .cl-blank { display: block; }
+  .cl-day { flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 0; padding: .6mm 1mm; border: .25mm solid #999; border-radius: 1mm;
+    background: #fff; color: #000; box-shadow: none; font-size: 7.5pt; line-height: 1.15; break-inside: avoid; }
+  .cl-day.type-sat, .cl-day.type-sun, .cl-day.type-ph { background: #e6e6e6; }
+  .cl-day.is-today { border-color: #999; box-shadow: none; }
+  .cl-day.is-today .cl-date b { color: inherit; }
+  .cl-date { min-width: 0; }
+  .cl-wd, .cl-ph { font-size: 7pt; }
+  .cl-tiers { flex-direction: column; flex: none; width: 100%; gap: 0; }
+  .cl-tier { display: flex; justify-content: space-between; gap: 1mm; font-size: inherit; }
+  .cl-tier > span { overflow-wrap: break-word; text-align: end; }
+  .cl-tier i { font-size: 6pt; }
+  .cl-hand-key { grid-column: 2; grid-row: 1; align-self: center; margin: 0; font-size: 7pt; }
+  .cl-counts { grid-column: 2; grid-row: 2; margin: 0; overflow: visible; }
+  .cl-counts h3 { margin: 0 0 1mm; font-size: 8pt; }
+  .cl-table { width: auto; font-size: 6.5pt; line-height: 1.15; }
+  .cl-table th, .cl-table td { padding: .3mm 1mm; }
+  .cl-table .cl-off { font-size: inherit; }
 }
 
 /* ---- the hand-made weekly grid (drawn by screens/export.js, shown only when printing) ---- */

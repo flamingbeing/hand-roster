@@ -1,8 +1,9 @@
 // The Week tab (#week-page, the first screen): a week's daily roster. Mon to Fri, AM and PM, each by site, each list with the
 // juniors on it; then who is on call, on leave, post-call and free. It opens on the Grid: the whole week as the hand-made
 // sheet lays it out (days across, AM and PM by site down), the way the department already reads it (owner, 6 Nov 2026).
-// Day shows the same as cards, one day at a time on a phone (day chips) and the five side by side from 900 px wide; the
-// choice is kept on the device. Printing always shows all five on one landscape page. The bar holds one step at a time:
+// Day shows the same as cards, one day at a time (day chips) and the five side by side once the page itself is about 58rem
+// wide (the side bar's room counts, 7 Nov 2026); the choice is kept on the device. Printing shows one thing on one landscape
+// page: the hand-made grid once the export code is in, else the view on screen. The bar holds one step at a time:
 // for the roster maker, Check against Epic and Build week until the week is built, then Share (chat text, the two Excel
 // files, print) with Epic and Build again in that menu; a viewer has Share alone. "Build week" fills the grid
 // from the lists, leave and calls (roster/week.js, loaded when first used); a tap on a junior moves, swaps or removes them.
@@ -14,7 +15,7 @@
 // saves from the week as it is then and can be undone from its toast (6 Nov 2026).
 // "This is me" (More) keeps a name on this device: it stands out wherever it shows, with a My week card on top
 // (screens/week-mine.js, loaded once a name is set) (7 Nov 2026).
-import { icon, loadState, emptyState, openMenu } from '@core/ui';
+import { icon, loadState, emptyState, openMenu, lazyModules } from '@core/ui';
 import { ICONS } from '../icons.js';
 import { $, sectionScreen, h, fill } from '../dom.js';
 import { addDays, mondayOf, nextWorkday, rangeDays, shortDay, weekday, weekdayName, MONTHS, MONTH_NAMES, todayKey } from '../roster/dates.js';
@@ -125,12 +126,14 @@ export function weekScreen(ctx) {
         { label: 'Build again', icon: ICONS.refreshCw, run: () => edit(e => e.build()) }] : []),
     ], { label: 'More' });
   });
-  // Ctrl+P and the browser's own print draw the same sheet, once the export code has been loaded by a button or the idle load below
-  /** @type {typeof import('./export.js') | null} */
-  let exporter = null;
-  /** @returns {Promise<typeof import('./export.js')>} */
-  const exportCode = async () => (exporter ??= await import('./export.js'));
-  window.addEventListener('beforeprint', () => { if (exporter && !$('week-page').hidden) exporter.renderPrint($('week-print-sheet'), layoutInput(model(), monday)); });
+  // Ctrl+P and the browser's own print draw the same sheet once the export code is in: a button loads it, and on a laptop
+  // (a pointer that hovers) the first idle moment after the week is drawn does (draw, below); a phone loads it only when asked
+  const exportMod = lazyModules({ exporter: () => import('./export.js') });
+  const exportCode = () => exportMod.need('exporter');
+  window.addEventListener('beforeprint', () => {
+    const x = exportMod.loaded('exporter');
+    if (x && !$('week-page').hidden) x.renderPrint($('week-print-sheet'), layoutInput(model(), monday));
+  });
   $('week-epic').replaceChildren(icon(ICONS.listChecks), 'Check against Epic');
   $('week-epic').addEventListener('click', () => edit(e => e.epicSheet()));
   $('week-build').replaceChildren(icon(ICONS.sparkles), 'Build week');
@@ -371,6 +374,7 @@ export function weekScreen(ctx) {
             names(sec.free[d].map(f => [f.name, f.why ? 'on call' : f.when === 'FULL DAY' ? '' : f.when])))));
     }));
     $('week-print-sheet').classList.remove('is-ready');
+    if (matchMedia('(hover: hover)').matches) exportMod.warmUp();   // (only the first call runs)
   }
 
   return {
