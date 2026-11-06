@@ -167,3 +167,11 @@ test('hand grid: an emergency slot sits in the EOT band and the EOT tally counts
   const eotCol = 20 + 2; // T is 20; U MSP, V EOT
   assert.equal(g.cells.find(c => c.r === row && c.c === eotCol)?.v, 1);
 });
+
+test('people: "MO calls only" keeps a registrar on lists but off the REG call tiers', async () => {
+  const { personOf } = await import('../src/data/people.js');
+  const { canTake } = await import('../src/roster/model.js');
+  const p = personOf(/** @type {any} */ ({ id: 'x', name: 'Dr Reg Two', grade: 'reg', rank: 'Reg', moCalls: true }));
+  assert.equal(p.grade, 'reg');
+  assert.deepEqual(['con', 'reg', 'reg2', 'moNuh', 'moNtf'].map(t => canTake(p, /** @type {any} */ (t))), [false, false, false, true, true]);
+});

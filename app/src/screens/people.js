@@ -37,7 +37,7 @@ export function create(ctx) {
     sheet.open({
       title: row ? 'Edit person' : 'Add person', saveLabel: 'Save',
       note: 'Leave, requests and calls use the name, so changing it does not change what was entered under the old one.',
-      values: { name: row?.name ?? '', grade: row?.grade ?? 'reg', rank: row?.rank ?? '', site: row?.site ?? '', team: row?.team ?? '', active: row?.active !== false, noCall: !!row?.noCall, extra: !!row?.extra },
+      values: { name: row?.name ?? '', grade: row?.grade ?? 'reg', rank: row?.rank ?? '', site: row?.site ?? '', team: row?.team ?? '', active: row?.active !== false, noCall: !!row?.noCall, moCalls: !!row?.moCalls, extra: !!row?.extra },
       fields: [
         { key: 'name', label: 'Name', required: true, max: 60 },
         { key: 'grade', label: 'Grade', type: 'select', options: GRADES },
@@ -49,13 +49,14 @@ export function create(ctx) {
         { key: 'team', label: 'Team', max: 30, list: 'people-teams' },
         { key: 'active', label: 'On the roster now', type: 'check' },
         { key: 'noCall', label: 'Does not take calls', type: 'check' },
+        { key: 'moCalls', label: 'MO calls only (not REG level for calls)', type: 'check' },
         { key: 'extra', label: 'Extra to a list (an outposter or a visitor), only placed when short', type: 'check' },
       ],
       warn: v => (others.includes(String(v.name).toLowerCase()) ? ['Someone on the roster already has this name.'] : []),
       onDelete: row ? async () => { toast(await app.data.people.remove(row) ? REFUSED : 'Deleted'); } : undefined,
       onSave: async v => {
         if (others.includes(String(v.name).toLowerCase())) { toast('That name is taken.'); return; }
-        const fields = { name: v.name, grade: v.grade, rank: v.rank || null, site: v.site || null, team: v.team || null, active: v.active, noCall: v.noCall, extra: v.extra };
+        const fields = { name: v.name, grade: v.grade, rank: v.rank || null, site: v.site || null, team: v.team || null, active: v.active, noCall: v.noCall, moCalls: v.moCalls, extra: v.extra };
         toast((row ? await app.data.people.edit(row, fields) : await app.data.people.add(fields)) ? REFUSED : 'Saved');
       },
     });
@@ -75,7 +76,7 @@ export function create(ctx) {
     /** @param {import('../data/people.js').PersonRow} r @param {(string | false | null | undefined)[]} first */
     const row = (r, first) => ({
       main: r.name, dim: r.active === false,
-      sub: [...first, r.rank, r.site, r.noCall && 'no calls', r.extra && 'extra'].filter(Boolean).join(' · '),
+      sub: [...first, r.rank, r.site, r.noCall && 'no calls', !r.noCall && r.moCalls && 'MO calls', r.extra && 'extra'].filter(Boolean).join(' · '),
       tag: r.active === false ? 'Inactive' : '',
       onOpen: canWrite ? () => open(r) : null,
     });
