@@ -3,7 +3,7 @@
 // buildWeek (week.js), so a hand-edited grid is judged the way a built one was. Also here: picking the parts of the stored
 // months that a week or a month needs (callsAround, monthCells, ...). Pure.
 import { addDays, rangeDays, mondayOf, monthDays, weekday } from './dates.js';
-import { callMapOf, callRow, canWork, isJunior, worksOn, leads, leaveIndex, minOf, regLed, TIERS } from './model.js';
+import { callMapOf, callRow, canWork, conText, isJunior, worksOn, leads, leaveIndex, minOf, regLed, TIERS } from './model.js';
 import { juniorsOn } from './grid.js';
 
 /** @typedef {import('./model.js').Person} Person */
@@ -45,7 +45,8 @@ export function sectionsOf({ monday, people, leave, calls, lists, grid, postCall
       if (lv.full(p.name, day)) continue;
       if (today.includes(p.name)) { free[day].push({ name: p.name, when: 'FULL DAY', why: 'on call' }); continue; }
       if (p.byHand) continue;   // around only on the days someone puts them on a list
-      const open = /** @type {('AM' | 'PM')[]} */ (['AM', 'PM']).filter(s => worksOn(p, day, s) && !grid.some(r => r.day === day && r.session === s && r.juniors.includes(p.name))
+      const runs = (/** @type {'AM' | 'PM'} */ s) => lists.some(l => l.day === day && l.session === s && l.status === 'open' && (l.consultant === p.name || l.consultant2 === p.name));
+      const open = /** @type {('AM' | 'PM')[]} */ (['AM', 'PM']).filter(s => worksOn(p, day, s) && !runs(s) && !grid.some(r => r.day === day && r.session === s && r.juniors.includes(p.name))
         && !lv.blocks(p.name, day, s) && !(prev.includes(p.name) && (s === 'PM' || !postCallAm)));
       if (open.length === 2) free[day].push({ name: p.name, when: 'FULL DAY' });
       else if (open.length === 1) free[day].push({ name: p.name, when: open[0] });
@@ -141,7 +142,7 @@ export { mondayOf };
  */
 
 /** @param {ListSlot} l @returns {string} 'KRWOT 3 (Dr A)' */
-export const listName = l => `${l.name}${l.consultant ? ` (${l.consultant})` : ''}`;
+export const listName = l => `${l.name}${l.consultant ? ` (${conText(l)})` : ''}`;
 
 /**
  * @param {{ gap: Gap, lists: ListSlot[], grid: import('./grid.js').GridRow[], people: Person[], free: FreeEntry[] }} o

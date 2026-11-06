@@ -5,6 +5,7 @@ import { ICONS } from '../icons.js';
 import { $, h, fill } from '../dom.js';
 import { REFUSED } from '../items.js';
 import { SITES, KINDS, STATUSES, DAYS } from '../data/lists.js';
+import { conText } from '../roster/model.js';
 import { editSheet } from './sheet.js';
 import { rowList, heading } from './rows.js';
 
@@ -26,14 +27,14 @@ export function create(ctx) {
   /** @returns {import('../data/lists.js').ListRow[]} */
   const rows = () => /** @type {any} */ (store.get('lists'));
   const consultants = () => /** @type {import('../data/people.js').PersonRow[]} */ (/** @type {any} */ (store.get('people')))
-    .filter(p => p.grade === 'con' && p.active !== false).map(p => p.name).sort();
+    .filter(p => (p.grade === 'con' || p.rank === 'AC') && p.active !== false).map(p => p.name).sort();
 
   /** @param {import('../data/lists.js').ListRow | null} row @param {Partial<import('../data/lists.js').ListRow>} [seed]  a new list starts from these (Copy) */
   function open(row, seed = {}) {
     const from = row ?? seed;
     sheet.open({
       title: row ? 'Edit list' : 'Add list', saveLabel: 'Save',
-      values: { site: from.site ?? 'NUH', kind: from.kind ?? 'ot', name: from.name ?? '', wd: String(from.wd ?? 1), session: from.session ?? 'AM', consultant: from.consultant ?? '',
+      values: { site: from.site ?? 'NUH', kind: from.kind ?? 'ot', name: from.name ?? '', wd: String(from.wd ?? 1), session: from.session ?? 'AM', consultant: from.consultant ?? '', consultant2: from.consultant2 ?? '',
         rooms: from.rooms ?? '', patients: from.patients ?? null, need: from.need ?? 1, min: from.min ?? null, status: from.status ?? 'open', external: !!from.external },
       fields: [
         { key: 'site', label: 'Site', type: 'select', options: SITES.map(s => /** @type {[string, string]} */ ([s, s])) },
@@ -45,6 +46,10 @@ export function create(ctx) {
           const list = consultants(), cur = from.consultant;
           return [['', 'Nobody'], ...(cur && !list.includes(cur) ? [cur, ...list] : list).map(n => /** @type {[string, string]} */ ([n, n]))];
         } },
+        { key: 'consultant2', label: 'Shared with', type: 'select', hint: 'A second consultant on the same list. It runs while either of them is in.', options: v => {
+          const list = consultants().filter(n => n !== v.consultant), cur = from.consultant2;
+          return [['', 'Nobody'], ...(cur && !list.includes(cur) ? [cur, ...list] : list).map(n => /** @type {[string, string]} */ ([n, n]))];
+        } },
         { key: 'rooms', label: 'Rooms', max: 40 },
         { key: 'patients', label: 'Patients', type: 'number', min: 0, max: 200 },
         { key: 'need', label: 'Juniors wanted', type: 'number', min: 0, max: 10 },
@@ -54,7 +59,8 @@ export function create(ctx) {
       ],
       onDelete: row ? async () => { toast(await app.data.lists.remove(row) ? REFUSED : 'Deleted'); } : undefined,
       onSave: async v => {
-        const fields = { site: v.site, kind: v.kind, name: v.name, wd: Number(v.wd), session: v.session, consultant: v.consultant || null, rooms: v.rooms || null,
+        const fields = { site: v.site, kind: v.kind, name: v.name, wd: Number(v.wd), session: v.session, consultant: v.consultant || null,
+          consultant2: (v.consultant && v.consultant2 !== v.consultant && v.consultant2) || null, rooms: v.rooms || null,
           patients: v.patients, need: v.need ?? 0, min: v.min, status: v.status, external: v.external };
         toast((row ? await app.data.lists.edit(row, fields) : await app.data.lists.add(fields)) ? REFUSED : 'Saved');
       },
@@ -72,7 +78,7 @@ export function create(ctx) {
       return h('section', { class: 'rl-block' }, heading(d, mine.length),
         rowList(d, mine.map(r => ({
           main: `${r.session} · ${r.site} · ${r.name}`, dim: r.status === 'closed',
-          sub: [KIND_LABEL[r.kind], r.consultant, r.rooms, r.need ? `${r.min != null && r.min < r.need ? `${r.min}-` : ''}${r.need} junior${r.need === 1 ? '' : 's'}` : 'no juniors', r.status === 'open' ? '' : STATUS_LABEL[r.status]].filter(Boolean).join(' · '),
+          sub: [KIND_LABEL[r.kind], conText(r), r.rooms, r.need ? `${r.min != null && r.min < r.need ? `${r.min}-` : ''}${r.need} junior${r.need === 1 ? '' : 's'}` : 'no juniors', r.status === 'open' ? '' : STATUS_LABEL[r.status]].filter(Boolean).join(' · '),
           onOpen: canWrite ? () => open(r) : null,
         }))),
         canWrite && h('button', { type: 'button', class: 'rl-more', onclick: () => open(null, { wd: i + 1 }) }, icon(ICONS.plus), `Add to ${d}`));

@@ -32,7 +32,10 @@ test('a viewer reads but cannot build or change', async ({ phone }) => {
   const page = await phone();
   await signIn(page, 'viewer');
   await expect(page.locator('#week-grid')).toContainText(t);
+  await expect(page.locator('#week-table .wt-list', { hasText: t })).toBeVisible();
+  await expect(page.locator('#week-table .wt-list', { hasText: t }).locator('button')).toHaveCount(0);
   await expect(page.locator('#week-build')).toBeHidden();
+  await expect(page.locator('#week-share')).toBeVisible();
 });
 
 test('a role change reaches the page by itself (role doc v ahead of the token)', async ({ phone }) => {

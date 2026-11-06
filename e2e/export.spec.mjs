@@ -2,18 +2,35 @@
 // chat text. Written with the Playwright checks of the other specs; they run in CI with the emulator.
 import { test, expect, signIn, openTab, openWeek, addList, clickOpens } from './fixtures.mjs';
 
+/** @param {import('@playwright/test').Page} page @param {string} item  a pick from the Week's Share menu */
+const share = async (page, item) => {
+  await page.locator('#week-share').click();
+  await page.getByRole('menuitem', { name: item }).click();
+};
+
 test('the week downloads as the CORE sheet and as the hand-made grid, and prints as the hand-made grid', async ({ phone }) => {
   const page = await phone();
   await signIn(page, 'member');
   await openWeek(page);
   const name = `KRWOT ${Date.now() % 1000}`;
   await addList(page, name);
+  // the maker's bar: Epic and Build until the week is built, then Share (built five weeks on: the other specs share the
+  // space and want this week unbuilt)
+  for (let i = 0; i < 5; i++) await page.locator('#week-next').click();
+  await expect(page.locator('#week-today')).toBeVisible();
+  await expect(page.locator('#week-share')).toBeHidden();
+  await page.locator('#week-build').click();
+  await expect(page.locator('#week-share')).toBeVisible();
+  await expect(page.locator('#week-build')).toBeHidden();
 
-  const [download] = await Promise.all([page.waitForEvent('download'), page.locator('#week-xlsx').click()]);
+  const [download] = await Promise.all([page.waitForEvent('download'), share(page, 'Excel (CORE)')]);
   expect(download.suggestedFilename()).toMatch(/^hrm-roster-\d{4}-\d{2}-\d{2}\.xlsx$/);
-  const [hand] = await Promise.all([page.waitForEvent('download'), page.locator('#week-hand-xlsx').click()]);
+  const [hand] = await Promise.all([page.waitForEvent('download'), share(page, 'Excel (hand grid)')]);
   expect(hand.suggestedFilename()).toMatch(/^hrm-hand-grid-\d{4}-\d{2}-\d{2}\.xlsx$/);
 
+  // the Grid (the first view) shows the list; Day shows it as a card
+  await expect(page.locator('#week-table .wt-list', { hasText: name }).first()).toBeVisible();
+  await page.locator('#week-show-day').click();
   // a list's patients for this week only, from its edit button; the sheet shows them again when reopened
   const card = page.locator('.wk-list', { hasText: name }).first();
   await clickOpens(card.locator('.wk-edit'), page.locator('#edit-sheet'));
@@ -26,18 +43,18 @@ test('the week downloads as the CORE sheet and as the hand-made grid, and prints
   await page.locator('#edit-sheet [data-close]').click();
 
   await page.evaluate(() => { window.print = () => { window.__printed = true; }; });
-  await page.locator('#week-print').click();
+  await share(page, 'Print');
   await expect.poll(() => page.evaluate(() => window.__printed === true)).toBe(true);
   await expect(page.locator('#week-print-sheet .pr-title')).toContainText('HRM Registrar/Fellows/Medical Officer Daily Roster');
   await expect(page.locator('#week-print-sheet .pr-table')).toContainText(name);
-  await expect(page.locator('#week-print-sheet th[scope=row]')).toHaveText(['AM sessions', 'PM sessions', 'On call', 'Leave', 'Post-call']);
+  await expect(page.locator('#week-print-sheet th[scope=row]')).toHaveText(['AM sessions', 'PM sessions', 'On call', 'Leave', 'Post-call', 'Free']);
 });
 
 test('copy for WhatsApp says when there is nothing built to copy; the calls tab has its Excel button', async ({ phone }) => {
   const page = await phone();
-  await signIn(page, 'member');
+  await signIn(page, 'viewer');   // (a viewer has Share on an unbuilt week; the maker has Epic and Build there)
   await openWeek(page);
-  await page.locator('#week-copy').click();
+  await share(page, 'Copy for WhatsApp');
   await expect(page.locator('#toasts')).toContainText('not built yet');
   await openTab(page, 'calls');
   await expect(page.locator('#calls-xlsx')).toBeVisible();

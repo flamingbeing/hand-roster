@@ -214,3 +214,26 @@ test('people: "Works on" days and "Clinics only" limit where the builder puts so
   assert.deepEqual([on(MON, 'AM', 'cl'), on(MON, 'AM', 'ot'), on(MON, 'PM', 'cl2'), on('2026-11-10', 'AM', 'cl3')], [['Dr Loc Days'], [], [], []]);
   assert.ok(!w.free['2026-11-10'].some(f => f.name === 'Dr Loc Days'), 'not free on a day off');
 });
+
+test('a shared list runs while either consultant is in, and shows both names', async () => {
+  const lists = [L('sh', { consultant: 'Dr Con A', consultant2: 'Dr Con B', need: 2 }), L('shc', { kind: 'clinic', consultant: 'Dr Con A', consultant2: 'Dr Con B' })];
+  const oneAway = settleLists(lists, { leave: [{ name: 'Dr Con A', from: MON, to: MON }] });
+  assert.deepEqual(oneAway.map(l => [l.status, !!l.emergency, l.need]), [['open', false, 2], ['open', false, 1]], 'one away: as usual');
+  const bothAway = settleLists(lists, { leave: [{ name: 'Dr Con A', from: MON, to: MON }, { name: 'Dr Con B', from: MON, to: MON }] });
+  assert.deepEqual(bothAway.map(l => [l.status, !!l.emergency]), [['open', true], ['closed', false]], 'both away: EOT, clinic closed');
+  const { conText } = await import('../src/roster/model.js');
+  assert.equal(conText(lists[0]), 'Dr Con A / Dr Con B');
+  assert.equal(conText({ consultant: null, consultant2: 'Dr Con B' }), '', 'no lead: nobody shown');
+  const tmpl = [{ id: 't1', site: 'NUH', kind: 'ot', name: 'OT 7', wd: 2, session: 'PM', consultant: 'Dr Con A', consultant2: 'Dr Con B', need: 1, status: 'open' }];
+  assert.equal(listsData.slotsFor(/** @type {any} */ (tmpl), MON)[0].consultant2, 'Dr Con B', 'the template carries it to the week');
+  assert.equal(listsData.slotsFor(/** @type {any} */ (tmpl), MON, [{ id: 't1', consultant2: null }])[0].consultant2, undefined, 'a week can drop it');
+});
+
+test('someone running a shared list that session is not placed as a junior anywhere', () => {
+  const people = [{ name: 'Dr Con A', grade: 'con' }, { name: 'Dr Ac B', grade: 'reg', rank: 'AC' }, { name: 'Dr Mo C', grade: 'mo' }];
+  const lists = [L('sh', { consultant: 'Dr Con A', consultant2: 'Dr Ac B', need: 1 }), L('ot2', { consultant: 'Dr Con A', need: 2 })];
+  const { grid } = buildWeek({ monday: MON, lists, people: /** @type {any} */ (people), leave: [], calls: [], seed: 1 });
+  const on = gridRows(grid).filter(r => r.day === MON && r.session === 'AM').flatMap(r => r.juniors);
+  assert.ok(!on.includes('Dr Ac B'), 'the AC leads, so is not a junior that session');
+  assert.ok(on.includes('Dr Mo C'));
+});
