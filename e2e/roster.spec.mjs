@@ -341,6 +341,33 @@ test('a built week marks a junior on a list on a day they are now on leave, and 
   await expect(page.locator('#edit-title')).toHaveText(name);
 });
 
+test('Clashes: Take off takes one junior off; Take them all off takes the rest in one save, and one Undo puts them back', async ({ phone }) => {
+  const page = await phone();
+  await signIn(page, 'member');
+  await openWeek(page);
+  // a week of its own, thirteen on
+  for (let i = 0; i < 13; i++) await page.locator('#week-next').click();
+  await expect(page.locator('#week-title')).toHaveClass(/is-away/);
+  const mon = /** @type {string} */ (await page.locator('#week-grid .wk-day').first().getAttribute('data-day'));
+  const [a, b, x, y, z, stay] = [uniq('OT T'), uniq('OT U'), uniq('Dr Kim Test'), uniq('Dr Lee Test'), uniq('Dr Max Test'), uniq('Dr Noa Test')];
+  const list = (/** @type {string} */ id) => ({ id, site: 'NUH', kind: 'ot', name: id, day: mon, session: 'AM', consultant: null, rooms: null, patients: null, status: 'open', need: 3, consultantOnLeave: false });
+  await db.put(`spaces/_/weeks/${mon}`, { lists: [list(a), list(b)], grid: [{ day: mon, session: 'AM', list: a, juniors: [x, y, stay] }, { day: mon, session: 'AM', list: b, juniors: [z] }], seed: 1, built: Date.now(), updatedAt: Date.now() });
+  const grid = async () => { const w = await db.get(`spaces/_/weeks/${mon}`); return [a, b].map(id => w?.grid?.find((/** @type {any} */ r) => r.list === id)?.juniors); };
+  await expect(page.locator(`#week-table .wt-list[data-list="${a}"] .wt-name`, { hasText: x })).toBeVisible({ timeout: 15_000 });
+  // leave added after the build, for three of the four
+  for (const n of [x, y, z]) await db.put(`spaces/_/leave/${uniq('lv')}`, { name: n, from: mon, to: mon, session: 'both', updatedAt: Date.now() });
+  await expect(page.locator('#week-short h2', { hasText: 'Clashes: 3' })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: `Take ${x} off NUH ${a}` }).click();
+  await expect.poll(grid, { timeout: 15_000 }).toEqual([[y, stay], [z]]);
+  await expect(page.locator('#week-short h2', { hasText: 'Clashes: 2' })).toBeVisible({ timeout: 15_000 });
+  await page.locator('#week-short .sh-all', { hasText: 'Take them all off' }).click();
+  const toast = page.locator('.toast', { hasText: 'Took 2 juniors off their lists.' });
+  await expect(toast).toBeVisible();
+  await expect.poll(grid, { timeout: 15_000 }).toEqual([[stay], []]);
+  await toast.getByRole('button', { name: 'Undo' }).click();
+  await expect.poll(grid, { timeout: 15_000 }).toEqual([[y, stay], [z]]);
+});
+
 test('This is me: a name picked from More stands out on the grid, with a My week card on top', async ({ phone }) => {
   const page = await phone();
   await signIn(page, 'member');

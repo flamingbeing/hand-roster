@@ -107,6 +107,12 @@ select { padding: .5rem 2rem .5rem .65rem; }
 .sh-option { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .1rem .75rem; text-align: start; border: 0; border-radius: 0; border-top: 1px solid var(--line); background: none; padding: .55rem .7rem; color: inherit; }
 .sh-option:first-child { border-top: 0; }
 .sh-option .small { color: var(--muted); }
+/* a clash: its line (opens the move sheet) grows, Take off at the end; on a narrow phone Take off wraps under it */
+.sh-clash { display: flex; flex-wrap: wrap; align-items: center; column-gap: .4rem; border-top: 1px solid var(--line); padding-inline-end: .5rem; }
+.sh-clash:first-child { border-top: 0; }
+.sh-clash .sh-option { flex: 1 1 14rem; border-top: 0; }
+.sh-off { margin: .3rem 0 .3rem auto; padding: .2rem .7rem; min-height: 2rem; }
+.sh-all { margin: 0 0 .5rem; min-height: 2rem; }
 /* a junior on a list while on leave, on call or post-call (the Clashes block); underlined so it is not colour alone */
 .sh-options + h2, .sh-list + h2 { margin-top: .7rem; }
 .wt-name.is-clash, .wk-chip.is-clash { color: var(--danger); text-decoration: underline dotted; text-underline-offset: .2em; }

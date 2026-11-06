@@ -19,6 +19,9 @@ export function applyEdit(rows, e) {
   return move(rows, e);
 }
 
+/** several edits, each on the grid the one before left: saved as one, so one Undo puts them all back @param {GridRow[]} rows @param {GridEdit[]} edits @returns {GridRow[]} */
+export const applyEdits = (rows, edits) => edits.reduce(applyEdit, rows);
+
 /**
  * Lays changes over a week's list changes. Each is laid over the list's earlier change (a key set to undefined drops it);
  * null drops the list's change altogether.

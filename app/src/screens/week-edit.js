@@ -1,6 +1,6 @@
 // The Week tab's edits, apart from week.js so the first screen loads less (viewers never load it): Build week, a junior
-// moved, swapped, added or taken off, a list changed for this week, Check against Epic, the Short panel's options and how
-// many lists the Lists tab has changed since the week was built.
+// moved, swapped, added or taken off, a list changed for this week, Check against Epic, the Short panel's options, the
+// Clashes panel's Take off and how many lists the Lists tab has changed since the week was built.
 // week.js loads it on a roster maker's first edit or Build, or when a maker opens a built week. Each save works from the week as it is when saved
 // (roster/week-edits.js): a change another maker saved while a sheet was open stays. The copy a sheet opened with only
 // words and warns. A Build, a grid edit or a list change can be undone from its toast for a few seconds. Build again on a
@@ -12,13 +12,14 @@ import { shortDay } from '../roster/dates.js';
 import { conText } from '../roster/model.js';
 import { sectionsOf, shortOptions, whyNot } from '../roster/sections.js';
 import { gridRows, juniorsOn } from '../roster/grid.js';
-import { applyEdit, keptCount, keptAsks, mergeOverrides, undoFields } from '../roster/week-edits.js';
+import { applyEdit, applyEdits, keptCount, keptAsks, mergeOverrides, undoFields } from '../roster/week-edits.js';
 import { listsDrift } from '../roster/lists-drift.js';
 import { slotsFor } from '../data/lists.js';
 import { editSheet } from './sheet.js';
 
 /** @typedef {ReturnType<typeof import('./week.js').weekModel>} Model */
 /** @typedef {import('../roster/week-edits.js').GridEdit} GridEdit */
+/** @typedef {ReturnType<typeof import('../roster/sections.js').clashesOf>[number]} Clash */
 /** @typedef {[string, Partial<import('../data/lists.js').Override> | null][]} Changes  list id, change */
 
 /**
@@ -44,10 +45,27 @@ export function weekEdit({ ctx, model, monday }) {
     });
   }
 
-  /** a grid edit, made on the week as it is now @param {string} mon @param {GridEdit} e @param {string} said */
+  /** a grid edit, or several saved as one (one Undo), made on the week as it is now @param {string} mon @param {GridEdit | GridEdit[]} e @param {string} said */
   async function saveGrid(mon, e, said) {
     const now = model(mon);
-    await save(mon, now, { lists: now.built && now.wk?.lists?.length ? now.wk.lists : slotsFor(now.templates, mon, now.wk?.overrides), grid: applyEdit(now.grid, e) }, said);
+    await save(mon, now, { lists: now.built && now.wk?.lists?.length ? now.wk.lists : slotsFor(now.templates, mon, now.wk?.overrides), grid: applyEdits(now.grid, [e].flat()) }, said);
+  }
+
+  /** the Clashes panel's Take off: the junior off that list, as the move sheet's Take off the list does @param {Model} m @param {Clash} c */
+  const takeOff = (m, c) => saveGrid(monday(), { kind: 'move', day: c.day, session: c.session, name: c.name, to: null },
+    `Took ${c.name} off ${m.lists.find(l => l.id === c.list)?.name ?? 'the list'}.`);
+
+  /**
+   * Take them all off: every clashing junior off their list in one save, so one Undo puts them all back (7 Nov 2026). Worked
+   * out from the week as it is then: someone no longer on that list (moved or taken off since the panel was drawn) stays put.
+   * @param {Clash[]} clashes
+   */
+  async function takeOffAll(clashes) {
+    const mon = monday(), now = model(mon);
+    const edits = clashes.filter(c => juniorsOn(now.grid, c.day, c.session, c.list).includes(c.name))
+      .map(c => /** @type {GridEdit} */ ({ kind: 'move', day: c.day, session: c.session, name: c.name, to: null }));
+    const n = edits.length;
+    if (n) await saveGrid(mon, edits, `Took ${n} ${n === 1 ? 'junior off their list' : 'juniors off their lists'}.`);
   }
 
   /**
@@ -206,5 +224,5 @@ export function weekEdit({ ctx, model, monday }) {
     return d.added.length + d.removed.length + d.changed.length;
   }
 
-  return { build, moveSheet, addSheet, weekListSheet, epicSheet, shortButtons, drift };
+  return { build, moveSheet, addSheet, weekListSheet, epicSheet, shortButtons, takeOff, takeOffAll, drift };
 }

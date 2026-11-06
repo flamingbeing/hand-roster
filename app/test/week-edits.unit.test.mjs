@@ -2,7 +2,7 @@
 // change made while a sheet was open stays; and what Undo puts back. Invented names only.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyEdit, epicBoxText, epicChanges, mergeOverrides, readEpicBox, undoFields } from '../src/roster/week-edits.js';
+import { applyEdit, applyEdits, epicBoxText, epicChanges, mergeOverrides, readEpicBox, undoFields } from '../src/roster/week-edits.js';
 import { juniorsOn, weekBuilt } from '../src/roster/grid.js';
 import { weeks } from '../src/data/plans.js';
 
@@ -34,6 +34,18 @@ test('add, take off and clear a list', () => {
   const cleared = applyEdit(opened, { kind: 'clear', day: MON, session: 'AM', list: 'ot1' });
   assert.deepEqual(juniorsOn(cleared, MON, 'AM', 'ot1'), []);
   assert.deepEqual(juniorsOn(cleared, TUE, 'AM', 'ot1'), ['Dr Cat Test']);
+});
+
+test('Take them all off: take-offs on different lists fold into one grid, so one save and one Undo', () => {
+  const off = (/** @type {string} */ day, /** @type {string} */ name) => /** @type {const} */ ({ kind: 'move', day, session: 'AM', name, to: null });
+  const saved = applyEdits(opened, [off(MON, 'Dr Ann Test'), off(TUE, 'Dr Cat Test')]);
+  assert.deepEqual(juniorsOn(saved, MON, 'AM', 'ot1'), ['Dr Ben Test'], 'the other junior stays');
+  assert.deepEqual(juniorsOn(saved, TUE, 'AM', 'ot1'), []);
+  assert.deepEqual(juniorsOn(saved, MON, 'AM', 'clinic1'), []);
+  // someone already gone (taken off by another maker meanwhile) leaves the grid as it was
+  assert.deepEqual(applyEdits(opened, [off(MON, 'Dr Eve Test')]), opened);
+  assert.deepEqual(applyEdits(opened, []), opened);
+  assert.deepEqual(opened[0].juniors, ['Dr Ann Test', 'Dr Ben Test'], 'the input is left alone');
 });
 
 test('list changes are laid over the week\'s changes as they are now', () => {
