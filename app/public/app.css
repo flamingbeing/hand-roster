@@ -185,6 +185,9 @@ select { padding: .5rem 2rem .5rem .65rem; }
 .cl-table th, .cl-table td { padding: .25rem .5rem; text-align: right; border-bottom: 1px solid var(--line); }
 .cl-table th:first-child { text-align: left; font-weight: 500; }
 .cl-problem-list { padding-inline-start: 1.1rem; }
+.cl-problem { display: block; width: 100%; min-height: var(--tap, 2.75rem); padding: .35rem 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: .2em; cursor: pointer; }
+.cl-problem:hover { text-decoration-color: currentColor; }
+.cl-off { color: var(--muted); font-weight: 400; }
 .ok { color: var(--ok, inherit); }
 @media (min-width: 700px) {
   .cl-cal { grid-template-columns: repeat(7, minmax(0, 1fr)); }
