@@ -14,6 +14,9 @@ import { rowList, heading } from './rows.js';
 const SESSION_LABEL = Object.fromEntries(SESSIONS);
 const TYPE_LABEL = Object.fromEntries(TYPES);
 
+// the last person leave or a request was saved for: the next one is often for them too (one tap fewer)
+let lastName = '';
+
 /** @param {string} a @param {string} b */
 const span = (a, b) => (a === b ? `${weekdayName(a)} ${shortDay(a)}` : `${shortDay(a)} to ${shortDay(b)}`);
 
@@ -39,11 +42,11 @@ export function create(ctx) {
     const today = todayKey();
     sheet.open({
       title: row ? 'Edit leave' : 'Add leave', saveLabel: 'Save',
-      values: { name: row?.name ?? '', from: row?.from ?? today, to: row?.to ?? row?.from ?? today, session: row?.session ?? 'both', note: row?.note ?? '' },
+      values: { name: row?.name ?? lastName, from: row?.from ?? today, to: row?.to ?? row?.from ?? today, session: row?.session ?? 'both', note: row?.note ?? '' },
       fields: [
         { key: 'name', label: 'Who', type: 'select', options: nameOptions(row?.name) },
         { key: 'from', label: 'From', type: 'date', required: true },
-        { key: 'to', label: 'To (the last day away)', type: 'date', required: true },
+        { key: 'to', label: 'To (the last day away)', type: 'date', required: true, follows: 'from' },
         { key: 'session', label: 'Which part of the day', type: 'select', options: SESSIONS },
         { key: 'note', label: 'Note', max: 200 },
       ],
@@ -51,6 +54,7 @@ export function create(ctx) {
       onDelete: row ? async () => { toast(await app.data.leave.remove(row) ? REFUSED : 'Deleted'); } : undefined,
       onSave: async v => {
         if (!v.name) { toast('Choose who first.'); return; }
+        lastName = v.name;
         const fields = { name: v.name, from: v.from, to: v.to < v.from ? v.from : v.to, session: v.session, note: v.note || null };
         toast((row ? await app.data.leave.edit(row, fields) : await app.data.leave.add(fields)) ? REFUSED : 'Saved');
       },
@@ -61,7 +65,7 @@ export function create(ctx) {
   function openRequest(row) {
     sheet.open({
       title: row ? 'Edit request' : 'Add request', saveLabel: 'Save',
-      values: { name: row?.name ?? '', date: row?.date ?? todayKey(), type: row?.type ?? 'cannot', tier: row?.tier ?? '' },
+      values: { name: row?.name ?? lastName, date: row?.date ?? todayKey(), type: row?.type ?? 'cannot', tier: row?.tier ?? '' },
       fields: [
         { key: 'name', label: 'Who', type: 'select', options: nameOptions(row?.name) },
         { key: 'date', label: 'Day', type: 'date', required: true },
@@ -71,6 +75,7 @@ export function create(ctx) {
       onDelete: row ? async () => { toast(await app.data.requests.remove(row) ? REFUSED : 'Deleted'); } : undefined,
       onSave: async v => {
         if (!v.name) { toast('Choose who first.'); return; }
+        lastName = v.name;
         const fields = { name: v.name, date: v.date, type: v.type, tier: v.tier || null };
         toast((row ? await app.data.requests.edit(row, fields) : await app.data.requests.add(fields)) ? REFUSED : 'Saved');
       },
