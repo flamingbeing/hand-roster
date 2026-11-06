@@ -229,6 +229,20 @@ test('a shared list runs while either consultant is in, and shows both names', a
   assert.equal(listsData.slotsFor(/** @type {any} */ (tmpl), MON, [{ id: 't1', consultant2: null }])[0].consultant2, undefined, 'a week can drop it');
 });
 
+test('three consultants at once: the list runs while any one is in; blanks and repeats drop out', async () => {
+  const away = (/** @type {string[]} */ ns) => ns.map(name => ({ name, from: MON, to: MON }));
+  const lists = [L('t3', { kind: 'clinic', consultant: 'Dr Con A', consultant2: 'Dr Con B', consultant3: 'Dr Con C' })];
+  assert.equal(settleLists(lists, { leave: away(['Dr Con A', 'Dr Con B']) })[0].status, 'open', 'one of three in: runs');
+  assert.equal(settleLists(lists, { leave: away(['Dr Con A', 'Dr Con B', 'Dr Con C']) })[0].status, 'closed');
+  const { conText } = await import('../src/roster/model.js');
+  assert.equal(conText(lists[0]), 'Dr Con A / Dr Con B / Dr Con C');
+  const tmpl = [{ id: 't1', site: 'NTFGH', kind: 'ot', name: 'OT 15', wd: 3, session: 'AM', consultant: 'Dr Con A', consultant2: null, consultant3: 'Dr Con C', need: 1, status: 'open' }];
+  const [one] = listsData.slotsFor(/** @type {any} */ (tmpl), MON);
+  assert.deepEqual([one.consultant2, one.consultant3], ['Dr Con C', undefined], 'a gap closes up');
+  const [two] = listsData.slotsFor(/** @type {any} */ (tmpl), MON, [{ id: 't1', consultant2: 'Dr Con A' }]);
+  assert.deepEqual([two.consultant2, two.consultant3], ['Dr Con C', undefined], 'the lead is not their own sharer');
+});
+
 test('someone running a shared list that session is not placed as a junior anywhere', () => {
   const people = [{ name: 'Dr Con A', grade: 'con' }, { name: 'Dr Ac B', grade: 'reg', rank: 'AC' }, { name: 'Dr Mo C', grade: 'mo' }];
   const lists = [L('sh', { consultant: 'Dr Con A', consultant2: 'Dr Ac B', need: 1 }), L('ot2', { consultant: 'Dr Con A', need: 2 })];

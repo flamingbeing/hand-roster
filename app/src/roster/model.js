@@ -46,7 +46,8 @@ import { weekday } from './dates.js';
  * @property {string} day
  * @property {Session} session
  * @property {string | null} [consultant]
- * @property {string | null} [consultant2]  a second consultant sharing the list (owner, 6 Nov 2026: it runs while either is in)
+ * @property {string | null} [consultant2]  a second consultant sharing the list (owner, 6 Nov 2026: it runs while any of them is in)
+ * @property {string | null} [consultant3]  a third (NTFGH OT 15 has three at once)
  * @property {'open' | 'closed' | 'template' | 'empty' | 'consultant-only'} status  only 'open' lists take juniors
  * @property {number} need  juniors wanted (the ideal)
  * @property {number} [min]  juniors it cannot run without (default: 1 when it wants any); filled before any list's extras
@@ -141,8 +142,13 @@ export const callRow = c => Object.fromEntries(TIERS.filter(t => t !== 'reg2' ||
 // slot's is 1 unless the week sets it lower). Pure, and the same answer when run again on its own output.
 
 
-/** @param {Pick<ListSlot, 'consultant' | 'consultant2'>} l @returns {string} the consultant as shown: 'Soumen / Sarah Huan' for a shared list */
-export const conText = l => [l.consultant, l.consultant && l.consultant2].filter(Boolean).join(' / ');
+const isName = /** @type {(n: string | null | undefined) => n is string} */ (n => !!n);
+/** @param {Pick<ListSlot, 'consultant' | 'consultant2' | 'consultant3'>} l @returns {string[]} everyone running the list, lead first (none without a lead) */
+export const consOf = l => (l.consultant ? [l.consultant, l.consultant2, l.consultant3].filter(isName) : []);
+/** @param {Pick<ListSlot, 'consultant' | 'consultant2' | 'consultant3'>} l @returns {string} the consultant as shown: 'Soumen / Sarah Huan' for a shared list */
+export const conText = l => consOf(l).join(' / ');
+/** @param {string} lead @param {...(string | null | undefined)} more @returns {string[]} the others sharing a list: no blanks, no repeats, not the lead */
+export const coOf = (lead, ...more) => (lead ? [...new Set(more.filter(isName).filter(n => n !== lead))] : []);
 
 /** an emergency slot: one registrar, and an MO when spare */
 export const EOT = { need: 2, min: 1 };
@@ -178,7 +184,7 @@ export function settleLists(lists, { leave = [], holidays = [] }) {
       x.holiday = true;
       if (x.status === 'open') x.status = 'closed';
     }
-    const gone = !!x.consultant && (!!x.away || lv.blocks(x.consultant, x.day, x.session)) && (!x.consultant2 || lv.blocks(x.consultant2, x.day, x.session));
+    const gone = !!x.consultant && (!!x.away || lv.blocks(x.consultant, x.day, x.session)) && consOf(x).slice(1).every(n => lv.blocks(n, x.day, x.session));
     if (gone) x.consultantOnLeave = true;
     if (gone && x.status === 'open') {
       if (x.kind === 'clinic' || x.kind === 'hot') x.status = 'closed';

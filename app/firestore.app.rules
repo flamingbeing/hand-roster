@@ -54,13 +54,13 @@ service cloud.firestore {
     match /spaces/{g}/lists/{id} {
       allow read: if can(g, ['admin', 'member', 'viewer']);
       allow create, update: if can(g, ['admin', 'member']) && stamped()
-        && request.resource.data.keys().hasOnly(['site', 'kind', 'name', 'wd', 'session', 'consultant', 'consultant2', 'rooms', 'patients', 'need', 'min', 'status', 'external', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
+        && request.resource.data.keys().hasOnly(['site', 'kind', 'name', 'wd', 'session', 'consultant', 'consultant2', 'consultant3', 'rooms', 'patients', 'need', 'min', 'status', 'external', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
         && str(request.resource.data, 'site', 20)
         && oneOfStr(request.resource.data, 'kind', ['ot', 'msp', 'clinic', 'hot'])
         && str(request.resource.data, 'name', 40)
         && intIn(request.resource.data, 'wd', 1, 5)
         && oneOfStr(request.resource.data, 'session', ['AM', 'PM'])
-        && optStr(request.resource.data, 'consultant', 60) && optStr(request.resource.data, 'consultant2', 60) && optStr(request.resource.data, 'rooms', 40)
+        && optStr(request.resource.data, 'consultant', 60) && optStr(request.resource.data, 'consultant2', 60) && optStr(request.resource.data, 'consultant3', 60) && optStr(request.resource.data, 'rooms', 40)
         && optIntIn(request.resource.data, 'patients', 0, 200)
         && intIn(request.resource.data, 'need', 0, 10) && optIntIn(request.resource.data, 'min', 0, 10)
         && oneOfStr(request.resource.data, 'status', ['open', 'closed', 'template', 'empty', 'consultant-only'])

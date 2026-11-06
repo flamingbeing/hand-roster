@@ -5,7 +5,7 @@ import { ICONS } from '../icons.js';
 import { $, h, fill } from '../dom.js';
 import { REFUSED } from '../items.js';
 import { SITES, KINDS, STATUSES, DAYS } from '../data/lists.js';
-import { conText } from '../roster/model.js';
+import { coOf, conText } from '../roster/model.js';
 import { editSheet } from './sheet.js';
 import { rowList, heading } from './rows.js';
 
@@ -34,7 +34,7 @@ export function create(ctx) {
     const from = row ?? seed;
     sheet.open({
       title: row ? 'Edit list' : 'Add list', saveLabel: 'Save',
-      values: { site: from.site ?? 'NUH', kind: from.kind ?? 'ot', name: from.name ?? '', wd: String(from.wd ?? 1), session: from.session ?? 'AM', consultant: from.consultant ?? '', consultant2: from.consultant2 ?? '',
+      values: { site: from.site ?? 'NUH', kind: from.kind ?? 'ot', name: from.name ?? '', wd: String(from.wd ?? 1), session: from.session ?? 'AM', consultant: from.consultant ?? '', consultant2: from.consultant2 ?? '', consultant3: from.consultant3 ?? '',
         rooms: from.rooms ?? '', patients: from.patients ?? null, need: from.need ?? 1, min: from.min ?? null, status: from.status ?? 'open', external: !!from.external },
       fields: [
         { key: 'site', label: 'Site', type: 'select', options: SITES.map(s => /** @type {[string, string]} */ ([s, s])) },
@@ -46,8 +46,12 @@ export function create(ctx) {
           const list = consultants(), cur = from.consultant;
           return [['', 'Nobody'], ...(cur && !list.includes(cur) ? [cur, ...list] : list).map(n => /** @type {[string, string]} */ ([n, n]))];
         } },
-        { key: 'consultant2', label: 'Shared with', type: 'select', hint: 'A second consultant on the same list. It runs while either of them is in.', options: v => {
+        { key: 'consultant2', label: 'Shared with', type: 'select', hint: 'Other consultants on the same list. It runs while any of them is in.', options: v => {
           const list = consultants().filter(n => n !== v.consultant), cur = from.consultant2;
+          return [['', 'Nobody'], ...(cur && !list.includes(cur) ? [cur, ...list] : list).map(n => /** @type {[string, string]} */ ([n, n]))];
+        } },
+        { key: 'consultant3', label: 'And', type: 'select', options: v => {
+          const list = consultants().filter(n => n !== v.consultant && n !== v.consultant2), cur = from.consultant3;
           return [['', 'Nobody'], ...(cur && !list.includes(cur) ? [cur, ...list] : list).map(n => /** @type {[string, string]} */ ([n, n]))];
         } },
         { key: 'rooms', label: 'Rooms', max: 40 },
@@ -59,8 +63,9 @@ export function create(ctx) {
       ],
       onDelete: row ? async () => { toast(await app.data.lists.remove(row) ? REFUSED : 'Deleted'); } : undefined,
       onSave: async v => {
+        const [consultant2 = null, consultant3 = null] = coOf(v.consultant, v.consultant2, v.consultant3);
         const fields = { site: v.site, kind: v.kind, name: v.name, wd: Number(v.wd), session: v.session, consultant: v.consultant || null,
-          consultant2: (v.consultant && v.consultant2 !== v.consultant && v.consultant2) || null, rooms: v.rooms || null,
+          consultant2, consultant3, rooms: v.rooms || null,
           patients: v.patients, need: v.need ?? 0, min: v.min, status: v.status, external: v.external };
         toast((row ? await app.data.lists.edit(row, fields) : await app.data.lists.add(fields)) ? REFUSED : 'Saved');
       },
