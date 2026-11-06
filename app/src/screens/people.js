@@ -1,11 +1,13 @@
 // The People tab (#people-host): the doctors the roster places, by team (the default) or by grade (a toggle anyone can use, kept on this
 // device). Add, edit and take off (inactive people stay in the
-// data, so old rosters still read; delete sends one to the bin). A name is the key leave, requests and calls use.
+// data, so old rosters still read; delete sends one to the bin). A name is the key leave, requests and calls use; a rename
+// carries the person's leave, requests and lists along (roster/rename.js), while calls made and built weeks keep the old name.
 import { icon, emptyState, undoToast } from '@core/ui';
 import { ICONS } from '../icons.js';
 import { $, h, fill } from '../dom.js';
 import { REFUSED } from '../items.js';
 import { GRADES, RANKS, SITES, WORKS, byTeam } from '../data/people.js';
+import { renamePlan, planSize, planText } from '../roster/rename.js';
 
 import { editSheet } from './sheet.js';
 import { rowList, heading } from './rows.js';
@@ -38,6 +40,38 @@ export function create(ctx) {
   /** @returns {import('../data/people.js').PersonRow[]} */
   const rows = () => /** @type {any} */ (store.get('people'));
 
+  /** @param {string} from @param {string} to  the rows a rename changes, from the store as it is now */
+  const planFor = (from, to) => renamePlan({ from, to, leave: store.get('leave'), requests: store.get('requests'), lists: store.get('lists') });
+  /** @typedef {'leave' | 'requests' | 'lists'} Carried */
+  const CARRIED = /** @type {Carried[]} */ (['leave', 'requests', 'lists']);
+
+  /**
+   * Edits each row of a rename's plan. -> the edits that went through, and whether any was refused.
+   * @param {ReturnType<typeof planFor>} plan
+   */
+  async function carry(plan) {
+    const all = CARRIED.flatMap(kind => plan[kind].map(([r, patch]) => /** @type {[Carried, import('../data/ops.js').Row, Record<string, string>]} */ ([kind, r, patch])));
+    const said = await Promise.all(all.map(([kind, r, patch]) => app.data[kind].edit(r, patch)));
+    return { done: all.filter((_, i) => !said[i]), refused: said.some(Boolean) };
+  }
+
+  /**
+   * Undo of a rename: the old name back on the person and on each row it changed, on the rows as they are by then (a row
+   * deleted since is left alone). The person's other fields from the same save stay.
+   * @param {import('../data/people.js').PersonRow} was @param {Awaited<ReturnType<typeof carry>>['done']} done
+   */
+  async function unrename(was, done) {
+    const now = store.row('people', was.id);
+    const said = await Promise.all([
+      now ? app.data.people.edit(now, { name: was.name }) : '',
+      ...done.map(([kind, r, patch]) => {
+        const cur = store.row(kind, r.id);
+        return cur ? app.data[kind].edit(cur, Object.fromEntries(Object.keys(patch).map(k => [k, r[k]]))) : '';
+      }),
+    ]);
+    if (said.some(Boolean)) toast(REFUSED);
+  }
+
   /** @param {import('../data/people.js').PersonRow | null} row */
   function open(row) {
     const others = rows().filter(r => r.id !== row?.id && r.active !== false).map(r => r.name.toLowerCase());
@@ -48,10 +82,11 @@ export function create(ctx) {
         h('tbody', {}, ['AM', 'PM'].map(s => h('tr', {}, h('th', {}, s), [1, 2, 3, 4, 5].map(d => h('td', {}, ticks.get(`${d}${s}`))))))));
     sheet.open({
       title: row ? 'Edit person' : 'Add person', saveLabel: 'Save',
-      note: 'Leave, requests and calls use the name, so changing it does not change what was entered under the old one.',
-      values: { name: row?.name ?? '', grade: row?.grade ?? 'reg', rank: row?.rank ?? '', site: row?.site ?? '', team: row?.team ?? '', active: row?.active !== false, noCall: !!row?.noCall, moCalls: !!row?.moCalls, siteOnly: !!row?.siteOnly, byHand: !!row?.byHand, clinicsOnly: !!row?.clinicsOnly, extra: !!row?.extra },
+      note: 'Leave, requests and lists can change with the name; calls already made and built weeks keep the old one.',
+      values: { name: row?.name ?? '', carry: true, grade: row?.grade ?? 'reg', rank: row?.rank ?? '', site: row?.site ?? '', team: row?.team ?? '', active: row?.active !== false, noCall: !!row?.noCall, moCalls: !!row?.moCalls, siteOnly: !!row?.siteOnly, byHand: !!row?.byHand, clinicsOnly: !!row?.clinicsOnly, extra: !!row?.extra },
       fields: [
         { key: 'name', label: 'Name', required: true, max: 60 },
+        ...(row ? [{ key: 'carry', label: 'Also change it in their leave, requests and lists', type: /** @type {const} */ ('check') }] : []),
         { key: 'grade', label: 'Grade', type: 'select', options: GRADES },
         { key: 'rank', label: 'Rank', type: 'select', options: v => {
           const list = RANKS[v.grade] ?? [];
@@ -68,7 +103,12 @@ export function create(ctx) {
         { key: 'extra', label: 'Extra to a list (an outposter or a visitor), only placed when short', type: 'check' },
       ],
       body: { node: works, read: () => ({ works: WORKS.filter(k => /** @type {HTMLInputElement} */ (ticks.get(k)).checked) }) },
-      warn: v => (others.includes(String(v.name).toLowerCase()) ? ['Someone on the roster already has this name.'] : []),
+      warn: v => {
+        const name = String(v.name);
+        const plan = row && name && name !== row.name ? planText(planFor(row.name, name)) : '';
+        return [others.includes(name.toLowerCase()) && 'Someone on the roster already has this name.',
+          plan && (v.carry ? `Also changes the name in ${plan}.` : `The old name stays on ${plan}.`)].filter(s => !!s).map(String);
+      },
       onDelete: row ? async () => {
         if (await app.data.people.remove(row)) { toast(REFUSED); return; }
         // Undo puts the same record back, under its own id
@@ -77,7 +117,13 @@ export function create(ctx) {
       onSave: async v => {
         if (others.includes(String(v.name).toLowerCase())) { toast('That name is taken.'); return; }
         const fields = { name: v.name, grade: v.grade, rank: v.rank || null, site: v.site || null, team: v.team || null, active: v.active, noCall: v.noCall, moCalls: v.moCalls, siteOnly: v.siteOnly, byHand: v.byHand, works: v.works?.length ? v.works : null, clinicsOnly: v.clinicsOnly, extra: v.extra };
-        toast((row ? await app.data.people.edit(row, fields) : await app.data.people.add(fields)) ? REFUSED : 'Saved');
+        if (!row) { toast(await app.data.people.add(fields) ? REFUSED : 'Saved'); return; }
+        // the rows under the old name first, then the person (as the store holds them at Save)
+        const plan = v.carry && v.name !== row.name ? planFor(row.name, v.name) : null;
+        const { done, refused } = plan && planSize(plan) ? await carry(plan) : { done: [], refused: false };
+        if (await app.data.people.edit(row, fields) || refused) { toast(REFUSED); return; }
+        if (!done.length) { toast('Saved'); return; }
+        undo.show(`Saved. Name changed in ${done.length} ${done.length === 1 ? 'row' : 'rows'}.`, () => unrename(row, done));
       },
     });
   }

@@ -1,5 +1,5 @@
 // The roster screens: the app loads, the Week tab is the first screen, the other tabs open (lazily), a viewer is read-only.
-import { test, expect, signIn, openTab, openWeek, openSettings, clickOpens, db, uniq } from './fixtures.mjs';
+import { test, expect, signIn, openTab, openWeek, openSettings, clickOpens, db, uniq, today } from './fixtures.mjs';
 
 test('a member lands on the Week tab and every tab opens', { tag: '@smoke' }, async ({ phone }) => {
   const page = await phone();
@@ -30,6 +30,44 @@ test('a person added in the data shows on the People tab', async ({ phone }) => 
   await db.put(`spaces/_/people/${name}`, { name, grade: 'reg', rank: 'Reg', active: true, updatedAt: Date.now() });
   await openTab(page, 'people');
   await expect(page.locator('#people-host')).toContainText(name, { timeout: 15_000 });
+});
+
+test('renaming a person carries their leave, request and list along; Undo puts the old name back', async ({ sized }) => {
+  const page = await sized(1280);
+  await signIn(page, 'member');
+  // two names, neither inside the other, so a row with one never matches the other
+  const name = uniq('Dr Ann Test'), renamed = uniq('Dr Ann Tester'), listName = uniq('Hand OT');
+  const d = new Date(); d.setDate(d.getDate() + 30);
+  const day = today(d);
+  const lv = uniq('lv'), rq = uniq('rq'), ls = uniq('ls');
+  await db.put(`spaces/_/people/${uniq('p')}`, { name, grade: 'con', rank: 'Consultant', active: true, updatedAt: Date.now() });
+  await db.put(`spaces/_/leave/${lv}`, { name, from: day, to: day, session: 'both', updatedAt: Date.now() });
+  await db.put(`spaces/_/requests/${rq}`, { name, date: day, type: 'cannot', tier: null, updatedAt: Date.now() });
+  await db.put(`spaces/_/lists/${ls}`, { site: 'NUH', kind: 'ot', name: listName, wd: 1, session: 'AM', consultant: 'Dr Eve Test', consultant2: name, need: 1, status: 'open', updatedAt: Date.now() });
+  // the Leave tab shows both rows, so the page has them before the sheet counts them
+  await openTab(page, 'leave');
+  const rowsOf = (/** @type {string} */ who) => page.locator('#leave-host .rl-row', { hasText: who });
+  await expect(rowsOf(name)).toHaveCount(2, { timeout: 15_000 });
+  await openTab(page, 'people');
+  const person = page.locator('#people-host .rl-open', { hasText: name });
+  await expect(person).toBeVisible({ timeout: 15_000 });
+  await clickOpens(person, page.locator('#edit-sheet'));
+  await expect(page.locator('#ef-carry')).toBeChecked();
+  await page.locator('#ef-name').fill(renamed);
+  await expect(page.locator('#edit-sheet .warn')).toHaveText('Also changes the name in 1 leave, 1 request and 1 list.');
+  await page.locator('#edit-save').click();
+  const toast = page.locator('#toasts .toast', { hasText: 'Saved. Name changed in 3 rows.' });
+  await expect(toast).toBeVisible();
+  await openTab(page, 'leave');
+  await expect(rowsOf(renamed)).toHaveCount(2);
+  await expect(rowsOf(name)).toHaveCount(0);
+  await expect(rowsOf(renamed).locator('.rl-tag', { hasText: /not on the roster/i })).toHaveCount(0);
+  const names = async () => [(await db.get(`spaces/_/leave/${lv}`))?.name, (await db.get(`spaces/_/requests/${rq}`))?.name,
+    (await db.get(`spaces/_/lists/${ls}`))?.consultant2, (await db.get(`spaces/_/lists/${ls}`))?.consultant];
+  await expect.poll(names, { timeout: 15_000 }).toEqual([renamed, renamed, renamed, 'Dr Eve Test']);
+  await toast.getByRole('button', { name: 'Undo' }).click();
+  await expect.poll(names, { timeout: 15_000 }).toEqual([name, name, name, 'Dr Eve Test']);
+  await expect(rowsOf(name)).toHaveCount(2);
 });
 
 test('a laptop: the side bar with icons and a hide button, the pages use the width, Calls draws on first open', async ({ sized }) => {
