@@ -6,7 +6,7 @@
 // her live formulas (a tally per person and an "accounted for everyone" check). The month's calls have their own small
 // layout. Pure.
 import { addDays, rangeDays, weekdayName, shortDay, MONTH_NAMES, MONTHS, monthDays } from './dates.js';
-import { DEFAULT_TIER_PLAN, TIERS, TIER_LABEL, callMapOf, dayType, isJunior, leaveIndex, tiersShown } from './model.js';
+import { DEFAULT_TIER_PLAN, TIERS, TIER_LABEL, callMapOf, conText, dayType, isJunior, leaveIndex, tiersShown } from './model.js';
 import { sectionsOf } from './sections.js';
 import { juniorsOn } from './grid.js';
 
@@ -90,12 +90,13 @@ export function weekLayout(o) {
 
   const sites = [...new Set(o.lists.map(l => l.site))].sort((a, b) => (SITE_ORDER.indexOf(a) + 1 || 9) - (SITE_ORDER.indexOf(b) + 1 || 9) || a.localeCompare(b));
   /** @param {ListSlot} l @returns {boolean} */
-  const closedList = l => l.status === 'closed' || (l.kind === 'clinic' && !!l.consultant && lv.blocks(l.consultant, l.day, l.session));
+  const closedList = l => l.status === 'closed' || (l.kind === 'clinic' && !!l.consultant && lv.blocks(l.consultant, l.day, l.session) && (!l.consultant2 || lv.blocks(l.consultant2, l.day, l.session)));
 
   /** @param {ListSlot} l @returns {Line} */
   function head(l) {
     const closed = closedList(l);
-    const who = closed ? (l.holiday ? 'CLOSED (PH)' : 'CLOSED') : l.emergency ? `EOT (${l.consultant ?? 'consultant'} away)` : l.consultant || (l.kind === 'hot' ? '' : 'EMPTY');
+    const con = conText(l);
+    const who = closed ? (l.holiday ? 'CLOSED (PH)' : 'CLOSED') : l.emergency ? `EOT (${con || 'consultant'} away)` : con || (l.kind === 'hot' ? '' : 'EMPTY');
     // (the hand-made grid also greys a clinic with no patients booked)
     const grey = closed || l.status === 'template' || l.status === 'empty' || (style === 'hand' && l.patients === 0);
     const nameText = style === 'hand' && l.kind === 'clinic' ? 'Clinic' : l.name;
@@ -103,10 +104,10 @@ export function weekLayout(o) {
     if (style === 'core') t = `${l.site} ${nameText}${who ? ` - ${who}` : ''}`;
     else {
       const flag = closed ? (l.holiday ? ' (public holiday)' : ' (closed)') : l.emergency ? ' EOT (consultant away)' : !l.consultant && l.kind !== 'hot' ? ' (empty)' : '';
-      t = `${[l.consultant, l.site, nameText, l.rooms].filter(Boolean).join(' ')}${l.patients != null && showPatients ? ` (${l.patients} pts)` : ''}${flag}`;
+      t = `${[con, l.site, nameText, l.rooms].filter(Boolean).join(' ')}${l.patients != null && showPatients ? ` (${l.patients} pts)` : ''}${flag}`;
     }
-    return { t, k: grey ? 'closed' : 'head', short: `${l.name}${closed ? ' (closed)' : l.emergency ? ' (EOT)' : l.consultant ? ` (${l.consultant})` : ''}`, kind: l.kind, site: l.site,
-      ...(l.consultant && !l.emergency ? { who: l.consultant } : {}), ...(l.emergency ? { eot: true } : {}) };
+    return { t, k: grey ? 'closed' : 'head', short: `${l.name}${closed ? ' (closed)' : l.emergency ? ' (EOT)' : con ? ` (${con})` : ''}`, kind: l.kind, site: l.site,
+      ...(con && !l.emergency ? { who: con } : {}), ...(l.emergency ? { eot: true } : {}) };
   }
   /** @param {string} day @param {'AM' | 'PM'} session @param {string} site @returns {Line[]} */
   function listLines(day, session, site) {

@@ -221,8 +221,10 @@ test('week: post-call, leave and free sections follow the sheet', () => {
     // every junior is in exactly one place per half-day: placed, free, on leave or post-call PM
     for (const p of fx.people.filter(p => p.grade !== 'con' && !p.extra)) {
       const n = p.name;
-      const am = built.grid[d].AM.some(g => g.juniors.includes(n));
-      const pm = built.grid[d].PM.some(g => g.juniors.includes(n));
+      // (running a list counts as placed: a registrar named as a list's consultant)
+      const runs = s => fx.lists.some(l => l.day === d && l.session === s && l.status === 'open' && l.consultant === n);
+      const am = built.grid[d].AM.some(g => g.juniors.includes(n)) || runs('AM');
+      const pm = built.grid[d].PM.some(g => g.juniors.includes(n)) || runs('PM');
       const f = built.free[d].find(x => x.name === n);
       const away = fxLv.full(n, d) || n === 'Dr Sigma Tham';
       if (away) { assert.ok(!am && !pm && !f, `${n} ${d} away`); continue; }

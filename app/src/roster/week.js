@@ -100,6 +100,8 @@ export function buildWeek(o) {
     /** @type {Record<Session, Set<string>>} */
     const taken = { AM: new Set(), PM: new Set() };
     grid[day] = { AM: [], PM: [] };
+    // someone running a list that session (an AC is graded as a registrar but can lead a list) is not placed on another
+    for (const l of lists) if (l.day === day && l.status === 'open') for (const n of [l.consultant, l.consultant2]) if (n) taken[l.session].add(n);
 
     /** @param {Person} p @param {Session} s @returns {boolean} */
     const available = (p, s) => !lv.blocks(p.name, day, s) && !today.includes(p.name) && !taken[s].has(p.name)
@@ -137,7 +139,7 @@ export function buildWeek(o) {
       for (const [mine, upTo, may] of steps) {
         if (session === 'PM') {
           for (const l of mine) {
-            const am = grid[day].AM.find(g => { const a = lists.find(x => x.id === g.list); return a && a.name === l.name && a.site === l.site && a.consultant === l.consultant && a.kind === l.kind; });
+            const am = grid[day].AM.find(g => { const a = lists.find(x => x.id === g.list); return a && a.name === l.name && a.site === l.site && a.consultant === l.consultant && (a.consultant2 ?? null) === (l.consultant2 ?? null) && a.kind === l.kind; });
             for (const name of am?.juniors ?? []) {
               const p = juniors.find(x => x.name === name);
               if (p && may(p, l) && canWork(p, l) && available(p, session) && upTo(l) > (placed.get(l.id)?.length ?? 0)) put(l, name);

@@ -29,25 +29,28 @@ select { padding: .5rem 2rem .5rem .65rem; }
 
 /* ---- Week ---- */
 .wk-bar { position: relative; }
-/* the week and month bars: [<] title [>] on top, then This week and Site, then the actions (Build first) */
-.wk-bar, .cl-bar { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "prev title next" "today site site" "end end end"; align-items: center; }
+/* the week and month bars: [<] title [>] on top, then Grid | Day, This week (off this week) and Site, then the one step
+   (Epic and Build until built, then Share) */
+.wk-bar, .cl-bar { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "prev title next" "mid mid mid" "end end end"; align-items: center; }
+.wk-mid { grid-area: mid; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.wk-mid .pp-views { margin: 0; }
 .cl-bar { grid-template-areas: "prev title next" "end end end"; }
 #week-prev, .cl-bar > button:first-child { grid-area: prev; }
 #week-next, .cl-bar > button:nth-of-type(2) { grid-area: next; }
 .wk-title, .cl-title { grid-area: title; }
-#week-today { grid-area: today; justify-self: start; }
-.wk-site-pick { grid-area: site; justify-self: end; }
+.wk-site-pick { margin-inline-start: auto; }
 .wk-bar-end, .cl-bar-end { grid-area: end; display: flex; flex-wrap: wrap; gap: .5rem; margin: 0; }
 #week-prev, #week-next, .cl-bar > button:first-child, .cl-bar > button:nth-of-type(2) { width: var(--tap, 2.75rem); height: var(--tap, 2.75rem); padding: 0; justify-content: center; border-radius: 50%; }
-#week-build, #calls-make { order: -1; }
+#calls-make { order: -1; }
 .wk-bar-end > button, .cl-bar-end > button { flex: 1 1 auto; justify-content: center; }
 @media (min-width: 700px) {
-  .wk-bar { grid-template-columns: auto auto auto auto 1fr; grid-template-areas: "prev title next today site" "end end end end end"; }
+  .wk-bar { grid-template-columns: auto auto auto 1fr auto; grid-template-areas: "prev title next mid end"; }
+  .wk-mid { padding-inline-start: .5rem; }
   .cl-bar { grid-template-columns: auto auto auto 1fr; grid-template-areas: "prev title next end"; }
   .wk-bar .wk-title, .cl-bar .cl-title { min-width: 11rem; }
   .wk-bar-end, .cl-bar-end { justify-content: flex-end; }
   .wk-bar-end > button, .cl-bar-end > button { flex: none; }
-  #week-build, #calls-make { order: 9; }
+  #calls-make { order: 9; }
 }
 .wk-title, .cl-title { margin: 0; font-size: 1.05rem; text-align: center; min-width: 0; }
 .wk-site-pick { display: inline-flex; align-items: center; gap: .35rem; }
@@ -113,6 +116,39 @@ select { padding: .5rem 2rem .5rem .65rem; }
 .wk-names { display: flex; flex-wrap: wrap; gap: .3rem; }
 .wk-name { border-radius: var(--pill-r, 1em); padding: .15rem .6rem; background: color-mix(in srgb, var(--muted) 16%, transparent); font-size: .9rem; }
 .wk-name i { font-style: normal; color: var(--muted); }
+/* the Grid: the hand-made sheet's layout, days across; scrolls sideways on a phone with the session column kept */
+.wt-scroll { overflow-x: auto; margin-inline: calc(-1 * var(--gap)); padding-inline: var(--gap); margin-block: var(--gap); }
+.wt { border-collapse: separate; border-spacing: 0; font-size: .78rem; line-height: 1.25; width: 100%; min-width: 38rem; table-layout: fixed; }
+.wt th, .wt td { vertical-align: top; text-align: left; padding: .3rem .3rem; border-bottom: 1px solid var(--line); }
+.wt td + td, .wt th + td, .wt thead th + th { border-inline-start: 1px solid var(--line); }
+.wt thead th { font-weight: 600; padding-block: .3rem; }
+.wt thead th.is-today { color: var(--accent); }
+.wt th[scope=row], .wt thead th:first-child { position: sticky; left: 0; z-index: 1; background: var(--bg); width: 2.9rem; font-weight: 600; }
+.wt tr.wt-first > * { border-top: 2px solid var(--line); }
+.wt td.is-ph { background: color-mix(in srgb, var(--muted) 10%, transparent); }
+.wt-sub { display: block; font-weight: 400; color: var(--muted); font-size: .78rem; }
+.wt-ph { color: var(--warn, var(--danger)); font-size: .75rem; margin-inline-start: .3rem; }
+.wt-list { --kind: var(--accent); border-inline-start: 3px solid var(--kind); padding-inline-start: .3rem; margin-block-end: .4rem; }
+.wt-list:last-child { margin-block-end: 0; }
+.wt-list.kind-clinic { --kind: #c98a1b; }
+.wt-list.kind-hot { --kind: #c4475c; }
+.wt-list.kind-msp { --kind: #7259c4; }
+.wt-list.is-off { opacity: .55; }
+.wt-list.is-off .wt-head { text-decoration: line-through; }
+.wt-list.is-eot { border-inline-start-style: dashed; }
+.wt-list.is-short { background: color-mix(in srgb, var(--warn, var(--danger)) 12%, transparent); }
+.wt-head { display: block; width: 100%; font: inherit; font-weight: 600; text-align: left; color: inherit; background: none; border: 0; border-radius: 0; padding: 0; min-height: 0; }
+.wt-flag { display: block; color: var(--muted); font-size: .75rem; }
+.wt-names { line-height: 1.35; }
+.wt-name { display: inline; font: inherit; color: inherit; background: none; border: 0; border-radius: 0; padding: 0; min-height: 0; text-align: left; }
+.wt-need { display: block; color: var(--warn, var(--danger)); font-size: .72rem; font-weight: 600; }
+.wk-mid .pp-view { padding-inline: 1rem; }
+.wt-oncall { display: grid; grid-template-columns: auto 1fr; gap: 0 .4rem; margin: 0; }
+.wt-oncall dt { color: var(--muted); }
+.wt-oncall dd { margin: 0; }
+.wt-plain { margin: 0; }
+.ui-screen:has(.wt-scroll:not([hidden])) > :not(.ui-large-title) { max-width: none; }
+.status-line:has([data-state="synced"]) { display: none; }   /* the bar's cloud says it too; the chip shows only when something waits or fails */
 .wk-session + .wk-session, .wk-extras { border-top: 1px solid var(--line); padding-top: .25rem; }
 @media (min-width: 900px) {
   /* five columns, the whole week; the day chips are not needed */
@@ -210,3 +246,7 @@ body { margin: 0; }
 .app-mark { flex: none; border-radius: 22%; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .pp-works input { width: 1.2rem; height: 1.2rem; }
+
+/* stopgap until the app-ui bump with app-ui#114: the tap menu's popover layer kept the browser's [popover] look
+   (fit-content size, border, overflow) and clipped the Share menu to a small square */
+.ui-menu-layer { width: auto; height: auto; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: none; color: inherit; overflow: visible; }

@@ -98,21 +98,25 @@
             <button type="button" id="week-prev" aria-label="Previous week"></button>
             <h2 class="wk-title" id="week-title"></h2>
             <button type="button" id="week-next" aria-label="Next week"></button>
-            <button type="button" id="week-today">This week</button>
-            <label class="wk-site-pick"><span class="small">Site</span> <select id="week-site"></select></label>
+            <div class="wk-mid">
+              <div class="pp-views" role="group" aria-label="Show">
+                <button type="button" class="wk-daychip pp-view" id="week-show-grid" aria-pressed="true">Grid</button>
+                <button type="button" class="wk-daychip pp-view" id="week-show-day" aria-pressed="false">Day</button>
+              </div>
+              <button type="button" id="week-today" hidden>This week</button>
+              <label class="wk-site-pick"><span class="small">Site</span> <select id="week-site"></select></label>
+            </div>
             <span class="wk-bar-end">
-              <button type="button" id="week-copy"></button>
-              <button type="button" id="week-xlsx"></button>
-              <button type="button" id="week-hand-xlsx"></button>
-              <button type="button" id="week-print"></button>
               <button type="button" id="week-epic" hidden></button>
               <button type="button" class="ui-primary" id="week-build" hidden></button>
+              <button type="button" id="week-share" aria-haspopup="menu" aria-expanded="false"></button>
             </span>
           </div>
           <p id="week-state-note" class="small" role="status"></p>
           <div id="week-state"></div>
           <div id="week-empty"></div>
           <div id="week-short" class="sh-panel"></div>
+          <div id="week-table" class="wt-scroll"></div>
           <div id="week-chips" class="wk-chips" role="group" aria-label="Day"></div>
           <div id="week-grid" class="wk-grid"></div>
           <div id="week-print-sheet" class="pr-sheet" aria-hidden="true"></div>

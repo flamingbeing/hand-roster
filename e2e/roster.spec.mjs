@@ -15,6 +15,11 @@ test('a member lands on the Week tab and every tab opens', { tag: '@smoke' }, as
   await expect(page.locator('#leave-page')).toBeVisible();
   await openWeek(page);
   await expect(page.locator('#week-view')).toBeVisible();
+  // opened again on this device: the start frame (a load state painted before sign-in is back) goes once the week is drawn
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect.poll(() => page.evaluate(() => window.starter.ready)).toBe(true);
+  await expect(page.locator('#week-table')).toBeVisible();
+  await expect(page.locator('#week-state .load-row')).toHaveCount(0);
   expect(errors, 'uncaught page errors').toEqual([]);
 });
 
