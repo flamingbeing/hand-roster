@@ -1,6 +1,6 @@
 // Sign-in, roles from the role doc, and the Week tab's lists.
 import AxeBuilder from './axe.mjs';
-import { test, expect, signIn, openWeek, addList, weekdayShown, synced, serverHas, db, uniq, APP } from './fixtures.mjs';
+import { test, expect, signIn, openWeek, openTab, clickOpens, addList, weekdayShown, synced, serverHas, db, uniq, APP } from './fixtures.mjs';
 
 test('signed out: the sign-in screen, accessible', { tag: '@smoke' }, async ({ phone }) => {
   const page = await phone();
@@ -24,6 +24,27 @@ test('a member adds a list: it shows on the Week tab and reaches the server', { 
   await synced(page);
   await serverHas(t);
   await expect(page.locator('#week-build')).toBeVisible();
+});
+
+test('a list deleted on the Lists tab comes back with Undo, after a reload too', async ({ phone }) => {
+  const page = await phone();
+  await signIn(page, 'member');
+  const t = uniq('undo');
+  await addList(page, t);
+  await synced(page);
+  await openTab(page, 'lists');
+  await clickOpens(page.locator('#lists-host .rl-open', { hasText: t }), page.locator('#edit-sheet'));
+  await page.locator('#edit-delete').click();
+  await expect(page.locator('#lists-host')).not.toContainText(t);
+  await page.locator('#toasts .toast', { hasText: `Deleted ${t}` }).getByRole('button', { name: 'Undo' }).click();
+  await expect(page.locator('#lists-host .rl-open', { hasText: t })).toBeVisible();
+  await synced(page);
+  await serverHas(t);
+  // the delete's tombstone on this device does not hide it once the page opens again
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect.poll(() => page.evaluate(() => window.starter.ready)).toBe(true);
+  await openTab(page, 'lists');
+  await expect(page.locator('#lists-host .rl-open', { hasText: t })).toBeVisible();
 });
 
 test('a viewer reads but cannot build or change', async ({ phone }) => {

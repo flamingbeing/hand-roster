@@ -3,7 +3,7 @@
 // roster/calls.js), a table of how many calls each person has,
 // and what breaks a rule. A tap on a day sets its calls by hand; a call set by hand is kept when the calls are made again.
 // A phone shows the days as a list, a wider screen as a month grid.
-import { icon, confirmModal, emptyState } from '@core/ui';
+import { icon, confirmModal, emptyState, undoToast } from '@core/ui';
 import { ICONS } from '../icons.js';
 import { $, h, fill } from '../dom.js';
 import { REFUSED } from '../items.js';
@@ -38,6 +38,8 @@ export function create(ctx) {
   let month = firstMonth(todayKey(), ctx.canWrite());
   let busy = false;
   const sheet = editSheet();
+  // the kit's Undo toast on the page's toaster (whose show hands back that toast's dismiss)
+  const undo = undoToast({ show: (text, o) => { const gone = toast(text, o); return () => { if (typeof gone === 'function') gone(); }; } }, { ms: 6000 });
   const host = $('calls-host');
   const empty = emptyState(host, { title: 'No people yet', hint: 'Add the doctors on the People tab first.' });
   const bar = h('div', { class: 'cl-bar' });
@@ -78,20 +80,28 @@ export function create(ctx) {
 
   async function make() {
     if (busy || !ctx.canWrite()) return;
-    const m = model();
+    const m = model(), mon = month;   // (the month on screen may change while it works)
     const locked = lockedMap(m.roster?.locked ?? [], m.calls);
     const hand = Object.keys(locked).length;
     const anyCalls = m.calls.some(c => TIERS.some(t => c[t]));
     // asked only once calls were set by hand (the month is being worked on); a month only made by the app is made again
-    if (anyCalls && hand > 0 && !await confirmModal(`Make the calls for ${monthTitle(month)} again? The ${hand} you set by hand stay; the rest will be made new.`, { title: 'Make calls', yes: 'Make calls' })) return;
+    if (anyCalls && hand > 0 && !await confirmModal(`Make the calls for ${monthTitle(mon)} again? The ${hand} you set by hand stay; the rest will be made new.`, { title: 'Make calls', yes: 'Make calls' })) return;
     busy = true; $('calls-make').setAttribute('disabled', ''); stateNote.textContent = 'Making the calls…';
     try {
       await new Promise(r => setTimeout(r, 30));   // let the note paint before the solver holds the page
       const seed = (m.roster?.seed ?? 0) + 1;
-      const res = solveCalls({ month, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, seed, prior: m.prior, locked, tiers: m.plan, iterations: 20000 });
-      const refused = await app.data.rosters.upsert(month, m.roster, { calls: callRowsOf(res.assignments), problems: problemLines(res.problems), seed, built: Date.now() });
-      toast(refused ? REFUSED : res.problems.length ? `Made. ${res.problems.length} thing${res.problems.length === 1 ? '' : 's'} to look at.` : 'Made');
+      // the month as it was, for Undo (no month yet: an empty one)
+      const was = { calls: m.roster?.calls ?? [], locked: m.roster?.locked ?? [], problems: m.roster?.problems ?? [], seed: m.roster?.seed, built: m.roster?.built ?? 0 };
+      const res = solveCalls({ month: mon, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, seed, prior: m.prior, locked, tiers: m.plan, iterations: 20000 });
+      const refused = await app.data.rosters.upsert(mon, m.roster, { calls: callRowsOf(res.assignments), problems: problemLines(res.problems), seed, built: Date.now() });
+      if (refused) toast(REFUSED);
+      else undo.show(res.problems.length ? `Made. ${res.problems.length} thing${res.problems.length === 1 ? '' : 's'} to look at.` : 'Made', () => putBack(mon, was));
     } finally { busy = false; $('calls-make').removeAttribute('disabled'); draw(); }
+  }
+
+  /** Undo: the month's fields put back as they were, on the month as it is by then @param {string} mon @param {Record<string, unknown>} was */
+  async function putBack(mon, was) {
+    if (await app.data.rosters.upsert(mon, /** @type {any} */ (store.row('rosters', mon)), was)) toast(REFUSED);
   }
 
   /** @param {string} date */
@@ -114,10 +124,11 @@ export function create(ctx) {
           .problems.filter(p => p.date === date || (next[p.tier] === p.name && Math.abs(Date.parse(p.date) - Date.parse(date)) <= 4 * 864e5)).map(p => readDays(p.text));
       },
       onSave: async v => {
-        let state = { calls: m.calls, locked: m.roster?.locked ?? [] };
+        const mon = month, was = { calls: m.calls, locked: m.roster?.locked ?? [] };
+        let state = was;
         for (const t of tiers) if ((v[t] || null) !== (row?.[t] ?? null)) state = setCall(state.calls, state.locked, date, t, v[t] || null);
-        const refused = await app.data.rosters.upsert(month, m.roster, { calls: state.calls, locked: state.locked });
-        toast(refused ? REFUSED : 'Saved');
+        const refused = await app.data.rosters.upsert(mon, m.roster, { calls: state.calls, locked: state.locked });
+        if (refused) toast(REFUSED); else undo.show('Saved', () => putBack(mon, was));
       },
     });
   }

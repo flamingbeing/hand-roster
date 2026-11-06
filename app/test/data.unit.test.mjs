@@ -1,5 +1,5 @@
 // The data modules (src/data/): what each kind allows, and how a write reaches the sync engine's save. A fake save stands in
-// for the write queue. Invented names only.
+// for the write queue (for Undo after a delete, the real engine over an in-memory server). Invented names only.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { kindOps, refusal, cleaner, int, day } from '../src/data/ops.js';
@@ -7,6 +7,8 @@ import * as people from '../src/data/people.js';
 import * as lists from '../src/data/lists.js';
 import * as leave from '../src/data/leave.js';
 import { rosters, weeks } from '../src/data/plans.js';
+// the real sync engine, for Undo after a delete (an internal module of the pinned app-sync: its queue and device copy)
+import { createSyncCore } from '../../node_modules/app-sync/src/core.js';
 
 /** @param {{ fail?: string }} [o] */
 function fake(o = {}) {
@@ -132,4 +134,107 @@ test('kindOps: upsert makes the month the first time, edits it after', async () 
 test('kindOps: a refused save comes back as its reason', async () => {
   const { ops } = fake({ fail: 'permission-denied' });
   assert.equal(await ops(people.COLL, people.clean).add({ name: 'x', grade: 'mo' }), 'permission-denied');
+});
+
+test('rosters: Undo of a first Make calls puts back an empty month', () => {
+  assert.deepEqual(rosters.clean({ calls: [], locked: [], problems: [], built: 0 }), { calls: [], locked: [], problems: [], built: 0 });
+  assert.equal('seed' in rosters.clean({ calls: [], seed: undefined }), false, 'no seed before: none put back');
+});
+
+// Undo after a delete puts the same record back under its own id (kindOps put). The real engine over an in-memory server
+// checks the delete's tombstone does not hide it, on this page or after a reload.
+
+// the server: one map per collection; a save is stamped as app-sync's Firestore adapter stamps it (after the server's copy
+// and after the delete's tombstone, which the engine passes in as after)
+/** @param {() => number} clock */
+function memoryServer(clock) {
+  /** @type {Map<string, Map<string, any>>} */
+  const colls = new Map();
+  /** @type {Map<string, Set<(s: any) => void>>} */
+  const subs = new Map();
+  const of = (/** @type {string} */ c) => { if (!colls.has(c)) colls.set(c, new Map()); return /** @type {Map<string, any>} */ (colls.get(c)); };
+  const tell = (/** @type {string} */ c, /** @type {any} */ change) => { for (const fn of subs.get(c) || []) fn({ changes: [change], fromCache: false, hasPendingWrites: false }); };
+  return {
+    docs: of,
+    listen(/** @type {string} */ _s, /** @type {string} */ c, /** @type {any} */ _plan, /** @type {(s: any) => void} */ onSnap) {
+      if (!subs.has(c)) subs.set(c, new Set());
+      subs.get(c)?.add(onSnap);
+      queueMicrotask(() => onSnap({ full: true, docs: [...of(c).values()], changes: [], fromCache: false, hasPendingWrites: false }));
+      return () => { subs.get(c)?.delete(onSnap); };
+    },
+    async fetchOne(/** @type {string} */ _s, /** @type {string} */ c, /** @type {string} */ id) { return of(c).get(id) || null; },
+    async commit(/** @type {string} */ _s, /** @type {string} */ c, /** @type {any} */ record, /** @type {any} */ _base, /** @type {any} */ extra = {}) {
+      const id = String(record.id), cur = of(c).get(id);
+      if (record._deleted) { of(c).delete(id); if (cur) tell(c, { type: 'removed', id, doc: cur }); return { id, _deleted: true }; }
+      const doc = { ...record, id, updatedAt: Math.max(clock(), (cur?.updatedAt || 0) + 1, (extra.after || 0) + 1) };
+      of(c).set(id, doc);
+      tell(c, { type: cur ? 'modified' : 'added', id, doc });
+      return doc;
+    },
+    clearCache: async () => {},
+  };
+}
+
+// the queue's outbox, kept in memory (the browser's is IndexedDB)
+function memoryOutbox() {
+  /** @type {Map<string, any>} */
+  const jobs = new Map();
+  return {
+    name: 'hr-restore-test-outbox', realm: 'default',
+    async put(/** @type {any} */ job) { const c = { ...JSON.parse(JSON.stringify(job)), realm: 'default' }; jobs.set(c.key, c); return c; },
+    async list(/** @type {string} */ owner) { return [...jobs.values()].filter(j => j.owner === owner); },
+    async get(/** @type {string} */ key) { return jobs.get(key) || null; },
+    async remove(/** @type {string} */ key) { jobs.delete(key); },
+    async forget(/** @type {string} */ owner) { for (const [k, j] of jobs) if (j.owner === owner) jobs.delete(k); },
+  };
+}
+
+const settle = () => new Promise(r => setTimeout(r, 20));
+
+test('Undo after a delete: remove then put of the same row shows it again, after a reload too', async () => {
+  let t = 1_000_000;
+  const clock = () => t;
+  const server = memoryServer(clock);
+  const core = createSyncCore(/** @type {any} */ ({ name: 'hr-restore-test', colls: [people.COLL], path: (/** @type {string} */ s, /** @type {string} */ c) => ['spaces', s, c],
+    sdk: async () => ({}), adapter: server, outbox: memoryOutbox(), storage: null, win: null, nav: { onLine: true }, now: clock, watchEvery: 0 }),
+  { load: async () => /** @type {any} */ ({}), user: () => ({ uid: 'u1', email: 'ann@example.test', name: 'Dr Ann Test', photo: '', verified: true }) });
+  await core.api.open('_');
+  /** @type {any[]} */
+  let shown = [];
+  const off = core.api.watch('_', people.COLL, (/** @type {any[]} */ list) => { shown = list.filter(x => !x._deleted); });
+  const save = (/** @type {string} */ coll, /** @type {any} */ record, /** @type {unknown} */ base) => core.api.save(coll, '_', record, /** @type {any} */ (base));
+  let n = 0;
+  const ops = kindOps({ save, id: () => `p${++n}`, now: clock }, people.COLL, people.clean);
+  // as cloud.js: a delete also leaves the device copy at once
+  const remove = (/** @type {any} */ row) => { void core.hub.drop('_', people.COLL, [row.id]); return ops.remove(row); };
+
+  assert.equal(await ops.add({ name: 'Dr Ann Test', grade: 'mo', active: true }), '');
+  await core.api.flush(500); await settle();
+  const row = shown.find(r => r.name === 'Dr Ann Test');
+  assert.ok(row, 'added and shown');
+
+  t += 10;
+  assert.equal(await remove(row), '');
+  await core.api.flush(500); await settle();
+  assert.equal(shown.some(r => r.id === row.id), false, 'gone after the delete');
+  assert.equal(server.docs(people.COLL).has(row.id), false);
+
+  // Undo: the same row, under its own id, from a device whose clock is back at the deleted version's stamp: only the
+  // engine's tombstone stamp (passed to the save as after) lifts it above the delete
+  t = row.updatedAt;
+  assert.equal(await ops.put(row), '');
+  await core.api.flush(500); await settle();
+  const back = shown.find(r => r.id === row.id);
+  assert.ok(back, 'shown again after the restore');
+  assert.equal(back.name, 'Dr Ann Test');
+  assert.ok(server.docs(people.COLL).has(row.id), 'on the server again');
+  // and after a reload (the device copy, which remembers the tombstone, then the server's full list)
+  off();
+  await core.hub.stopAll();
+  shown = [];
+  const off2 = core.api.watch('_', people.COLL, (/** @type {any[]} */ list) => { shown = list.filter(x => !x._deleted); });
+  await settle();
+  assert.ok(shown.some(r => r.id === row.id), 'shown again after a reload');
+  off2();
+  await core.hub.stopAll();
 });

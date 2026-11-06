@@ -1,6 +1,6 @@
 // The Lists tab (#lists-host): the weekly template of OT lists and clinics, one row per list per session, Monday to Friday.
 // The Week tab lays a week's own changes over it (a consultant away, a list closed), so this is where the usual pattern lives.
-import { icon, emptyState } from '@core/ui';
+import { icon, emptyState, undoToast } from '@core/ui';
 import { ICONS } from '../icons.js';
 import { $, h, fill } from '../dom.js';
 import { REFUSED } from '../items.js';
@@ -16,6 +16,8 @@ const STATUS_LABEL = Object.fromEntries(STATUSES);
 export function create(ctx) {
   const { app, store, toast } = ctx;
   const sheet = editSheet();
+  // the kit's Undo toast on the page's toaster (whose show hands back that toast's dismiss)
+  const undo = undoToast({ show: (text, o) => { const gone = toast(text, o); return () => { if (typeof gone === 'function') gone(); }; } }, { ms: 8000 });
   const host = $('lists-host');
   const empty = emptyState(host, { title: 'No lists yet', hint: 'Add the OT lists and clinics that run each week. The Week tab is built from them.' });
   const bar = h('div', { class: 'rl-bar' });
@@ -61,7 +63,11 @@ export function create(ctx) {
         { key: 'status', label: 'Status', type: 'select', options: STATUSES },
         { key: 'external', label: 'Run by another team (nobody from here is placed)', type: 'check' },
       ],
-      onDelete: row ? async () => { toast(await app.data.lists.remove(row) ? REFUSED : 'Deleted'); } : undefined,
+      onDelete: row ? async () => {
+        if (await app.data.lists.remove(row)) { toast(REFUSED); return; }
+        // Undo puts the same record back, under its own id
+        undo.show(`Deleted ${row.name}, ${DAYS[row.wd - 1] ?? ''} ${row.session}`, async () => { if (await app.data.lists.put(row)) toast(REFUSED); });
+      } : undefined,
       onSave: async v => {
         const [consultant2 = null, consultant3 = null] = coOf(v.consultant, v.consultant2, v.consultant3);
         const fields = { site: v.site, kind: v.kind, name: v.name, wd: Number(v.wd), session: v.session, consultant: v.consultant || null,
