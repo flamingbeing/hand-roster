@@ -1,6 +1,5 @@
 // Hand edits to a month's calls, the day sheet's choices, and what to do with the solver's answer. Pure.
-import { solveCalls } from './calls.js';
-import { addDays, diffDays, shortDay, weekdayName } from './dates.js';
+import { diffDays, shortDay, weekdayName } from './dates.js';
 import { TIERS, TIER_LABEL, callRowsOf, callMapOf, canTake, leaveIndex } from './model.js';
 
 /** @typedef {import('./model.js').CallDay} CallDay */
@@ -80,43 +79,6 @@ export function keepGoodCalls(month, calls, locked, check) {
     if (date.startsWith(`${month}-`)) out[date] = { ...out[date], ...row };
   }
   return out;
-}
-
-/**
- * "Fix the problems only": the solver fills the freed calls and keeps the rest. Owner, 7 Nov 2026: the clear-days rule holds
- * here as in Make all new, across the month's ends (against next month's calls once made, as last month's) and within it.
- * When the kept calls box a freed one in, so it could only be filled by breaking the rule, the kept calls within minGap days
- * of each problem day (never those set by hand) are freed too and the month solved again, twice as far the next round (three
- * rounds at most), taken only when it leaves fewer broken rules. Whatever still breaks one is reported as a problem.
- * @param {import('./calls.js').SolveOptions} o the month's solver options, without `locked`
- * @param {import('./model.js').CallMap} keep keepGoodCalls's answer
- * @param {import('./model.js').CallMap} hand the calls set by hand (lockedMap): they never move
- * @returns {{ result: import('./calls.js').SolveResult, moved: number }} moved: how many kept calls went to someone else
- */
-export function fixCalls(o, keep, hand) {
-  const minGap = Math.max(1, o.minGap ?? 2);
-  let best = solveCalls({ ...o, locked: keep });
-  for (let round = 1; round <= 3; round++) {
-    const bad = best.problems.filter(p => p.rule === 'gap' || p.rule === 'double' || p.rule === 'unfilled');
-    if (!bad.length) break;
-    const reach = minGap * round;
-    /** @type {Set<string>} */
-    const near = new Set();
-    for (const p of bad) for (let k = -reach; k <= reach; k++) near.add(addDays(p.date, k));
-    /** @type {import('./model.js').CallMap} */
-    const locked = {};
-    for (const [date, row] of Object.entries(keep)) {
-      for (const t of TIERS) {
-        const name = row?.[t];
-        if (name && (!near.has(date) || hand[date]?.[t])) (locked[date] ??= {})[t] = name;
-      }
-    }
-    const next = solveCalls({ ...o, locked });
-    if (next.cost.hard < best.cost.hard) best = next;
-  }
-  let moved = 0;
-  for (const [date, row] of Object.entries(keep)) for (const t of TIERS) if (row?.[t] && best.assignments[date]?.[t] !== row[t]) moved++;
-  return { result: best, moved };
 }
 
 /**

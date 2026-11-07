@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { matchName } from '../src/roster/names.js';
 import { checkCalls } from '../src/roster/calls-check.js';
-import { applyDayEdit, callChoices, dayLabel, fixCalls, handCount, keepGoodCalls, setCall } from '../src/roster/calls-edit.js';
+import { applyDayEdit, callChoices, dayLabel, handCount, keepGoodCalls, setCall } from '../src/roster/calls-edit.js';
 import { solveCalls } from '../src/roster/calls.js';
 import { monthDays } from '../src/roster/dates.js';
 
@@ -188,31 +188,30 @@ test('keepGoodCalls: keeps the fine calls and the hand-set ones, frees the probl
   assert.ok(res.assignments['2026-12-03'].con);
 });
 
-test('fixCalls: Fix the problems only holds the gap against next month (owner 7 Nov 2026), moving good calls nearby only when it must', () => {
+test('Fix the problems only: the freed calls keep clear of next month\'s (owner 7 Nov 2026), or the clash is reported', () => {
   const month = '2026-11';
-  const cons = ['Dr Ann Test', 'Dr Bo Test', 'Dr Cy Test', 'Dr Di Test'];
   const only = /** @type {any} */ ({ weekday: ['con'], sat: ['con'], sun: ['con'], ph: ['con'] });
-  const staff = cons.map(name => ({ name, grade: 'con' }));
-  // a tight rota (each every 4th day), then December made with the 30th's person on 1 Dec
-  const calls = monthDays(month).map((date, i) => ({ date, con: cons[i % 4] }));
-  const last = calls[29].con;
-  const after = Object.fromEntries([1, 2, 3, 4].map((d, k) => [`2026-12-0${d}`, { con: cons[(cons.indexOf(last) + k) % 4] }]));
-  const check = checkCalls({ month, calls, people: staff, tiers: only, minGap: 2, after });
-  assert.deepEqual(check.problems.map(p => p.date), ['2026-11-30']);
-  const keep = keepGoodCalls(month, calls, [], check);
-  const o = { month, people: staff, tiers: only, minGap: 2, after, seed: 2, iterations: 20000 };
-  // with every other call kept, each consultant is within two days of a call on the 30th: the plain refill must break the rule
-  assert.ok(solveCalls({ ...o, locked: keep }).problems.some(p => p.rule === 'gap'));
-  const { result, moved } = fixCalls(o, keep, {});
-  assert.deepEqual(result.problems, []);
-  assert.ok(moved > 0 && moved <= 7, `moved ${moved}`);
-  // calls well before the month's end stay as they were
-  for (const c of calls.filter(c => c.date < '2026-11-20')) assert.equal(result.assignments[c.date].con, c.con);
-  // nothing to fix: the same as the plain solve, nothing moved
-  const fine = keepGoodCalls(month, calls, [], { problems: [] });
-  assert.equal(fixCalls({ ...o, after: undefined }, fine, {}).moved, 0);
-  // a call set by hand never moves, even when moving it would help
-  const hand = { '2026-11-29': { con: calls[28].con } };
-  const withHand = fixCalls(o, { ...keep, ...hand }, hand);
-  assert.equal(withHand.result.assignments['2026-11-29'].con, calls[28].con);
+  /** @param {string[]} cons */
+  const setup = cons => {
+    const staff = cons.map(name => ({ name, grade: 'con' }));
+    // a rota of the month, then December made with the 30th's person on 1 Dec (and the rota carried on)
+    const calls = monthDays(month).map((date, i) => ({ date, con: cons[i % cons.length] }));
+    const at = cons.indexOf(calls[29].con);
+    const after = Object.fromEntries([1, 2, 3, 4].map((d, k) => [`2026-12-0${d}`, { con: cons[(at + k) % cons.length] }]));
+    const check = checkCalls({ month, calls, people: staff, tiers: only, minGap: 2, after });
+    assert.deepEqual(check.problems.map(p => p.date), ['2026-11-30']);
+    const keep = keepGoodCalls(month, calls, [], check);
+    const res = solveCalls({ month, people: staff, tiers: only, minGap: 2, after, locked: keep, seed: 2, iterations: 20000 });
+    for (const [date, row] of Object.entries(keep)) assert.equal(res.assignments[date].con, row.con);
+    return { res, after };
+  };
+  // five consultants: the one clear of 28-29 Nov and 1-2 Dec takes the 30th, nothing broken
+  const five = setup(['Dr Ann Test', 'Dr Bo Test', 'Dr Cy Test', 'Dr Di Test', 'Dr Ed Test']);
+  assert.equal(five.res.assignments['2026-11-30'].con, 'Dr Bo Test');
+  assert.deepEqual(five.res.problems, []);
+  // four, each every 4th day: nobody is clear for the 30th; it is still filled and the clash reported, the good calls kept
+  const four = setup(['Dr Ann Test', 'Dr Bo Test', 'Dr Cy Test', 'Dr Di Test']);
+  assert.ok(four.res.assignments['2026-11-30'].con);
+  assert.ok(four.res.problems.some(p => p.rule === 'gap'));
+  assert.ok(!four.res.problems.some(p => p.rule === 'unfilled'));
 });
