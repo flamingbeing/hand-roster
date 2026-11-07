@@ -121,7 +121,7 @@ test('hand grid: title, one row per section, "Consultant SITE Clinic rooms (pati
 
 test('calls layout: a row a day, four tiers, off days marked, counts without the idle', () => {
   const cl = callsLayout({
-    month: '2026-11', calls, holidays: ['2026-11-08'], tierPlan: OLD_PLAN,
+    month: '2026-11', calls, holidays: ['2026-11-08', '2026-11-09'], tierPlan: OLD_PLAN,
     counts: [{ name: 'Dr Ann Test', total: 1, weekend: 0, tiers: { reg: 1 } }, { name: 'Dr Zed Test', total: 0, weekend: 0, tiers: {} }],
   });
   assert.deepEqual(cl.head, ['Date', 'Day', 'CON', 'REG', 'MO (NUH)', 'MO (NTFGH)']);
@@ -129,7 +129,9 @@ test('calls layout: a row a day, four tiers, off days marked, counts without the
   assert.deepEqual(cl.rows[1].cells, ['2 Nov', 'Mon', 'Dr Fay Test', 'Dr Ann Test', 'Dr Dan Test', 'Dr Cat Test']);
   assert.deepEqual(cl.rows[6].cells, ['7 Nov', 'Sat', 'Dr Eve Test', 'Dr Ben Test', '–', '–']);
   assert.equal(cl.rows[6].off, true);
-  assert.equal(cl.rows[7].cells[1], 'Sun (PH)');
+  // a Sunday holiday is a Sunday for calls (owner, 7 Nov 2026); its Monday in lieu is the holiday
+  assert.equal(cl.rows[7].cells[1], 'Sun');
+  assert.equal(cl.rows[8].cells[1], 'Mon (PH)');
   assert.equal(cl.rows[2].cells[2], '', 'a weekday with no call yet is blank, not a dash');
   assert.deepEqual(cl.counts, [['Dr Ann Test', '1', '0', '0', '1', '0', '0']]);
   assert.equal(cl.title, 'HRM on-call roster, November 2026');
