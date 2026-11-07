@@ -50,6 +50,24 @@ export function undoOf(row, out) {
   return was;
 }
 
+/**
+ * Undo for an edit saved with planWrite, as a function of the record as it is when Undo is tapped: an edit onto the record
+ * puts its fields back (undoOf); an edit into an existing draft puts back only the draft fields it wrote, so a change another
+ * maker made to the draft meanwhile stays; an edit that started the draft drops it.
+ * @param {Row | undefined} row  the record before @param {Row} fields  the edit's fields @param {string[]} keys @param {boolean} [toDraft]
+ * @returns {(now: Row | undefined) => Row}
+ */
+export function undoPlan(row, fields, keys, toDraft = false) {
+  if (!row?.draft && !toDraft) { const was = undoOf(row, fields); return () => was; }
+  const top = Object.fromEntries(Object.keys(fields).filter(k => !keys.includes(k)).map(k => [k, row?.[k] ?? NONE[k] ?? null]));
+  if (!row?.draft) return () => ({ ...top, draft: null });
+  const was = Object.fromEntries(Object.keys(fields).filter(k => keys.includes(k)).map(k => [k, row.draft[k] ?? NONE[k] ?? null]));
+  return now => ({ ...top, ...planWrite(now, was, keys) });
+}
+
+/** a record's plan as a maker sees it, as text: two equal ones hold the same week or calls @param {Row | undefined} row @param {string[]} keys */
+export const planSig = (row, keys) => JSON.stringify(keys.map(k => asMaker(row)?.[k] ?? null));
+
 /** Publish: the draft laid over the published fields (a field it lacks: empty), and dropped @param {Row | undefined} row @param {string[]} keys @returns {Row} */
 export const publishOf = (row, keys) => ({ ...Object.fromEntries(keys.map(k => [k, row?.draft?.[k] ?? NONE[k]])), draft: null });
 /** Back to draft: a draft started from the published fields (viewers keep seeing them until Publish) @param {Row | undefined} row @param {string[]} keys @returns {Row} */

@@ -11,8 +11,9 @@ test('Build again previews, Apply saves a draft viewers don\'t see, Publish show
   for (let i = 0; i < 38; i++) await page.locator('#week-next').click();
   await expect(page.locator('#week-title')).toHaveClass(/is-away/);
   const mon = /** @type {string} */ (await page.locator('#week-grid .wk-day').first().getAttribute('data-day'));
-  const a = uniq('OT P'), [p1, p2] = ['Dr Pia Test', 'Dr Quy Test'].map(n => uniq(n));
-  for (const n of [p1, p2]) await db.put(`spaces/_/people/${n}`, { name: n, grade: 'mo', rank: 'MO', active: true, updatedAt: Date.now() });
+  // spares besides Pia: other specs' Monday lists run at the same time and take free people too
+  const a = uniq('OT P'), [p1, ...spare] = ['Dr Pia Test', 'Dr Quy Test', 'Dr Rex Test', 'Dr Sol Test', 'Dr Tia Test'].map(n => uniq(n));
+  for (const n of [p1, ...spare]) await db.put(`spaces/_/people/${n}`, { name: n, grade: 'mo', rank: 'MO', active: true, updatedAt: Date.now() });
   await db.put(`spaces/_/lists/${a}`, { site: 'NUH', kind: 'ot', name: a, wd: 1, session: 'AM', need: 2, status: 'open', updatedAt: Date.now() });
   await expect(page.locator(`#week-table .wt-list[data-list="${a}"]`)).toHaveCount(1, { timeout: 15_000 });
   // a week built before drafts: published; one short on A

@@ -136,3 +136,14 @@ that tab); without it the print CSS prints the Week.
   score of a built week breaks only what the builder itself reports short.
 - `tools/modules.mjs` and `tools/sw-files.mjs` carry app-starter#139's lines (app-roster as a core package, its imports
   precached) until the next template update.
+
+## Draft and published, preview (7 Nov 2026; decision 0015)
+
+- `weeks` and `rosters` records: their own fields are what viewers see; `draft` (null or a map of `WEEK_PLAN` /
+  `MONTH_PLAN` fields) is a maker's working copy. Makers read `asMaker(row)` (week.js `weekModel(store, mon, maker)`,
+  calls.js `model`, leave clashes); every save goes through `planWrite` (into the draft when there is one or for a build).
+  Undo of a draft edit puts back only the fields it wrote (`undoPlan`). A new plan field goes in `drafts.js`, the cleaner
+  (`data/plans.js`) and both `draftOk` lists in the rules; `app/test/drafts.unit.test.mjs` checks they agree.
+- Build again, Reset week and Make calls on a week or month with people on it show a preview (`#week-plan` / `#calls-plan`,
+  `.is-new` marks) with Apply or Discard; Apply refuses when the plan changed since (`planSig`). A first build or Make calls
+  goes straight into the draft. Print, Excel and copy read the week without the preview (`real()` in week.js).

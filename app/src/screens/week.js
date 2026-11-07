@@ -139,7 +139,7 @@ export function weekScreen(ctx) {
   const exportCode = () => exportMod.need('exporter');
   window.addEventListener('beforeprint', () => {
     const x = exportMod.loaded('exporter');
-    if (x && !$('week-page').hidden) x.renderPrint($('week-print-sheet'), layoutInput(model(), monday));
+    if (x && !$('week-page').hidden) x.renderPrint($('week-print-sheet'), layoutInput(real(), monday));
   });
   $('week-epic').replaceChildren(icon(ICONS.listChecks), 'Check against Epic');
   $('week-epic').addEventListener('click', () => edit(e => e.epicSheet()));
@@ -198,14 +198,14 @@ export function weekScreen(ctx) {
   async function printWeek() {
     await guarded(async () => {
       const x = await exportCode();
-      x.renderPrint($('week-print-sheet'), layoutInput(model(), monday));
+      x.renderPrint($('week-print-sheet'), layoutInput(real(), monday));
       window.print();
     }, 'Could not prepare the print.');
   }
   /** @param {'core' | 'hand'} style  the CORE sheet, or the hand-made grid with its formulas */
   async function exportXlsx(style) {
     await guarded(async () => {
-      const m = model();
+      const m = real();   // (never a preview)
       if (!m.lists.length) { toast('Nothing to export yet.'); return; }
       const x = await exportCode();
       const o = layoutInput(m, monday);
@@ -227,7 +227,7 @@ export function weekScreen(ctx) {
   /** copies one day's roster as chat text @param {string} day */
   async function copyDay(day) {
     await guarded(async () => {
-      const mon = mondayOf(day), m = model(mon);
+      const mon = mondayOf(day), m = real(mon);
       if (!m.built) { toast(`${dayName(day)} is not built yet. Build that week first.`); return; }
       const x = await exportCode();
       await copied(x, x.whatsappText(day, layoutInput(m, mon)), dayName(day));
@@ -236,7 +236,7 @@ export function weekScreen(ctx) {
   /** copies the week on screen, Monday to Friday, as chat text */
   async function copyWeek() {
     await guarded(async () => {
-      const mon = monday, m = model(mon);
+      const mon = monday, m = real(mon);
       if (!m.built) { toast(`The week of ${shortDay(mon)} is not built yet. Build it first.`); return; }
       const x = await exportCode();
       await copied(x, x.weekText(layoutInput(m, mon)), `the week of ${shortDay(mon)}`);

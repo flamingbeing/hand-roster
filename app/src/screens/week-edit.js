@@ -24,7 +24,7 @@ import { conText, settleLists } from '../roster/model.js';
 import { listName, sectionsOf, whyNot } from '../roster/sections.js';
 import { shortOptions } from '../roster/short.js';
 import { gridRows, isPinned, juniorsOn, weekBuilt } from '../roster/grid.js';
-import { WEEK_PLAN, backToDraftOf, gridChanges, planState, planWrite, publishOf, undoOf } from '../roster/drafts.js';
+import { WEEK_PLAN, backToDraftOf, gridChanges, planSig, planState, planWrite, publishOf, undoOf, undoPlan } from '../roster/drafts.js';
 import { changedRows, keepOf, pinsOf, withPins } from '../roster/pins.js';
 import { applyEdit, applyEdits, keptAsks, mergeOverrides } from '../roster/week-edits.js';
 import { listsDrift } from '../roster/lists-drift.js';
@@ -63,13 +63,15 @@ export function weekEdit({ ctx, model, monday, draw }) {
   /**
    * Writes fields onto the week's record as it is now, with Undo: it puts them back as they were, on the record as it is by then.
    * @param {string} mon @param {Record<string, unknown>} out  the record's fields (draft: the whole draft) @param {string} said
+   * @param {(now: any) => Record<string, unknown>} [back]  Undo's fields from the record as it is then (default: each field as it was)
    * @returns {Promise<boolean>} saved
    */
-  async function write(mon, out, said) {
+  async function write(mon, out, said, back) {
     const row = /** @type {any} */ (store.row('weeks', mon)), was = undoOf(row, out);
     if (await app.data.weeks.upsert(mon, row, out)) { toast(REFUSED); return false; }
     undo.show(said, async () => {
-      if (await app.data.weeks.upsert(mon, /** @type {any} */ (store.row('weeks', mon)), was)) toast(REFUSED);
+      const now = /** @type {any} */ (store.row('weeks', mon));
+      if (await app.data.weeks.upsert(mon, now, back ? back(now) : was)) toast(REFUSED);
     });
     return true;
   }
@@ -77,10 +79,14 @@ export function weekEdit({ ctx, model, monday, draw }) {
    * Saves some of a week's fields, with Undo: into its draft when it has one or `toDraft` (a build), else onto the week.
    * @param {string} mon @param {Record<string, unknown>} fields @param {string} said @param {boolean} [toDraft]
    */
-  const save = (mon, fields, said, toDraft = false) => (held() ? Promise.resolve(false) : write(mon, planWrite(/** @type {any} */ (store.row('weeks', mon)), fields, WEEK_PLAN, toDraft), said));
+  function save(mon, fields, said, toDraft = false) {
+    if (held()) return Promise.resolve(false);
+    const row = /** @type {any} */ (store.row('weeks', mon));
+    return write(mon, planWrite(row, fields, WEEK_PLAN, toDraft), said, undoPlan(row, fields, WEEK_PLAN, toDraft));
+  }
 
   // the preview of Build again or Reset week: the new week's fields, the Build toast's words, the check, what changes
-  /** @type {{ mon: string, fields: Record<string, any>, said: string, check: { words: string, rows: import('../roster/report.js').ReportRow[], short: { slot: string, text: string }[] }, cells: Set<string>, lists: Set<string>, n: number } | null} */
+  /** @type {{ mon: string, sig: string, fields: Record<string, any>, said: string, check: { words: string, rows: import('../roster/report.js').ReportRow[], short: { slot: string, text: string }[] }, cells: Set<string>, lists: Set<string>, n: number } | null} */
   let pv = null;
   /** true (and says so) while the week on screen shows a preview: Apply or Discard first */
   const held = () => { if (pv?.mon !== monday()) return false; toast('Apply or discard the preview first.'); return true; };
@@ -98,6 +104,8 @@ export function weekEdit({ ctx, model, monday, draw }) {
     const p = pv;
     if (!p) return;
     pv = null;
+    // the week changed since (another maker's edit came in): the preview was made from a week that is gone, so build again
+    if (planSig(store.row('weeks', p.mon), WEEK_PLAN) !== p.sig) { toast('The week changed since this preview. Build again to see it with the change.'); draw(); return; }
     if (await save(p.mon, p.fields, p.said, true) && p.check.words) {
       toast(p.check.words, { ms: 10000, action: { label: 'Report', run: () => { void openWeekReport(p.mon, p.check.rows, p.check.short); } } });
     }
@@ -256,7 +264,7 @@ export function weekEdit({ ctx, model, monday, draw }) {
       ].filter(Boolean);
       // a week with juniors on it: a preview first (Apply saves it, with Undo); a first build straight into the draft. Then what
       // the check found, in a toast of its own whose button opens the report (the Build toast keeps its Undo)
-      pv = { mon, fields: { grid, lists, seed, built: Date.now(), accepted: [] }, said: said.length ? `Built. ${said.join(' ')}` : 'Built', check: said2,
+      pv = { mon, sig: planSig(store.row('weeks', mon), WEEK_PLAN), fields: { grid, lists, seed, built: Date.now(), accepted: [] }, said: said.length ? `Built. ${said.join(' ')}` : 'Built', check: said2,
         ...gridChanges(now.grid, grid), n: changedRows(now.grid, grid) };
       if (!now.grid.some(r => r.juniors.length)) await apply(); else draw();
     } finally { building = false; $('week-build').toggleAttribute('disabled', !store.ready(WEEK_NEEDS)); }

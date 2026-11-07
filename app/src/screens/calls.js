@@ -24,7 +24,7 @@ import { solveCalls } from '../roster/calls.js';
 import { checkCalls } from '../roster/calls-check.js';
 import { callRules, rulesOf, wordsOf } from '../roster/rule-cards.js';
 import { callsProblem } from '../roster/problem.js';
-import { MONTH_PLAN, asMaker, backToDraftOf, callChanges, planState, planWrite, publishOf, undoOf } from '../roster/drafts.js';
+import { MONTH_PLAN, asMaker, backToDraftOf, callChanges, planSig, planState, planWrite, publishOf, undoOf, undoPlan } from '../roster/drafts.js';
 import { checkSaid, marksOf, reportOf, shortLines } from '../roster/report.js';
 import { applyDayEdit, handCount, keepGoodCalls, lockedMap, problemLines, callChoices, dayLabel } from '../roster/calls-edit.js';
 import { callMapIn, firstMonth, monthCells, shiftMonth } from '../roster/sections.js';
@@ -145,6 +145,7 @@ export function create(ctx) {
   window.addEventListener('beforeprint', () => { if ($('calls-page').hidden) delete root.dataset.print; else root.dataset.print = 'calls'; });
   window.addEventListener('afterprint', () => { delete root.dataset.print; });
   function printMonth() {
+    if (held()) return;   // (a preview is not the month)
     root.dataset.print = 'calls';
     window.print();
   }
@@ -216,34 +217,41 @@ export function create(ctx) {
       const c = checked(mon, { ...m, calls, roster: m.roster && { ...m.roster, accepted: [] } });
       const said = [look && `${look} thing${look === 1 ? '' : 's'} to look at.`, unmet && `${unmet} request${unmet === 1 ? '' : 's'} not met.`].filter(Boolean).join(' ');
       // a month with calls: a preview first (Apply saves it into the draft, with Undo); a first Make calls straight into the draft
-      pv = { mon, fields: { calls, problems: problemLines(res.problems), seed, built: Date.now(), accepted: [] }, check: c,
+      pv = { mon, sig: planSig(store.row('rosters', mon), MONTH_PLAN), fields: { calls, problems: problemLines(res.problems), seed, built: Date.now(), accepted: [] }, check: c,
         said: said ? `${fixOnly ? 'Fixed' : 'Made'}. ${said}` : fixOnly ? 'Fixed' : 'Made', changes: callChanges(m.calls, calls, TIERS) };
       if (!m.calls.some(x => TIERS.some(t => x[t]))) await apply();
     } finally { busy = false; $('calls-make').removeAttribute('disabled'); draw(); }
   }
 
   // the preview of Make calls: the new calls' fields, the Made toast's words, the check, which calls change
-  /** @type {{ mon: string, fields: Record<string, any>, said: string, check: ReturnType<typeof checked>, changes: Set<string> } | null} */
+  /** @type {{ mon: string, sig: string, fields: Record<string, any>, said: string, check: ReturnType<typeof checked>, changes: Set<string> } | null} */
   let pv = null;
   /** true (and says so) while the month on screen shows a preview: Apply or Discard first */
   const held = () => { if (pv?.mon !== month) return false; toast('Apply or discard the preview first.'); return true; };
   /**
    * Writes fields onto the month's record as it is now, with Undo (each field put back as it was, on the record as it is by then).
-   * @param {string} mon @param {Record<string, unknown>} out @param {string} said @returns {Promise<boolean>} saved
+   * @param {string} mon @param {Record<string, unknown>} out @param {string} said
+   * @param {(now: any) => Record<string, unknown>} [back]  Undo's fields from the record as it is then (default: each field as it was)
+   * @returns {Promise<boolean>} saved
    */
-  async function write(mon, out, said) {
+  async function write(mon, out, said, back) {
     const row = /** @type {any} */ (store.row('rosters', mon)), was = undoOf(row, out);
     if (await app.data.rosters.upsert(mon, row, out)) { toast(REFUSED); return false; }
-    undo.show(said, () => putBack(mon, was));
+    undo.show(said, () => putBack(mon, back ? back(store.row('rosters', mon)) : was));
     return true;
   }
   /** the month's plan fields saved into its draft when it has one (or `toDraft`: Make calls), else onto the month, with Undo @param {string} mon @param {Record<string, unknown>} fields @param {string} said @param {boolean} [toDraft] */
-  const save = (mon, fields, said, toDraft = false) => write(mon, planWrite(/** @type {any} */ (store.row('rosters', mon)), fields, MONTH_PLAN, toDraft), said);
+  function save(mon, fields, said, toDraft = false) {
+    const row = /** @type {any} */ (store.row('rosters', mon));
+    return write(mon, planWrite(row, fields, MONTH_PLAN, toDraft), said, undoPlan(row, fields, MONTH_PLAN, toDraft));
+  }
   /** Apply: the preview saved into the month's draft; then what the rule check found, in a toast of its own (Made keeps Undo) */
   async function apply() {
     const p = pv;
     if (!p) return;
     pv = null;
+    // the month changed since (another maker's edit came in): the preview was made from calls that are gone
+    if (planSig(store.row('rosters', p.mon), MONTH_PLAN) !== p.sig) { toast('The calls changed since this preview. Make calls again to see them with the change.'); draw(); return; }
     if (await save(p.mon, p.fields, p.said, true) && p.check.words) {
       toast(p.check.words, { ms: 10000, action: { label: 'Report', run: () => { void openCallsReport(p.mon, p.check.rows, p.check.short); } } });
     }

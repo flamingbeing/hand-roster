@@ -2,7 +2,8 @@
 // preview's diffs. Invented names only.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { WEEK_PLAN, MONTH_PLAN, asMaker, planWrite, undoOf, publishOf, backToDraftOf, planState, gridChanges, callChanges } from '../src/roster/drafts.js';
+import { readFileSync } from 'node:fs';
+import { WEEK_PLAN, MONTH_PLAN, asMaker, planWrite, undoOf, undoPlan, planSig, publishOf, backToDraftOf, planState, gridChanges, callChanges } from '../src/roster/drafts.js';
 import { rosters, weeks } from '../src/data/plans.js';
 import { weekBuilt } from '../src/roster/grid.js';
 
@@ -41,6 +42,33 @@ test('Undo puts each saved field back; a draft the save started is dropped (null
   assert.deepEqual(undoOf(withDraft, { draft: { grid: [row('a', ['Fay'])] } }), { draft: { grid: [] } });
   assert.deepEqual(undoOf(published, { grid: [], accepted: ['x'] }), { grid: published.grid, accepted: [] });
   assert.deepEqual(undoOf({ id: 'w' }, { grid: [row('a', ['Fay'])], lists: [] }), { grid: [], lists: [], built: 0 });
+});
+
+test('Undo of an edit into a draft puts back only the fields it wrote: another maker\'s draft change meanwhile stays', () => {
+  const withDraft = { ...published, draft: { grid: [row('a', ['Ben'])], overrides: [] } };
+  const back = undoPlan(withDraft, { grid: [row('a', ['Cy'])] }, WEEK_PLAN);
+  // meanwhile another maker changed the draft's overrides
+  const now = { ...published, draft: { grid: [row('a', ['Cy'])], overrides: [{ id: 'a', need: 3 }] } };
+  assert.deepEqual(back(now), { draft: { grid: [row('a', ['Ben'])], overrides: [{ id: 'a', need: 3 }] } });
+  assert.deepEqual(undoPlan(published, { grid: [] }, WEEK_PLAN, true)(now), { draft: null }, 'the edit started the draft: dropped');
+  assert.deepEqual(undoPlan(published, { grid: [] }, WEEK_PLAN)(now), { grid: published.grid }, 'onto the record: its fields back');
+  const month = { id: '2027-03', holidays: ['2027-03-05'], draft: { calls: [] } };
+  assert.deepEqual(undoPlan(month, { calls: [{ date: '2027-03-01' }], holidays: [] }, MONTH_PLAN)({ ...month, draft: { calls: [{ date: '2027-03-01' }], locked: ['x'] } }),
+    { holidays: ['2027-03-05'], draft: { calls: [], locked: ['x'] } });
+});
+
+test('a plan\'s signature: the same week as a maker sees it, whatever else changed on the record', () => {
+  assert.equal(planSig(published, WEEK_PLAN), planSig({ ...published, updatedAt: 99, serverAt: 1 }, WEEK_PLAN));
+  assert.notEqual(planSig(published, WEEK_PLAN), planSig({ ...published, draft: { grid: [] } }, WEEK_PLAN));
+});
+
+test('the draft\'s fields agree in drafts.js, the cleaners and the Firestore rules', () => {
+  const rules = readFileSync(new URL('../firestore.app.rules', import.meta.url), 'utf8');
+  const lists = [...rules.matchAll(/draftOk\(request\.resource\.data, \[([^\]]+)\]\)/g)].map(m => m[1].split(',').map(x => x.trim().replace(/'/g, '')).sort());
+  assert.deepEqual(lists, [[...MONTH_PLAN].sort(), [...WEEK_PLAN].sort()]);
+  const week = { grid: [], lists: [], overrides: [], built: 1, seed: 1, accepted: [] }, month = { calls: [], locked: [], problems: [], built: 1, seed: 1, accepted: [] };
+  assert.deepEqual(Object.keys(weeks.clean({ draft: week }).draft).sort(), [...WEEK_PLAN].sort());
+  assert.deepEqual(Object.keys(rosters.clean({ draft: month }).draft).sort(), [...MONTH_PLAN].sort());
 });
 
 test('Publish lays the draft over the record and drops it; Back to draft copies the record; Discard is draft: null', () => {
