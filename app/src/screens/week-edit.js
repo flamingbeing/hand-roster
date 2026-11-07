@@ -5,19 +5,24 @@
 // (roster/week-edits.js): a change another maker saved while a sheet was open stays. The copy a sheet opened with only
 // words and warns. A Build, a grid edit or a list change can be undone from its toast for a few seconds. Build again keeps
 // every pinned junior where they are (someone added or moved by hand is pinned); Reset week drops the pins and builds fresh.
-import { validateRule } from '@core/roster';
+// The rule check (roster/report.js, app-roster's score): the marks on the grid's names (week.js asks marks() each draw, so a
+// hand edit is checked again at once), the rule report (a toast after Build when something breaks, and More) and the lists
+// nobody can take, named in that toast. An accepted warning is kept on the week (`accepted`).
+import { validateRule, describeRule, score, check } from '@core/roster';
 import { undoToast } from '@core/ui';
 import { $, h } from '../dom.js';
 import { LOADING, REFUSED } from '../items.js';
-import { shortDay } from '../roster/dates.js';
+import { shortDay, weekdayName } from '../roster/dates.js';
 import { conText } from '../roster/model.js';
-import { sectionsOf, whyNot } from '../roster/sections.js';
+import { listName, sectionsOf, whyNot } from '../roster/sections.js';
 import { shortOptions } from '../roster/short.js';
 import { gridRows, isPinned, juniorsOn } from '../roster/grid.js';
 import { pinsOf, withPins } from '../roster/pins.js';
 import { applyEdit, applyEdits, keptAsks, mergeOverrides, undoFields } from '../roster/week-edits.js';
 import { listsDrift } from '../roster/lists-drift.js';
-import { rulesOf, weekRules } from '../roster/rule-cards.js';
+import { rulesOf, weekRules, wordsOf } from '../roster/rule-cards.js';
+import { weekProblem } from '../roster/problem.js';
+import { checkSaid, marksOf, reportOf, shortLines } from '../roster/report.js';
 import { slotsFor } from '../data/lists.js';
 import { editSheet } from './sheet.js';
 import { WEEK_NEEDS } from './week.js';
@@ -39,21 +44,25 @@ export function weekEdit({ ctx, model, monday }) {
   let building = false;
   /** true (and says so) while some of what the week is built from has not arrived yet */
   const waiting = () => { if (store.ready(WEEK_NEEDS)) return false; toast(LOADING); return true; };
-  /** the rule cards in force, as the week builder takes them (spaces/_/rules over the defaults) */
-  const rules = () => weekRules(rulesOf(store.get('rules'), validateRule));
+  /** the rule cards in force (spaces/_/rules over the defaults) */
+  const cards = () => rulesOf(store.get('rules'), validateRule);
+  /** the rule cards in force, as the week builder takes them */
+  const rules = () => weekRules(cards());
   /** waiting, and for a build also the rule cards (not in WEEK_NEEDS, so the tab never waits on them to show) */
   const buildWaiting = () => { if (waiting()) return true; if (store.ready(['rules'])) return false; toast(LOADING); return true; };
 
   /**
    * Saves some fields of a week, with Undo: it puts those fields back as they were, on the week as it is by then.
    * @param {string} mon @param {Model} now  the week just before @param {Record<string, unknown>} fields @param {string} said
+   * @returns {Promise<boolean>} saved
    */
   async function save(mon, now, fields, said) {
     const was = undoFields(/** @type {any} */ (now.wk), Object.keys(fields));
-    if (await app.data.weeks.upsert(mon, now.wk, fields)) { toast(REFUSED); return; }
+    if (await app.data.weeks.upsert(mon, now.wk, fields)) { toast(REFUSED); return false; }
     undo.show(said, async () => {
       if (await app.data.weeks.upsert(mon, /** @type {any} */ (store.row('weeks', mon)), was)) toast(REFUSED);
     });
+    return true;
   }
 
   /** a grid edit, or several saved as one (one Undo), made on the week as it is now @param {string} mon @param {GridEdit | GridEdit[]} e @param {string} said */
@@ -148,6 +157,9 @@ export function weekEdit({ ctx, model, monday }) {
       const grid = withPins(gridRows(res.grid), pins);
       const kept = pinsOf(grid).length;
       const short = res.problems.filter(p => p.got < p.min || p.noReg).length;
+      // the check: the lists nobody can take (from leave, calls and the rules alone) and the rules the new grid breaks
+      // (warnings accepted before are dropped: they were accepted for a grid that is gone)
+      const said2 = checked(mon, { ...now, lists: res.lists, grid, wk: undefined });
       // the lists are kept as the template stood, unsettled, so a holiday or leave taken away later reopens them
       // the month's calls not made yet: built all the same, but post-call days are not known, so say so
       const said = [
@@ -155,7 +167,10 @@ export function weekEdit({ ctx, model, monday }) {
         short && `${short} list${short === 1 ? ' is' : 's are'} below the minimum: see Short.`,
         !now.callsMade && 'Calls are not made yet: post-call not kept clear.',
       ].filter(Boolean);
-      await save(mon, now, { grid, lists, seed, built: Date.now() }, said.length ? `Built. ${said.join(' ')}` : 'Built');
+      // what the check found, in a toast of its own whose button opens the report (the Build toast keeps its Undo)
+      if (await save(mon, now, { grid, lists, seed, built: Date.now(), accepted: [] }, said.length ? `Built. ${said.join(' ')}` : 'Built') && said2.words) {
+        toast(said2.words, { ms: 10000, action: { label: 'Report', run: () => { void openWeekReport(mon, said2.rows, said2.short); } } });
+      }
     } finally { building = false; $('week-build').toggleAttribute('disabled', !store.ready(WEEK_NEEDS)); }
   }
 
@@ -248,5 +263,64 @@ export function weekEdit({ ctx, model, monday }) {
     return d.added.length + d.removed.length + d.changed.length;
   }
 
-  return { build, reset, busy: () => building, moveSheet, addSheet, weekListSheet, epicSheet, shortButtons, takeOff, takeOffAll, drift };
+  /** a rule's words as the Rules tab says them @returns {(id: string, fallback: string) => string} */
+  function wordsFn() {
+    const byId = new Map(cards().map(r => [r.id, r]));
+    return (id, fallback) => { const r = byId.get(id); return r ? wordsOf(r, describeRule) : fallback; };
+  }
+  const dayName = (/** @type {string} */ d) => `${weekdayName(d)} ${shortDay(d)}`;
+
+  /** a week as app-roster's problem and roster @param {string} mon @param {Pick<Model, 'lists' | 'grid' | 'people' | 'leave' | 'calls' | 'holidays'>} m */
+  const problemOf = (mon, m) => weekProblem({ monday: mon, lists: m.lists, grid: m.grid, people: m.people, leave: m.leave, calls: m.calls, holidays: m.holidays, rules: cards() });
+
+  /**
+   * The week's check: the report's rows, the lists nobody can take and the words Build's toast says (empty: all fine).
+   * @param {string} mon @param {Pick<Model, 'lists' | 'grid' | 'people' | 'leave' | 'calls' | 'holidays'> & { wk?: Model['wk'] }} m
+   */
+  function checked(mon, m) {
+    const { problem, roster } = problemOf(mon, m), words = wordsFn();
+    const rows = reportOf(score(/** @type {any} */ (problem), roster), { words, dayName, accepted: m.wk?.accepted });
+    const byId = new Map(m.lists.map(l => [l.id, l]));
+    const place = (/** @type {string} */ id) => { const l = byId.get(id); return l ? `${dayName(l.day)} ${l.session} ${l.site} ${listName(l)}` : id; };
+    const short = shortLines(check(/** @type {any} */ (problem), {}).short, place, words);
+    return { rows, short, words: checkSaid(rows, short) };
+  }
+
+  /** @type {{ key: unknown[], out: ReturnType<typeof marksOf> } | null} the last marks, kept while nothing they come from changed */
+  let lastMarks = null;
+  /** the marks on the grid's names and lists, as drawn now @param {Model} m */
+  function marks(m) {
+    if (!m.built || !store.loaded('rules')) return null;
+    const key = [monday(), m.wk, ...['rules', 'people', 'leave', 'rosters', 'lists'].map(k => store.get(/** @type {import('../cloud.js').Kind} */ (k)))];
+    if (lastMarks && key.every((x, i) => x === lastMarks?.key[i])) return lastMarks.out;
+    const { problem, roster } = problemOf(monday(), m);
+    lastMarks = { key, out: marksOf(score(/** @type {any} */ (problem), roster), m.wk?.accepted) };
+    return lastMarks.out;
+  }
+
+  /**
+   * The rule report sheet (screens/report.js, loaded when first used).
+   * @param {string} mon @param {import('../roster/report.js').ReportRow[]} rows @param {{ slot: string, text: string }[]} short
+   */
+  async function openWeekReport(mon, rows, short) {
+    const { openReport } = await import('./report.js');
+    openReport({
+      title: `Rules, week of ${shortDay(mon)}`, rows, short,
+      accept: async (key, on) => {
+        const now = model(mon), was = now.wk?.accepted ?? [];
+        const accepted = on ? [...new Set([...was, key])].slice(-300) : was.filter(k => k !== key);
+        if (await app.data.weeks.upsert(mon, now.wk, { accepted })) { toast(REFUSED); return false; }
+        return true;
+      },
+    });
+  }
+
+  /** More's Rule report: the week on screen as it stands */
+  async function report() {
+    if (!ctx.canWrite() || buildWaiting()) return;
+    const mon = monday(), c = checked(mon, model(mon));
+    await openWeekReport(mon, c.rows, c.short);
+  }
+
+  return { report, marks, build, reset, busy: () => building, moveSheet, addSheet, weekListSheet, epicSheet, shortButtons, takeOff, takeOffAll, drift };
 }

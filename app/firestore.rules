@@ -149,13 +149,13 @@ service cloud.firestore {
       allow delete: if can(g, ['admin', 'member']);
     }
 
-    // A month's on-call roster, named YYYY-MM: calls (a row per day), locked (entries set by hand), holidays, problems, and
-    // tierPlan (which call tiers each kind of day has).
+    // A month's on-call roster, named YYYY-MM: calls (a row per day), locked (entries set by hand), holidays, problems,
+    // tierPlan (which call tiers each kind of day has) and accepted (warnings a maker accepted).
     match /spaces/{g}/rosters/{id} {
       allow read: if can(g, ['admin', 'member', 'viewer']);
       allow create, update: if can(g, ['admin', 'member']) && stamped() && id.matches('^[0-9]{4}-(0[1-9]|1[0-2])$')
-        && request.resource.data.keys().hasOnly(['calls', 'locked', 'holidays', 'problems', 'tierPlan', 'minGap', 'seed', 'built', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
-        && optList(request.resource.data, 'calls', 62) && optList(request.resource.data, 'locked', 200)
+        && request.resource.data.keys().hasOnly(['calls', 'locked', 'holidays', 'problems', 'tierPlan', 'minGap', 'seed', 'built', 'accepted', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
+        && optList(request.resource.data, 'calls', 62) && optList(request.resource.data, 'accepted', 300) && optList(request.resource.data, 'locked', 200)
         && optList(request.resource.data, 'holidays', 31) && optList(request.resource.data, 'problems', 60)
         && optIntIn(request.resource.data, 'minGap', 0, 7) && optIntIn(request.resource.data, 'seed', 0, 1000000)
         && (!('built' in request.resource.data) || request.resource.data.built is number)
@@ -164,12 +164,13 @@ service cloud.firestore {
       allow delete: if can(g, ['admin', 'member']);
     }
 
-    // A week's daily roster, named by its Monday (YYYY-MM-DD): the grid, a snapshot of the lists as built, and this week's changes.
+    // A week's daily roster, named by its Monday (YYYY-MM-DD): the grid, a snapshot of the lists as built, this week's changes and
+    // accepted (warnings a maker accepted).
     match /spaces/{g}/weeks/{id} {
       allow read: if can(g, ['admin', 'member', 'viewer']);
       allow create, update: if can(g, ['admin', 'member']) && stamped() && isDay(id)
-        && request.resource.data.keys().hasOnly(['grid', 'lists', 'overrides', 'built', 'seed', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
-        && optList(request.resource.data, 'grid', 800) && optList(request.resource.data, 'lists', 400) && optList(request.resource.data, 'overrides', 200)
+        && request.resource.data.keys().hasOnly(['grid', 'lists', 'overrides', 'built', 'seed', 'accepted', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
+        && optList(request.resource.data, 'grid', 800) && optList(request.resource.data, 'accepted', 300) && optList(request.resource.data, 'lists', 400) && optList(request.resource.data, 'overrides', 200)
         && optIntIn(request.resource.data, 'seed', 0, 1000000)
         && (!('built' in request.resource.data) || request.resource.data.built is number)
         && recordOk(request.resource.data);

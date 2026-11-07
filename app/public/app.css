@@ -360,3 +360,22 @@ body { margin: 0; }
 .app-mark { flex: none; border-radius: 22%; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .pp-works input { width: 1.2rem; height: 1.2rem; }
+
+/* The rule check (roster/report.js): a name breaking a block rule red, a warn rule amber; the rule report sheet (screens/report.js) */
+.wt-name.is-block, .wk-chip.is-block, .cl-tier.is-block span { color: var(--danger); text-decoration: underline wavy; text-underline-offset: .2em; }
+.wt-name.is-warn, .wk-chip.is-warn, .cl-tier.is-warn span { color: var(--warn); text-decoration: underline wavy; text-underline-offset: .2em; }
+.wt-list.is-block > .wt-head { color: var(--danger); }
+.wt-list.is-warn > .wt-head { color: var(--warn); }
+.rp-short ul, .rp-rules, .rp-hits { list-style: none; margin: 0; padding: 0; }
+.rp-short { margin-bottom: var(--gap); }
+.rp-short-line { color: var(--danger); padding: .2rem 0; }
+.rp-rule { border-bottom: 1px solid var(--line); }
+.rp-rule summary { display: flex; gap: .5rem; align-items: baseline; padding: .5rem 0; cursor: pointer; }
+.rp-level { font-size: .75rem; color: var(--muted); min-width: 5.5rem; }
+.rp-words { flex: 1; }
+.rp-count { font-size: .85rem; color: var(--muted); white-space: nowrap; }
+.rp-rule.is-broken.level-block .rp-count { color: var(--danger); font-weight: 600; }
+.rp-rule.is-broken.level-warn .rp-count { color: var(--warn); font-weight: 600; }
+.rp-hit { display: flex; gap: .5rem; align-items: center; justify-content: space-between; padding: .25rem 0 .25rem 1rem; font-size: .9rem; }
+.rp-hit.is-accepted > span { color: var(--muted); text-decoration: line-through; }
+.rp-accept { flex: none; }
