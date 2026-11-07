@@ -150,6 +150,20 @@ service cloud.firestore {
       allow delete: if can(g, ['admin', 'member']);
     }
 
+    // The space's export layout (id export: tally order, shown columns, words, print) and fairness weights (id tally).
+    // Makers write them, viewers read them (the exports and the Fairness sheet read them).
+    match /spaces/{g}/layouts/{id} {
+      allow read: if can(g, ['admin', 'member', 'viewer']);
+      allow create, update: if can(g, ['admin', 'member']) && stamped() && id.matches('^(export|tally)$')
+        && request.resource.data.keys().hasOnly(['labels', 'order', 'hide', 'print', 'weights', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
+        && (!('labels' in request.resource.data) || request.resource.data.labels is map)
+        && (!('print' in request.resource.data) || request.resource.data.print is map)
+        && (!('weights' in request.resource.data) || request.resource.data.weights is map)
+        && optList(request.resource.data, 'order', 20) && optList(request.resource.data, 'hide', 20)
+        && recordOk(request.resource.data);
+      allow delete: if can(g, ['admin', 'member']);
+    }
+
     // modules: rules{ written from app/rules/*.rules by node tools/modules.mjs; edit those, not this block
     // }modules
 

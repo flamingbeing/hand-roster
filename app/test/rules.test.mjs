@@ -32,6 +32,8 @@ const emu = suite({
       data: { grid: [], updatedAt: 1 }, stamp: 'strict', list: { roles: ['admin', 'member', 'viewer'] }, listOnly: true }, // month/day ids: per-doc rules tested below
     { path: 'spaces/_/rules/week-team', read: ['admin', 'member', 'viewer'], write: ['admin', 'member'],
       data: { type: 'match', level: 'soft', priority: 3, updatedAt: 1 }, stamp: 'strict', list: { roles: ['admin', 'member', 'viewer'] } },
+    { path: 'spaces/_/layouts/export', read: ['admin', 'member', 'viewer'], write: ['admin', 'member'],
+      data: { order: ['eot'], updatedAt: 1 }, stamp: 'strict', list: { roles: ['admin', 'member', 'viewer'] }, listOnly: true }, // two fixed ids: per-doc rules tested below
     ...mods.flatMap(m => m.collections ?? []),
   ],
 });
@@ -246,6 +248,21 @@ test('rules: a rule card has a type, a level, a priority 1 to 3; words, tags, on
   assert.equal((await emu.anon().get('spaces/_/rules/week-team')).ok, false, 'signed out: no read');
   assert.equal((await as('viewer').delete('spaces/_/rules/week-team')).ok, false);
   assert.equal((await as('member').delete('spaces/_/rules/week-team')).ok, true);
+});
+
+test('layouts: the export layout and the tally weights are two documents of maps and lists; makers write, viewers read', async () => {
+  await emu.clear();
+  const put = (data, id = 'export', role = 'member') => as(role).set(`spaces/_/layouts/${id}`, data, at);
+  assert.equal((await put({ labels: { 'tally.eot': 'Emergency' }, order: ['eot', 'msp'], hide: ['al'], print: { patients: false }, updatedAt: 1 })).ok, true);
+  assert.equal((await put({ weights: { lists: 0.5 }, updatedAt: 1 }, 'tally', 'admin')).ok, true);
+  assert.equal((await put({ updatedAt: 1 }, 'other')).ok, false, 'two ids only');
+  assert.equal((await put({ labels: ['x'], updatedAt: 1 })).ok, false, 'labels is a map');
+  assert.equal((await put({ weights: 3, updatedAt: 1 }, 'tally')).ok, false, 'weights is a map');
+  assert.equal((await put({ order: Array(21).fill('a'), updatedAt: 1 })).ok, false);
+  assert.equal((await put({ extra: 1, updatedAt: 1 })).ok, false, 'no extra fields');
+  assert.equal((await put({ updatedAt: 1 }, 'export', 'viewer')).ok, false, 'a viewer only reads');
+  assert.equal((await as('viewer').get('spaces/_/layouts/export')).ok, true);
+  assert.equal((await as('member').delete('spaces/_/layouts/export')).ok, true);
 });
 
 test('viewers read every kind, only admins and members write and delete; no role, no read', async () => {

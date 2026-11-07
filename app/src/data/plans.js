@@ -89,3 +89,6 @@ const json = (/** @type {unknown} */ v) => (v && typeof v === 'object' && !Array
 export const RULE_TYPES = ['cover', 'away', 'oneAtATime', 'sequence', 'eligible', 'leads', 'match', 'limit', 'requests', 'keep', 'balance'];
 /** @typedef {import('./ops.js').Row & Partial<import('../roster/rule-cards.js').RuleCard>} RuleRow */
 export const rules = { COLL: 'rules', clean: cleaner({ type: oneOf(RULE_TYPES), words: text(200), level: oneOf(['block', 'warn', 'soft']), priority: int(1, 3), tags: texts(20, 40), on: bool, params: json, topic: oneOf(['week', 'calls']) }) };
+
+// layouts: export layout (id export) and tally weights (id tally)
+export const layouts = { COLL: 'layouts', clean: cleaner({ labels: json, order: texts(20, 20), hide: texts(20, 20), print: json, weights: json }) };

@@ -11,6 +11,7 @@
 //   spaces/_/rosters/{YYYY-MM} { calls: [{ date, con, reg, moNuh, moNtf }], locked, holidays, problems, ... }  a month's on-call roster
 //   spaces/_/weeks/{Monday}   { grid: [{ day, session, list, juniors }], lists, overrides, ... }  a week's daily roster
 //   spaces/_/rules/{id}        { type, words, level, priority, tags, on, params, topic }  a rule card (roster/rule-cards.js)
+//   spaces/_/layouts/{export|tally}  export layout / fairness weights
 //                              (every record: createdAt, updatedAt, serverAt, _edits: who changed each field, and when;
 //                              '_' is the single group)
 //   spaces/_/bin/{coll:id}     { id, kind, data, deletedAt, … }       a deleted item's last version (delete to bin)
@@ -39,7 +40,7 @@ import { kindOps } from './data/ops.js';
 import * as people from './data/people.js';
 import * as lists from './data/lists.js';
 import * as leaveData from './data/leave.js';
-import { rosters, weeks, rules } from './data/plans.js';
+import { rosters, weeks, rules, layouts } from './data/plans.js';
 
 export { usingEmulator } from './roles.js';
 export { lastSignedIn } from './hint.js';
@@ -47,7 +48,7 @@ const SPACE = '_';
 export { REFUSED } from './items.js';
 
 /** the roster's kinds of record: each one a collection under spaces/_/ and a data module (src/data/) saying what it allows */
-export const KINDS = /** @type {const} */ ({ people, lists, leave: leaveData, requests: leaveData.requests, rosters, weeks, rules });
+export const KINDS = /** @type {const} */ ({ people, lists, leave: leaveData, requests: leaveData.requests, rosters, weeks, rules, layouts });
 /** @typedef {keyof typeof KINDS} Kind */
 /** @typedef {import('./items.js').User} User */
 /** @typedef {import('./items.js').Phase} Phase */
