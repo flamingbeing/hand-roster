@@ -33,8 +33,8 @@ export function byTeam(rows) {
 /** A phone number, loosely checked (owner, 7 Nov 2026: optional, digits, spaces and + kept, anything else dropped; none
  * without a digit) @param {unknown} v */
 export const cleanPhone = v => (v == null ? null : typeof v != 'string' ? undefined : /\d/.test(v) ? v.replace(/[^\d +]/g, '').replace(/ +/g, ' ').trim().slice(0, 20).trim() : null);
-/** the active people's phones by name, for the tap-to-call links beside on-call names @param {PersonRow[]} rows */
-export const phonesOf = rows => new Map(rows.filter(r => r.phone && r.active !== false && !r._deleted).map(r => [r.name, String(r.phone)]));
+/** the phones by name (inactive people too: one may still be on a call made earlier), for the tap-to-call links beside on-call names @param {PersonRow[]} rows */
+export const phonesOf = rows => new Map(rows.filter(r => r.phone && !r._deleted).map(r => [r.name, String(r.phone)]));
 
 export const clean = cleaner({
   name: text(60, true),

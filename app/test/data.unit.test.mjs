@@ -51,7 +51,7 @@ test('people: name trimmed and required, grade checked, site may be cleared', ()
     { id: '2', name: 'Dr Ben Test', grade: 'mo' },
     { id: '3', name: 'Dr Cy Test', grade: 'reg', phone: '+65 8000 0001', active: false },
     { id: '4', name: 'Dr Di Test', grade: 'reg', phone: '+65 8000 0002', _deleted: true },
-  ]))], [['Dr Ann Test', '+65 8000 0000']], 'active people with a phone only');
+  ]))], [['Dr Ann Test', '+65 8000 0000'], ['Dr Cy Test', '+65 8000 0001']], 'people with a phone, inactive too (still on calls made earlier); not the deleted');
   assert.deepEqual(people.activePeople([
     { id: 'a', name: 'Dr Bravo Test', grade: 'mo', rank: 'Outposter' }, { id: 'b', name: 'Dr Alpha Test', grade: 'con', active: false },
     { id: 'c', name: 'Dr Charlie Test', grade: 'reg', rank: 'Fellow', site: 'NTFGH' }]).map(p => [p.name, !!p.extra]), [['Dr Bravo Test', true], ['Dr Charlie Test', false]]);
