@@ -1,4 +1,6 @@
 // Page lookups shared by the shell and the screens.
+import { icon } from '@core/ui';
+import { ICONS } from './icons.js';
 
 /** @param {string} id @returns {HTMLElement} */
 export const $ = id => { const el = document.getElementById(id); if (!el) throw new Error(`#${id} is missing`); return el; };
@@ -50,3 +52,8 @@ export function h(tag, props = {}, ...kids) {
 
 /** @param {HTMLElement} node @returns {HTMLElement} the same node, emptied and refilled @param {...any} kids */
 export function fill(node, ...kids) { node.replaceChildren(...kids.flat(2).filter(x => x != null && x !== false)); return node; }
+
+/** A phone icon that calls the person (tel:), beside their name where on-call names show; nothing without a number (owner,
+ * 7 Nov 2026: every signed-in viewer sees it) @param {Map<string, string>} phones (phonesOf) @param {string | null | undefined} name */
+export const telLink = (phones, name) => { const p = name && phones.get(name);
+  return p ? h('a', { class: 'tel', href: `tel:${p.replace(/ /g, '')}`, title: p, 'aria-label': `Call ${name}, ${p}` }, icon(ICONS.phone)) : null; };

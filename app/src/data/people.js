@@ -30,12 +30,19 @@ export function byTeam(rows) {
     .map(([t, list]) => [t, list.sort((a, b) => (order[a.grade] ?? 9) - (order[b.grade] ?? 9) || a.name.localeCompare(b.name))]);
 }
 
+/** A phone number, loosely checked (owner, 7 Nov 2026: optional, digits, spaces and + kept, anything else dropped; none
+ * without a digit) @param {unknown} v */
+export const cleanPhone = v => (v == null ? null : typeof v != 'string' ? undefined : /\d/.test(v) ? v.replace(/[^\d +]/g, '').replace(/ +/g, ' ').trim().slice(0, 20).trim() : null);
+/** the phones by name (inactive people too: one may still be on a call made earlier), for the tap-to-call links beside on-call names @param {PersonRow[]} rows */
+export const phonesOf = rows => new Map(rows.filter(r => r.phone && !r._deleted).map(r => [r.name, String(r.phone)]));
+
 export const clean = cleaner({
   name: text(60, true),
   grade: oneOf(['con', 'reg', 'mo']),
   rank: (/** @type {unknown} */ v) => (typeof v === 'string' ? v.trim().slice(0, 20) || null : v === null ? null : undefined),
   site: oneOf(SITES, true),
   team: optText(30),
+  phone: cleanPhone,
   active: bool,
   noCall: bool,
   moCalls: bool,
@@ -46,7 +53,7 @@ export const clean = cleaner({
   extra: bool,
 });
 
-/** @typedef {import('./ops.js').Row & { name: string, grade: 'con' | 'reg' | 'mo', rank?: string | null, site?: string | null, team?: string | null, active?: boolean, noCall?: boolean, moCalls?: boolean, siteOnly?: boolean, byHand?: boolean, works?: string[] | null, clinicsOnly?: boolean, extra?: boolean }} PersonRow */
+/** @typedef {import('./ops.js').Row & { name: string, grade: 'con' | 'reg' | 'mo', rank?: string | null, site?: string | null, team?: string | null, phone?: string | null, active?: boolean, noCall?: boolean, moCalls?: boolean, siteOnly?: boolean, byHand?: boolean, works?: string[] | null, clinicsOnly?: boolean, extra?: boolean }} PersonRow */
 // moCalls: a registrar who takes the MO call tiers only (owner, 6 Nov 2026: not REG level for calls; still a registrar on lists)
 
 /** @param {PersonRow} r @returns {import('../roster/model.js').Person} the engine's person */

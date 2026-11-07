@@ -10,7 +10,8 @@ import { $, h } from '../dom.js';
 import { LOADING, REFUSED } from '../items.js';
 import { shortDay } from '../roster/dates.js';
 import { conText } from '../roster/model.js';
-import { sectionsOf, shortOptions, whyNot } from '../roster/sections.js';
+import { sectionsOf, whyNot } from '../roster/sections.js';
+import { shortOptions } from '../roster/short.js';
 import { gridRows, juniorsOn } from '../roster/grid.js';
 import { applyEdit, applyEdits, keptCount, keptAsks, mergeOverrides, undoFields } from '../roster/week-edits.js';
 import { listsDrift } from '../roster/lists-drift.js';
@@ -210,7 +211,7 @@ export function weekEdit({ ctx, model, monday }) {
   function shortButtons(m, sec, gap, l) {
     const mon = monday();
     const opts = shortOptions({ gap, lists: m.lists, grid: m.grid, people: m.people, free: sec.free[gap.day] ?? [] });
-    /** @param {import('../roster/sections.js').ShortOption} o */
+    /** @param {import('../roster/short.js').ShortOption} o */
     const apply = o => {
       const at = { day: gap.day, session: gap.session };
       if (o.kind === 'add') return saveGrid(mon, { kind: 'add', ...at, list: l.id, name: o.name }, `Added ${o.name} to ${l.name}.`);

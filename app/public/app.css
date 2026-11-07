@@ -131,6 +131,9 @@ select { padding: .5rem 2rem .5rem .65rem; }
 .wk-oncall dt { color: var(--muted); }
 .wk-oncall dd { margin: 0; }
 .wk-line p { margin: 0; }
+/* a call link (tel:) beside a name on call: the phone icon, a 24 px target at least */
+.tel { display: inline-flex; align-items: center; justify-content: center; min-width: 1.5rem; min-height: 1.5rem; margin-inline-start: .15rem; color: var(--accent); vertical-align: middle; }
+.tel svg { width: 1rem; height: 1rem; }
 .wk-names { display: flex; flex-wrap: wrap; gap: .3rem; }
 .wk-name { border-radius: var(--pill-r, 1em); padding: .15rem .6rem; background: color-mix(in srgb, var(--muted) 16%, transparent); font-size: .9rem; }
 .wk-name i { font-style: normal; color: var(--muted); }
@@ -276,7 +279,7 @@ select { padding: .5rem 2rem .5rem .65rem; }
    when idle), else the view on screen, Grid or Day. */
 @page { size: A4 landscape; margin: 10mm; }
 @media print {
-  .ui-bar, .ui-tabbar, .ui-sidebar, .wk-bar, .wk-chips, .sh-panel, #toasts, .wk-add, .wk-state, #week-mine, .ui-large-title, .status-line, #conflict-sheet, #refused-list { display: none !important; }
+  .ui-bar, .ui-tabbar, .ui-sidebar, .wk-bar, .wk-chips, .sh-panel, #toasts, .wk-add, .wk-state, #week-mine, .ui-large-title, .status-line, #conflict-sheet, #refused-list, .tel { display: none !important; }
   .print-only { display: block; font-weight: 600; margin: 0 0 4mm; }
   .ui-shell { display: block !important; }   /* (the kit's grid keeps the side bar's column, empty, in print) */
   .ui-screen { display: block !important; position: static !important; transform: none !important; overflow: visible !important; }

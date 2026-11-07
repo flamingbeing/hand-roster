@@ -7,7 +7,7 @@ import { settleLists, minOf, EOT } from '../src/roster/model.js';
 import { buildWeek } from '../src/roster/week.js';
 import { gridRows } from '../src/roster/grid.js';
 import { sectionsOf } from '../src/roster/sections.js';
-import { shortOptions } from '../src/roster/sections.js';
+import { shortOptions } from '../src/roster/short.js';
 import { solveCalls } from '../src/roster/calls.js';
 import { checkCalls } from '../src/roster/calls-check.js';
 import { weekLayout, handGrid } from '../src/roster/layout.js';

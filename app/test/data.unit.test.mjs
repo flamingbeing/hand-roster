@@ -38,6 +38,20 @@ test('people: name trimmed and required, grade checked, site may be cleared', ()
   assert.equal(people.clean({ site: '' }).site, null);
   assert.equal(people.clean({ team: ' Team 2 ' }).team, 'Team 2');
   assert.equal(people.clean({ team: '' }).team, null);
+  // phone (owner, 7 Nov 2026): optional, loosely checked; made-up numbers only
+  assert.equal(people.clean({ phone: ' +65 8000-0000 ' }).phone, '+65 80000000', 'only digits, spaces and + kept');
+  assert.equal(people.clean({ phone: '+65  8000   0000' }).phone, '+65 8000 0000', 'spaces collapsed');
+  assert.equal(people.clean({ phone: '' }).phone, null);
+  assert.equal(people.clean({ phone: 'none' }).phone, null, 'no digit, no phone');
+  assert.equal(people.clean({ phone: null }).phone, null);
+  assert.equal('phone' in people.clean({ phone: 80000000 }), false, 'not text: left out');
+  assert.equal(people.clean({ phone: '8000 0000 8000 0000 8000' }).phone, '8000 0000 8000 0000', 'at most 20, no trailing space');
+  assert.deepEqual([...people.phonesOf(/** @type {any} */ ([
+    { id: '1', name: 'Dr Ann Test', grade: 'mo', phone: '+65 8000 0000' },
+    { id: '2', name: 'Dr Ben Test', grade: 'mo' },
+    { id: '3', name: 'Dr Cy Test', grade: 'reg', phone: '+65 8000 0001', active: false },
+    { id: '4', name: 'Dr Di Test', grade: 'reg', phone: '+65 8000 0002', _deleted: true },
+  ]))], [['Dr Ann Test', '+65 8000 0000'], ['Dr Cy Test', '+65 8000 0001']], 'people with a phone, inactive too (still on calls made earlier); not the deleted');
   assert.deepEqual(people.activePeople([
     { id: 'a', name: 'Dr Bravo Test', grade: 'mo', rank: 'Outposter' }, { id: 'b', name: 'Dr Alpha Test', grade: 'con', active: false },
     { id: 'c', name: 'Dr Charlie Test', grade: 'reg', rank: 'Fellow', site: 'NTFGH' }]).map(p => [p.name, !!p.extra]), [['Dr Bravo Test', true], ['Dr Charlie Test', false]]);

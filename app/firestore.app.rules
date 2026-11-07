@@ -34,15 +34,17 @@ service cloud.firestore {
 
     // The doctors the roster places. A name is the key leave, requests and calls use. grade: con (consultant), reg (registrar or
     // fellow), mo (medical officer); team is free text ("Team 1"); active false takes someone off without losing the old rosters.
+    // phone is optional, digits, spaces and + only (owner, 7 Nov 2026: a call link beside on-call names, every viewer reads it).
     match /spaces/{g}/people/{id} {
       allow read: if can(g, ['admin', 'member', 'viewer']);
       allow create, update: if can(g, ['admin', 'member']) && stamped()
-        && request.resource.data.keys().hasOnly(['name', 'grade', 'rank', 'site', 'team', 'active', 'noCall', 'moCalls', 'siteOnly', 'byHand', 'works', 'clinicsOnly', 'extra', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
+        && request.resource.data.keys().hasOnly(['name', 'grade', 'rank', 'site', 'team', 'phone', 'active', 'noCall', 'moCalls', 'siteOnly', 'byHand', 'works', 'clinicsOnly', 'extra', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
         && str(request.resource.data, 'name', 60)
         && oneOfStr(request.resource.data, 'grade', ['con', 'reg', 'mo'])
         && optStr(request.resource.data, 'rank', 20)
         && optOneOf(request.resource.data, 'site', ['NUH', 'NTFGH'])
         && optStr(request.resource.data, 'team', 30)
+        && (!('phone' in request.resource.data) || request.resource.data.phone == null || (request.resource.data.phone is string && request.resource.data.phone.matches('^[+0-9 ]{1,20}$')))
         && optBool(request.resource.data, 'active') && optBool(request.resource.data, 'noCall') && optBool(request.resource.data, 'moCalls') && optBool(request.resource.data, 'siteOnly') && optBool(request.resource.data, 'byHand') && optBool(request.resource.data, 'clinicsOnly')
         && (!('works' in request.resource.data) || request.resource.data.works == null || (request.resource.data.works is list && request.resource.data.works.size() <= 10 && request.resource.data.works.hasOnly(['1AM', '1PM', '2AM', '2PM', '3AM', '3PM', '4AM', '4PM', '5AM', '5PM'])))
         && optBool(request.resource.data, 'extra')

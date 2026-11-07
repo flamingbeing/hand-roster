@@ -15,11 +15,12 @@
 // saves from the week as it is then and can be undone from its toast (6 Nov 2026).
 // "This is me" (More) keeps a name on this device: it stands out wherever it shows, with a My week card on top
 // (screens/week-mine.js, loaded once a name is set) (7 Nov 2026). Their own lists and cells are marked too, and a viewer
-// with no name set is asked once, on this device, to pick it (7 Nov 2026).
+// with no name set is asked once, on this device, to pick it (7 Nov 2026). A person's phone, when set, is a call link
+// beside their name on call (dom.js telLink, 7 Nov 2026).
 // On a phone the Grid shows about two days: it opens at today's column, once per week shown (7 Nov 2026).
 import { icon, loadState, emptyState, openMenu, lazyModules } from '@core/ui';
 import { ICONS } from '../icons.js';
-import { $, sectionScreen, h, fill } from '../dom.js';
+import { $, sectionScreen, h, fill, telLink } from '../dom.js';
 import { addDays, mondayOf, nextWorkday, rangeDays, shortDay, weekday, weekdayName, MONTHS, MONTH_NAMES, todayKey } from '../roster/dates.js';
 import { TIERS, TIER_LABEL, conText, dayType, hasMe, leads, minOf, regLed, settleLists, tierPlanOf } from '../roster/model.js';
 import { callsAround, callsUnmade, clashesOf } from '../roster/sections.js';
@@ -27,7 +28,7 @@ import { listName, sectionsOf } from '../roster/sections.js';
 import { juniorsOn, weekBuilt } from '../roster/grid.js';
 import { firstWeek, makerWeek } from '../roster/sections.js';
 import { slotsFor } from '../data/lists.js';
-import { activePeople, meOf } from '../data/people.js';
+import { activePeople, meOf, phonesOf } from '../data/people.js';
 import { leaveOf } from '../data/leave.js';
 
 const SESSIONS = /** @type {const} */ ([['AM', 'Morning'], ['PM', 'Afternoon']]);
@@ -67,7 +68,7 @@ export function weekModel(store, mon) {
   /** @param {string} day @returns {import('../roster/model.js').TierPlan} the call tiers of that day's month */
   const planOn = day => tierPlanOf(rosters.find(r => r.id === day.slice(0, 7))?.tierPlan);
   const unmade = callsUnmade(/** @type {any} */ (rosters), mon);   // a build can't keep their post-call days clear
-  return { wk, templates, built, raw, lists, grid, people, leave, calls, holidays, planOn, unmade, callsMade: !unmade.length };
+  return { wk, templates, built, raw, lists, grid, people, leave, calls, holidays, planOn, unmade, callsMade: !unmade.length, phones: phonesOf(/** @type {any} */ (store.get('people'))) };
 }
 
 /**
@@ -339,7 +340,7 @@ export function weekScreen(ctx) {
           .map(entry), i === 0 ? 'wt-first' : ''))),
         row('On call', '', d => {
           const plan = m.planOn(d)[dayType(d, m.holidays)];
-          return h('dl', { class: 'wt-oncall' }, TIERS.filter(t => plan.includes(t) || sec.onCall[d][t]).map(t => [h('dt', {}, TIER_LABEL[t]), h('dd', { class: sec.onCall[d][t] === me ? 'is-me' : '' }, sec.onCall[d][t] ?? '–')]));
+          return h('dl', { class: 'wt-oncall' }, TIERS.filter(t => plan.includes(t) || sec.onCall[d][t]).map(t => [h('dt', {}, TIER_LABEL[t]), h('dd', { class: sec.onCall[d][t] === me ? 'is-me' : '' }, sec.onCall[d][t] ?? '–', telLink(m.phones, sec.onCall[d][t]))]));
         }, 'wt-first', d => Object.values(sec.onCall[d]).includes(me)),
         row('Leave', '', d => plain(sec.leave[d]), '', d => holds(sec.leave[d])),
         row('Post-call', '', d => plain(sec.postCall[d]), '', d => holds(sec.postCall[d])),
@@ -422,7 +423,7 @@ export function weekScreen(ctx) {
     if (show === 'grid') { fill($('week-table'), weekTable(m, sec, days)); toToday(); }
     if (me && !mine) mineCode().then(() => draw(), () => { /* no card until a later draw loads it */ });
     fill($('week-mine'), me ? mine?.mineCard({ name: me, days, lists: m.lists, grid: m.grid, sec, calls: m.calls, leave: m.leave, built: m.built, holidays: m.holidays,
-      rosters: /** @type {any} */ (store.get('rosters')), today: todayKey() })
+      rosters: /** @type {any} */ (store.get('rosters')), today: todayKey(), phones: m.phones })
       : !canWrite && !asked && m.people.length > 0 && askCard(m.people));
     empty.show(store.loaded('lists') && !m.lists.length);
 
@@ -445,7 +446,7 @@ export function weekScreen(ctx) {
         }),
         h('div', { class: 'wk-extras' },
           h('h3', {}, 'On call'),
-          h('dl', { class: 'wk-oncall' }, tiers.map(t => [h('dt', {}, TIER_LABEL[t]), h('dd', { class: sec.onCall[d][t] === me ? 'is-me' : '' }, sec.onCall[d][t] ?? '–')])),
+          h('dl', { class: 'wk-oncall' }, tiers.map(t => [h('dt', {}, TIER_LABEL[t]), h('dd', { class: sec.onCall[d][t] === me ? 'is-me' : '' }, sec.onCall[d][t] ?? '–', telLink(m.phones, sec.onCall[d][t]))])),
           sec.leave[d].length > 0 && h('div', { class: 'wk-line' }, h('h3', {}, 'Leave'), names(sec.leave[d])),
           sec.postCall[d].length > 0 && h('div', { class: 'wk-line' }, h('h3', {}, 'Post-call'), names(sec.postCall[d])),
           m.built && sec.free[d].length > 0 && h('div', { class: 'wk-line' }, h('h3', {}, 'Free'),

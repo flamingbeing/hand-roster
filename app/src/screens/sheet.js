@@ -9,7 +9,7 @@ import { $, dialog, h, fill } from '../dom.js';
  * @typedef {object} Field
  * @property {string} key
  * @property {string} label
- * @property {'text' | 'number' | 'date' | 'select' | 'check' | 'area'} [type]  default text
+ * @property {'text' | 'tel' | 'number' | 'date' | 'select' | 'check' | 'area'} [type]  default text
  * @property {[string, string][] | ((values: Record<string, any>) => [string, string][])} [options]  for a select (a function: the options follow the other fields)
  * @property {boolean} [required]
  * @property {number} [max]  text length, or the largest number
@@ -93,8 +93,8 @@ function make() {
       } else if (type === 'check') {
         control = h('input', { id: `ef-${f.key}`, type: 'checkbox', checked: !!values[f.key] });
       } else {
-        control = h('input', { id: `ef-${f.key}`, type, value: values[f.key] ?? '', required: f.required, maxlength: type === 'text' ? f.max : null,
-          min: type === 'number' ? f.min : null, max: type === 'number' ? f.max : null, autocomplete: 'off', list: f.list || null, inputmode: type === 'number' ? 'numeric' : null, 'aria-required': f.required ? 'true' : null });
+        control = h('input', { id: `ef-${f.key}`, type, value: values[f.key] ?? '', required: f.required, maxlength: type === 'text' || type === 'tel' ? f.max : null,
+          min: type === 'number' ? f.min : null, max: type === 'number' ? f.max : null, autocomplete: 'off', list: f.list || null, inputmode: type === 'number' ? 'numeric' : type === 'tel' ? 'tel' : null, 'aria-required': f.required ? 'true' : null });
       }
       controls[f.key] = /** @type {any} */ (control);
       if (f.hint) control.setAttribute('aria-describedby', `eh-${f.key}`);
