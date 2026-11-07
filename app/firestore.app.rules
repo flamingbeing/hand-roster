@@ -124,6 +124,21 @@ service cloud.firestore {
       allow delete: if can(g, ['admin', 'member']);
     }
 
+    // The roster's rule cards (src/roster/rule-cards.js), app-roster's rule shape: a maker's copy of a default card (the
+    // same id) or their own. Makers (admins, members) write them, viewers read them.
+    match /spaces/{g}/rules/{id} {
+      allow read: if can(g, ['admin', 'member', 'viewer']);
+      allow create, update: if can(g, ['admin', 'member']) && stamped() && id.matches('^[A-Za-z0-9-]{1,40}$')
+        && request.resource.data.keys().hasOnly(['type', 'words', 'level', 'priority', 'tags', 'on', 'params', 'topic', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
+        && str(request.resource.data, 'type', 20) && optStr(request.resource.data, 'words', 200)
+        && oneOfStr(request.resource.data, 'level', ['block', 'warn', 'soft']) && intIn(request.resource.data, 'priority', 1, 3)
+        && optList(request.resource.data, 'tags', 20) && optBool(request.resource.data, 'on')
+        && (!('params' in request.resource.data) || request.resource.data.params is map)
+        && optOneOf(request.resource.data, 'topic', ['week', 'calls'])
+        && recordOk(request.resource.data);
+      allow delete: if can(g, ['admin', 'member']);
+    }
+
     // modules: rules{ written from app/rules/*.rules by node tools/modules.mjs; edit those, not this block
     // }modules
 

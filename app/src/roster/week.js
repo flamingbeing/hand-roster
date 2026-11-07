@@ -11,6 +11,7 @@
 // its AM juniors. Lowest of all (owner, 6 Nov 2026): a junior goes with a consultant of their own team, but only between
 // people every other rule scores the same. Deterministic from the seed. Pure: no page, no clock.
 import { addDays, mondayOf, rangeDays } from './dates.js';
+import { weekRules } from './rule-cards.js';
 import { TIERS, callMapOf, canWork, conText, consOf, isJunior, worksOn, leaveIndex, leads, minOf, regLed, settleLists } from './model.js';
 
 /** @typedef {import('./model.js').Person} Person */
@@ -32,7 +33,8 @@ import { TIERS, callMapOf, canWork, conText, consOf, isJunior, worksOn, leaveInd
  *   drops a pin (owner 7 Nov 2026)
  * @property {{ type: 'list-need', list: string, day: string, session: Session | 'both', need: number }[]} [needs]  a list wants a different number of juniors
  * @property {string[]} [holidays]  public holidays: their lists close and nobody is free or rostered
- * @property {boolean} [postCallAm]  post-call people can still work the AM (default true)
+ * @property {boolean} [postCallAm]  post-call people can still work the AM (default: rules', else true)
+ * @property {import('./rule-cards.js').WeekRules} [rules]  the rule cards' settings (rule-cards.js weekRules; default: the default cards)
  * @property {number} [seed]
  *
  * @typedef {{ list: string, juniors: string[] }} Placement
@@ -61,6 +63,7 @@ function rng(a) {
   };
 }
 const KIND_ORDER = { ot: 0, msp: 1, hot: 2, clinic: 3 };
+const WEEK_RULES = weekRules();
 
 /**
  * @param {WeekOptions} o
@@ -72,7 +75,9 @@ export function buildWeek(o) {
   const days = rangeDays(monday, addDays(monday, 4));
   const lv = leaveIndex(o.leave ?? []);
   const calls = callMapOf(o.calls ?? []);
-  const postCallAm = o.postCallAm ?? true;
+  const rules = o.rules ?? WEEK_RULES;
+  const postCallAm = o.postCallAm ?? rules.postCallAm;
+  const W = rules.points;
   const juniors = o.people.filter(isJunior);
   // on call and post-call: everyone on the junior tiers, an AC too (not filled into lists, but on the REG tier)
   const juniorCalls = new Set(o.people.filter(p => p.grade !== 'con').map(p => p.name));
@@ -100,7 +105,7 @@ export function buildWeek(o) {
   const problems = [];
 
   for (const day of days) {
-    const prev = onCallOn(addDays(day, -1));
+    const prev = rules.postCall ? onCallOn(addDays(day, -1)) : [];
     const today = onCallOn(day);
     onCall[day] = today.filter(n => juniorCalls.has(n));
     postCall[day] = prev.filter(n => juniorCalls.has(n));
@@ -133,7 +138,7 @@ export function buildWeek(o) {
       }
 
       // 1. asked-for people first (an ask is by hand: site, by-hand, works-on and clinics-only limits don't apply)
-      for (const r of o.requests ?? []) {
+      for (const r of rules.asks ? o.requests ?? [] : []) {
         if (r.type !== 'list-person' || r.day !== day || (r.session !== 'both' && r.session !== session)) continue;
         const l = order.find(x => sameName(r.list, x) && x.need > (placed.get(x.id)?.length ?? 0));
         const p = juniors.find(x => x.name === r.person);
@@ -154,7 +159,7 @@ export function buildWeek(o) {
         [eot, l => l.need, () => true],
       ];
       for (const [mine, upTo, may] of steps) {
-        if (session === 'PM') {
+        if (session === 'PM' && rules.keep) {
           for (const l of mine) {
             const am = grid[day].AM.find(g => { const a = lists.find(x => x.id === g.list); return a && a.name === l.name && a.site === l.site && conText(a) === conText(l) && a.kind === l.kind; });
             for (const name of am?.juniors ?? []) {
@@ -180,14 +185,15 @@ export function buildWeek(o) {
             if (!may(p, l) || !canWork(p, l) || !available(p, session)) continue;
             const st = stats[p.name];
             const wantsOt = l.kind === 'ot' || l.kind === 'msp';
-            // every rule below moves the score by a multiple of 0.5, so the team (0.25) and the random pick (under 0.25) only
-            // break ties, the team first
-            let v = st.sessions * 3 + (wantsOt ? st.ot : st.clinic) * 1.5 + rnd() * 0.25 + (teams.has(teamOf.get(p.name)) ? 0 : 0.25);
-            v += wantsOt ? (p.grade === 'reg' ? 0 : 4) : (p.grade === 'mo' ? 0 : 2);
-            if (p.site && (l.site === 'NUH' || l.site === 'NTFGH') && p.site !== l.site) v += 2;
+            // with the default cards' points every rule below moves the score by a multiple of 0.5, so the team (0.25) and
+            // the random pick (under 0.25) only break ties, the team first
+            // (the default cards' points; rule-cards.js)
+            let v = st.sessions * W.sessions + (wantsOt ? st.ot * W.ot : st.clinic * W.clinic) + rnd() * 0.25 + (teams.has(teamOf.get(p.name)) ? 0 : W.team);
+            v += wantsOt ? (p.grade === 'reg' ? 0 : W.regOt) : (p.grade === 'mo' ? 0 : W.moClinic);
+            if (p.site && (l.site === 'NUH' || l.site === 'NTFGH') && p.site !== l.site) v += W.site;
             if (keepRegs && p.grade === 'reg') v += 20;
             const amSite = session === 'PM' ? grid[day].AM.find(g => g.juniors.includes(p.name)) : undefined;
-            if (amSite && lists.find(x => x.id === amSite.list)?.site !== l.site) v += 1.5;
+            if (amSite && lists.find(x => x.id === amSite.list)?.site !== l.site) v += W.amSite;
             if (v < bestScore) { bestScore = v; best = p; }
           }
           if (!best) break;

@@ -18,6 +18,7 @@
       "@core/ui": ["./node_modules/app-ui/ui/index.js"],
       "@core/theme": ["./node_modules/app-ui/theme/index.js"],
       "@core/settings": ["./node_modules/app-ui/settings/index.js"],
+      "@core/roster": ["./node_modules/app-roster/index.js"],
       "@core/*": ["./node_modules/app-sync/types/*.d.ts"],
       "app-ui/*": ["./node_modules/app-ui/*"],
       "zod": ["./e2e/fixtures/outside-package/vendor/zod/3.23.8/index.d.ts"]

@@ -7,7 +7,7 @@
 //   snapshot of the week's lists as they were built (so a later change to the template does not rewrite the past), and the
 //   changes to the template for this week only (`overrides`). Leave, post-call, on-call and free are worked out from the grid
 //   when shown (roster/sections.js).
-import { cleaner, text, optText, oneOf, int, optInt, days, texts } from './ops.js';
+import { cleaner, text, optText, oneOf, int, optInt, days, texts, bool } from './ops.js';
 import { DAY_TYPES, TIERS } from '../roster/model.js';
 
 /** @param {unknown} v */
@@ -78,3 +78,10 @@ const cleanWeek = cleaner({
 /** @typedef {import('./ops.js').Row & { grid?: import('../roster/grid.js').GridRow[], lists?: import('../roster/model.js').ListSlot[], overrides?: import('./lists.js').Override[], built?: number, seed?: number }} WeekRow */
 /** the weeks kind, as cloud.js lists it */
 export const weeks = { COLL: 'weeks', clean: cleanWeek };
+
+// rules: rule cards (roster/rule-cards.js), app-roster's shape; params plain JSON (a map)
+const json = (/** @type {unknown} */ v) => (v && typeof v === 'object' && !Array.isArray(v) ? JSON.parse(JSON.stringify(v)) : undefined);
+/** app-roster 0.1.0's rule types (tests compare) */
+export const RULE_TYPES = ['cover', 'away', 'oneAtATime', 'sequence', 'eligible', 'leads', 'match', 'limit', 'requests', 'keep', 'balance'];
+/** @typedef {import('./ops.js').Row & Partial<import('../roster/rule-cards.js').RuleCard>} RuleRow */
+export const rules = { COLL: 'rules', clean: cleaner({ type: oneOf(RULE_TYPES), words: text(200), level: oneOf(['block', 'warn', 'soft']), priority: int(1, 3), tags: texts(20, 40), on: bool, params: json, topic: oneOf(['week', 'calls']) }) };

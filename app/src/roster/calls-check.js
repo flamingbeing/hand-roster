@@ -13,7 +13,8 @@ import { DEFAULT_TIER_PLAN, TIERS, TIER_LABEL, canTake, dayType, isOffDay } from
 
 /**
  * @param {{ month: string, calls: import('./model.js').CallDay[], people: Person[], leave?: import('./model.js').Leave[], requests?: import('./model.js').CallRequest[],
- *   holidays?: string[], minGap?: number, prior?: import('./model.js').CallMap, after?: import('./model.js').CallMap, tiers?: import('./model.js').TierPlan }} o
+ *   holidays?: string[], minGap?: number, prior?: import('./model.js').CallMap, after?: import('./model.js').CallMap, tiers?: import('./model.js').TierPlan,
+ *   rules?: import('./rule-cards.js').CallRules }} o  rules: the rule cards' settings (calls.js)
  * @returns {{ counts: { name: string, grade: string, total: number, weekend: number, tiers: Record<Tier, number>, offRoster?: boolean }[],
  *   problems: { date: string, tier: Tier, name?: string | null, rule: string, text: string }[], empty: { date: string, tier: Tier }[] }}
  */
@@ -21,7 +22,7 @@ export function checkCalls(o) {
   const plan = o.tiers ?? DEFAULT_TIER_PLAN, holidays = o.holidays ?? [];
   const map = callMapIn(o.calls, o.month);
   // judge the entered calls only: an empty tier is reported as empty, not filled in
-  const res = solveCalls({ month: o.month, people: o.people, leave: o.leave, requests: o.requests, holidays, minGap: o.minGap, prior: o.prior, after: o.after, tiers: plan, locked: map, iterations: 0, fill: false });
+  const res = solveCalls({ month: o.month, people: o.people, leave: o.leave, requests: o.requests, holidays, minGap: o.minGap, prior: o.prior, after: o.after, tiers: plan, locked: map, iterations: 0, fill: false, ...(o.rules ? { rules: o.rules } : {}) });
   // (the solver's own 'tier' line is left out: the 'roster' line below says the same in plainer words)
   /** @type {{ date: string, tier: Tier, name?: string | null, rule: string, text: string }[]} */
   const problems = res.problems.filter(p => p.rule !== 'unfilled' && p.rule !== 'want' && p.rule !== 'tier' && !!p.name && map[p.date]?.[p.tier] === p.name);

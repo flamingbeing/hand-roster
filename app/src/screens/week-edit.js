@@ -5,6 +5,7 @@
 // (roster/week-edits.js): a change another maker saved while a sheet was open stays. The copy a sheet opened with only
 // words and warns. A Build, a grid edit or a list change can be undone from its toast for a few seconds. Build again keeps
 // every pinned junior where they are (someone added or moved by hand is pinned); Reset week drops the pins and builds fresh.
+import { validateRule } from '@core/roster';
 import { undoToast } from '@core/ui';
 import { $, h } from '../dom.js';
 import { LOADING, REFUSED } from '../items.js';
@@ -16,6 +17,7 @@ import { gridRows, isPinned, juniorsOn } from '../roster/grid.js';
 import { pinsOf, withPins } from '../roster/pins.js';
 import { applyEdit, applyEdits, keptAsks, mergeOverrides, undoFields } from '../roster/week-edits.js';
 import { listsDrift } from '../roster/lists-drift.js';
+import { rulesOf, weekRules } from '../roster/rule-cards.js';
 import { slotsFor } from '../data/lists.js';
 import { editSheet } from './sheet.js';
 import { WEEK_NEEDS } from './week.js';
@@ -37,6 +39,10 @@ export function weekEdit({ ctx, model, monday }) {
   let building = false;
   /** true (and says so) while some of what the week is built from has not arrived yet */
   const waiting = () => { if (store.ready(WEEK_NEEDS)) return false; toast(LOADING); return true; };
+  /** the rule cards in force, as the week builder takes them (spaces/_/rules over the defaults) */
+  const rules = () => weekRules(rulesOf(store.get('rules'), validateRule));
+  /** waiting, and for a build also the rule cards (not in WEEK_NEEDS, so the tab never waits on them to show) */
+  const buildWaiting = () => { if (waiting()) return true; if (store.ready(['rules'])) return false; toast(LOADING); return true; };
 
   /**
    * Saves some fields of a week, with Undo: it puts those fields back as they were, on the week as it is by then.
@@ -95,7 +101,7 @@ export function weekEdit({ ctx, model, monday }) {
   }
 
   async function build() {
-    if (building || !ctx.canWrite() || waiting()) return;
+    if (building || !ctx.canWrite() || buildWaiting()) return;
     const mon = monday(), m = model(mon);
     if (!m.lists.length) { toast('Add the weekly lists first (Lists tab).'); return; }
     if (!m.built || !m.grid.some(r => r.juniors.length)) { await rebuild(mon, []); return; }
@@ -104,7 +110,7 @@ export function weekEdit({ ctx, model, monday }) {
 
   /** Reset week: every pin dropped and the week built fresh (the list changes for this week stay) */
   function reset() {
-    if (building || !ctx.canWrite() || waiting()) return;
+    if (building || !ctx.canWrite() || buildWaiting()) return;
     const mon = monday(), n = pinsOf(model(mon).grid).length;
     sheet.open({
       title: 'Reset week', fields: [], saveLabel: 'Reset',
@@ -122,7 +128,7 @@ export function weekEdit({ ctx, model, monday }) {
     const pins = pinsOf(m.grid);
     if (pins.length || m.grid.some(r => r.pinned)) return pins;
     const { buildWeek } = await import('../roster/week.js');
-    const built = gridRows(buildWeek({ monday: mon, lists: slotsFor(m.templates, mon, m.wk?.overrides), people: m.people, leave: m.leave, calls: m.calls, holidays: m.holidays, seed: m.wk?.seed ?? 0 }).grid);
+    const built = gridRows(buildWeek({ monday: mon, lists: slotsFor(m.templates, mon, m.wk?.overrides), people: m.people, leave: m.leave, calls: m.calls, holidays: m.holidays, seed: m.wk?.seed ?? 0, rules: rules() }).grid);
     return keptAsks(built, m.grid).map(a => ({ person: a.person, list: a.list, day: a.day, session: /** @type {'AM' | 'PM'} */ (a.session) }));
   }
 
@@ -131,14 +137,14 @@ export function weekEdit({ ctx, model, monday }) {
    * @param {string} mon @param {import('../roster/pins.js').Pin[]} pins  the pins to keep
    */
   async function rebuild(mon, pins) {
-    if (building || waiting()) return;
+    if (building || buildWaiting()) return;
     building = true; $('week-build').setAttribute('disabled', '');
     try {
       const { buildWeek } = await import('../roster/week.js');
       const now = model(mon);
       const seed = (now.wk?.seed ?? 0) + 1;
       const lists = slotsFor(now.templates, mon, now.wk?.overrides);
-      const res = buildWeek({ monday: mon, lists, people: now.people, leave: now.leave, calls: now.calls, holidays: now.holidays, seed, pins });
+      const res = buildWeek({ monday: mon, lists, people: now.people, leave: now.leave, calls: now.calls, holidays: now.holidays, seed, pins, rules: rules() });
       const grid = withPins(gridRows(res.grid), pins);
       const kept = pinsOf(grid).length;
       const short = res.problems.filter(p => p.got < p.min || p.noReg).length;

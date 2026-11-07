@@ -8,6 +8,7 @@
 // simulated annealing with swap and reassign moves, hard and soft costs kept apart. Deterministic from the seed and
 // capped by an iteration budget. Pure: no page, no clock.
 import { addDays, diffDays, monthDays } from './dates.js';
+import { callRules } from './rule-cards.js';
 import { DEFAULT_TIER_PLAN, TIERS, canTake, dayType, isOffDay, leaveIndex } from './model.js';
 
 /** @typedef {import('./model.js').Person} Person */
@@ -32,6 +33,7 @@ import { DEFAULT_TIER_PLAN, TIERS, canTake, dayType, isOffDay, leaveIndex } from
  * @property {CallMap} [prior]  the weeks before the month, for the gap rule at its start
  * @property {CallMap} [after]  the weeks after the month (next month's calls, already made), for the gap rule at its end
  * @property {CallMap} [locked]  entries to keep exactly (a hand edit, or a call already given)
+ * @property {import('./rule-cards.js').CallRules} [rules]  the rule cards' settings (rule-cards.js callRules; default: the default cards); minGap wins over its gap
  *
  * @typedef {{ date: string, tier: Tier, name?: string | null, rule: 'unfilled' | 'gap' | 'leave' | 'cannot' | 'double' | 'tier' | 'locked' | 'want', text: string }} CallProblem
  * @typedef {{ total: number, weekend: number, tiers: Record<Tier, number> }} CallCount
@@ -67,7 +69,9 @@ function staffable(lists) {
 }
 
 const HARD = 1000;
-const W = { total: 1, weekend: 1.5, tier: 0.3, spread: 0.4, want: 5, grade: 1.5 };
+// the soft costs' weights come from the rule cards (rule-cards.js; the defaults: total 1, weekend 1.5, tier 0.3, spread 0.4,
+// want 5, grade 1.5)
+const CALL_RULES = callRules();
 
 /**
  * @param {SolveOptions} o
@@ -76,7 +80,9 @@ const W = { total: 1, weekend: 1.5, tier: 0.3, spread: 0.4, want: 5, grade: 1.5 
 export function solveCalls(o) {
   const plan = o.tiers ?? DEFAULT_TIER_PLAN;
   // at least 1 clear day: the day after a call is post-call (off), so back-to-back calls would clash with it
-  const minGap = Math.max(1, o.minGap ?? 2);
+  const rules = o.rules ?? CALL_RULES;
+  const W = rules.points;
+  const minGap = Math.max(1, o.minGap ?? rules.minGap);
   const rnd = prng(o.seed ?? 1);
   const days = monthDays(o.month);
   const lv = leaveIndex(o.leave ?? []);
@@ -87,7 +93,7 @@ export function solveCalls(o) {
   const people = o.people.filter(p => TIERS.some(t => canTake(p, t)));
   const idx = new Map(people.map((p, i) => [p.name, i]));
   const P = people.length;
-  const spreadTarget = minGap + 3;
+  const spreadTarget = minGap + 1 + rules.spacing;   // (default: 2 days past the clear days still cost a little)
 
   // prior calls, as day offsets before the month's first day
   /** @type {number[][]} */
