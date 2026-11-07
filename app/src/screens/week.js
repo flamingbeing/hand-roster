@@ -25,7 +25,7 @@ import { addDays, mondayOf, nextWorkday, rangeDays, shortDay, weekday, weekdayNa
 import { TIERS, TIER_LABEL, conText, dayType, hasMe, leads, minOf, regLed, settleLists, tierPlanOf } from '../roster/model.js';
 import { callsAround, callsUnmade, clashesOf } from '../roster/sections.js';
 import { listName, sectionsOf } from '../roster/sections.js';
-import { juniorsOn, weekBuilt } from '../roster/grid.js';
+import { isPinned, juniorsOn, weekBuilt } from '../roster/grid.js';
 import { firstWeek, makerWeek } from '../roster/sections.js';
 import { slotsFor } from '../data/lists.js';
 import { activePeople, meOf, phonesOf } from '../data/people.js';
@@ -139,7 +139,8 @@ export function weekScreen(ctx) {
       { label: 'Print', icon: ICONS.printer, run: () => printWeek() },
       { label: 'This is me', icon: ICONS.userCheck, run: () => pickMe(m.people) },
       ...(canWrite && m.built && m.lists.length && store.ready(WEEK_NEEDS) ? [null, { label: 'Check against Epic', icon: ICONS.listChecks, run: () => edit(e => e.epicSheet()) },
-        { label: 'Build again', icon: ICONS.refreshCw, run: () => edit(e => e.build()) }] : []),
+        { label: 'Build again', icon: ICONS.refreshCw, run: () => edit(e => e.build()) },
+        { label: 'Reset week', icon: ICONS.rotateCcw, run: () => edit(e => e.reset()) }] : []),
     ], { label: 'More' });
   });
   // Ctrl+P and the browser's own print draw the same sheet once the export code is in: a button loads it, and on a laptop
@@ -282,8 +283,8 @@ export function weekScreen(ctx) {
         h('button', { type: 'button', class: 'sh-off', 'aria-label': `Take ${c.name} off ${on}`, onclick: () => edit(e => e.takeOff(m, c)) }, 'Take off'));
     }))];
   /** a junior's button on a list, marked when it clashes @param {ReturnType<typeof model>} m @param {import('../roster/model.js').ListSlot} l @param {string} n @param {string} cls */
-  const nameBtn = (m, l, n, cls) => { const why = clashAt.get(`${l.day}|${l.session}|${n}`);
-    return { type: 'button', class: `${cls}${why ? ' is-clash' : ''}${n === me ? ' is-me' : ''}`, dataset: { name: n }, 'aria-label': `${n}: move or take off${why ? `. Clash: ${why}` : ''}`, onclick: () => edit(e => e.moveSheet(m, l.day, l.session, n, l.id)) }; };
+  const nameBtn = (m, l, n, cls) => { const why = clashAt.get(`${l.day}|${l.session}|${n}`), pinned = isPinned(m.grid, l.day, l.session, l.id, n);
+    return { type: 'button', class: `${cls}${why ? ' is-clash' : ''}${n === me ? ' is-me' : ''}${pinned ? ' is-pinned' : ''}`, dataset: { name: n }, 'aria-label': `${n}${pinned ? ', pinned' : ''}: move, pin or take off${why ? `. Clash: ${why}` : ''}`, onclick: () => edit(e => e.moveSheet(m, l.day, l.session, n, l.id)) }; };
 
   /**
    * The Grid: the week as the hand-made sheet lays it out. Days across; AM and PM by site down, each cell the lists of that

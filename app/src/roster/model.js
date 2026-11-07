@@ -95,8 +95,8 @@ export function dayType(day, holidays = []) {
 /** @param {DayType} t @returns {boolean} counts toward the weekend/holiday balance */
 export const isOffDay = t => t !== 'weekday';
 
-/** @param {Person} p @returns {boolean} a junior doctor: filled into lists */
-export const isJunior = p => p.grade !== 'con' && !p.extra;
+/** @param {Person} p @returns {boolean} a junior doctor: filled into lists (not an AC: owner 7 Nov 2026) */
+export const isJunior = p => p.grade !== 'con' && !p.extra && p.rank !== 'AC';
 
 /**
  * Who may take a call tier. Consultants only CON; the REG tier goes to registrars and ACs (not fellows); the MO tiers

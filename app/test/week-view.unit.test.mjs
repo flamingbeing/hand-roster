@@ -2,7 +2,8 @@
 // week, month cells, and hand edits of calls. Invented names only.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { gridRows, juniorsOn, listOf, move, place, unplace } from '../src/roster/grid.js';
+import { gridRows, juniorsOn, listOf } from '../src/roster/grid.js';
+import { move, place, unplace } from '../src/roster/grid-edits.js';
 import { clashesOf, callsUnmade, sectionsOf, whyNot } from '../src/roster/sections.js';
 import { settleLists } from '../src/roster/model.js';
 import { weeks } from '../src/data/plans.js';

@@ -1,22 +1,35 @@
 // A roster maker's edits to a week, as pure steps (screens/week-edit.js saves them). Each edit is worked out from the
 // week as it is when it is saved, never from the copy a sheet opened with: a change another maker saved in between stays.
 // Undo puts back the fields an edit changed, as they were just before it.
-import { juniorsOn, move, place } from './grid.js';
+import { juniorsOn, listOf } from './grid.js';
+import { move, place } from './grid-edits.js';
+import { pin } from './pins.js';
 import { coOf, minOf } from './model.js';
 
 /** @typedef {import('./grid.js').GridRow} GridRow */
 /**
  * @typedef {{ kind: 'move', day: string, session: 'AM' | 'PM', name: string, to: string | null, swapWith?: string | null }
  *   | { kind: 'add', day: string, session: 'AM' | 'PM', list: string, name: string }
- *   | { kind: 'clear', day: string, session: 'AM' | 'PM', list: string }} GridEdit
- *   move (to null: take off the list), add a junior, or take everyone off a list for that session
+ *   | { kind: 'clear', day: string, session: 'AM' | 'PM', list: string }
+ *   | { kind: 'pin', day: string, session: 'AM' | 'PM', list: string, name: string, on: boolean }} GridEdit
+ *   move (to null: take off the list), add a junior, take everyone off a list for that session, or pin or unpin a junior
+ *   where they are. Someone added or moved by hand is pinned there (both of a swap), so Build again keeps them.
  */
 
 /** @param {GridRow[]} rows  the grid as it is now @param {GridEdit} e @returns {GridRow[]} */
 export function applyEdit(rows, e) {
-  if (e.kind === 'add') return place(rows, e.day, e.session, e.list, e.name);
-  if (e.kind === 'clear') return rows.map(r => (r.list === e.list && r.day === e.day && r.session === e.session ? { ...r, juniors: [] } : r));
-  return move(rows, e);
+  if (e.kind === 'add') return pin(place(rows, e.day, e.session, e.list, e.name), e.day, e.session, e.list, e.name, true);
+  if (e.kind === 'clear') return rows.map(r => {
+    if (r.list !== e.list || r.day !== e.day || r.session !== e.session) return r;
+    const { pinned: _, ...rest } = r;
+    return { ...rest, juniors: [] };
+  });
+  if (e.kind === 'pin') return pin(rows, e.day, e.session, e.list, e.name, e.on);
+  const from = listOf(rows, e.day, e.session, e.name);
+  let next = move(rows, e);
+  if (e.to) next = pin(next, e.day, e.session, e.to, e.name, true);
+  if (e.swapWith && from) next = pin(next, e.day, e.session, from, e.swapWith, true);
+  return next;
 }
 
 /** several edits, each on the grid the one before left: saved as one, so one Undo puts them all back @param {GridRow[]} rows @param {GridEdit[]} edits @returns {GridRow[]} */

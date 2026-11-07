@@ -8,7 +8,7 @@ import { buildWeek } from '../src/roster/week.js';
 import { parseInfo, formatInfo } from '../src/roster/parse-info.js';
 import { addDays, daysIn, diffDays, isDay, mondayOf, monthDays, weekday } from '../src/roster/dates.js';
 import { gridRows } from '../src/roster/grid.js';
-import { canTake, dayType, DEFAULT_TIER_PLAN, leaveIndex, settleLists, tierPlanOf } from '../src/roster/model.js';
+import { canTake, dayType, DEFAULT_TIER_PLAN, isJunior, leaveIndex, settleLists, tierPlanOf } from '../src/roster/model.js';
 import { clashesOf, sectionsOf } from '../src/roster/sections.js';
 import { keptAsks, keptCount, listChange } from '../src/roster/week-edits.js';
 
@@ -304,7 +304,7 @@ test('week: post-call, leave and free sections follow the sheet', () => {
     const want = fx.leave.filter(l => l.from <= d && d <= l.to && !['hand'].includes(l.src)).map(l => l.name);
     for (const n of want) assert.ok(built.leave[d].includes(n), `${n} listed on leave ${d}`);
     // every junior is in exactly one place per half-day: placed, free, on leave or post-call PM
-    for (const p of fx.people.filter(p => p.grade !== 'con' && !p.extra)) {
+    for (const p of fx.people.filter(isJunior)) {
       const n = p.name;
       // (running a list counts as placed: a registrar named as a list's consultant)
       const runs = s => fx.lists.some(l => l.day === d && l.session === s && l.status === 'open' && l.consultant === n);
@@ -326,7 +326,7 @@ test('week: post-call, leave and free sections follow the sheet', () => {
 
 test('week: lists get their juniors when people are around, sessions are balanced', () => {
   assert.ok(built.problems.length <= 6, `${built.problems.length} lists short: ${JSON.stringify(built.problems.slice(0, 3))}`);
-  const counts = fx.people.filter(p => p.grade !== 'con' && !p.extra && p.name !== 'Dr Sigma Tham' && !fxLv.full(p.name, '2026-10-12')).map(p => built.stats[p.name].sessions);
+  const counts = fx.people.filter(p => isJunior(p) && p.name !== 'Dr Sigma Tham' && !fxLv.full(p.name, '2026-10-12')).map(p => built.stats[p.name].sessions);
   assert.ok(counts.length > 10);
   assert.ok(Math.max(...counts) - Math.min(...counts) <= 7, `sessions ${counts}`);
   // OT-type lists lean on registrars, clinics on MOs

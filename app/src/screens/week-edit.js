@@ -3,8 +3,8 @@
 // Clashes panel's Take off and how many lists the Lists tab has changed since the week was built.
 // week.js loads it on a roster maker's first edit or Build, or when a maker opens a built week. Each save works from the week as it is when saved
 // (roster/week-edits.js): a change another maker saved while a sheet was open stays. The copy a sheet opened with only
-// words and warns. A Build, a grid edit or a list change can be undone from its toast for a few seconds. Build again on a
-// week with hand changes asks to keep them (they go to the builder as asks), replace them, or cancel.
+// words and warns. A Build, a grid edit or a list change can be undone from its toast for a few seconds. Build again keeps
+// every pinned junior where they are (someone added or moved by hand is pinned); Reset week drops the pins and builds fresh.
 import { undoToast } from '@core/ui';
 import { $, h } from '../dom.js';
 import { LOADING, REFUSED } from '../items.js';
@@ -12,8 +12,9 @@ import { shortDay } from '../roster/dates.js';
 import { conText } from '../roster/model.js';
 import { sectionsOf, whyNot } from '../roster/sections.js';
 import { shortOptions } from '../roster/short.js';
-import { gridRows, juniorsOn } from '../roster/grid.js';
-import { applyEdit, applyEdits, keptCount, keptAsks, mergeOverrides, undoFields } from '../roster/week-edits.js';
+import { gridRows, isPinned, juniorsOn } from '../roster/grid.js';
+import { pinsOf, withPins } from '../roster/pins.js';
+import { applyEdit, applyEdits, keptAsks, mergeOverrides, undoFields } from '../roster/week-edits.js';
 import { listsDrift } from '../roster/lists-drift.js';
 import { slotsFor } from '../data/lists.js';
 import { editSheet } from './sheet.js';
@@ -98,35 +99,38 @@ export function weekEdit({ ctx, model, monday }) {
     const mon = monday(), m = model(mon);
     if (!m.lists.length) { toast('Add the weekly lists first (Lists tab).'); return; }
     if (!m.built || !m.grid.some(r => r.juniors.length)) { await rebuild(mon, []); return; }
-    const { buildWeek } = await import('../roster/week.js');
-    if (handChanges(mon, m, buildWeek) === null) { await rebuild(mon, []); return; }
-    // three ways out (app-ui has only yes or no): Keep, Replace, or Cancel (the sheet's own), which changes nothing. Keep
-    // works from the week as it is then, so a hand change another maker saved meanwhile is kept too.
+    await rebuild(mon, await pinsNow(mon, m));
+  }
+
+  /** Reset week: every pin dropped and the week built fresh (the list changes for this week stay) */
+  function reset() {
+    if (building || !ctx.canWrite() || waiting()) return;
+    const mon = monday(), n = pinsOf(model(mon).grid).length;
     sheet.open({
-      title: 'Build week', fields: [], saveLabel: 'Keep my changes', deleteLabel: 'Replace them',
-      note: 'This week has changes made by hand. Build it again around them? Placements you made are kept where still possible; people you took off may be placed again.',
-      onSave: () => rebuild(mon, handChanges(mon, model(mon), buildWeek) ?? []),
-      onDelete: () => rebuild(mon, []),
+      title: 'Reset week', fields: [], saveLabel: 'Reset',
+      note: `Builds the week fresh${n ? `, dropping ${n} pin${n === 1 ? '' : 's'}` : ''}. Changes to a list for this week (consultants, patients, away) stay; each list's "Back to the usual" drops those.`,
+      onSave: () => rebuild(mon, []),
     });
   }
 
   /**
-   * The week's hand placements, as asks for the builder: null when the grid is just what its last build would make now
-   * (else it has hand changes, or leave or calls changed since).
-   * @param {string} mon @param {Model} m @param {typeof import('../roster/week.js').buildWeek} buildWeek
-   * @returns {import('../roster/week-edits.js').Ask[] | null}
+   * The week's pins for Build again. A week built before pins (7 Nov 2026) has none: its hand placements, a junior the last
+   * build would not put there now, become pins instead, so Build again keeps them as it did.
+   * @param {string} mon @param {Model} m @returns {Promise<import('../roster/pins.js').Pin[]>}
    */
-  function handChanges(mon, m, buildWeek) {
+  async function pinsNow(mon, m) {
+    const pins = pinsOf(m.grid);
+    if (pins.length || m.grid.some(r => r.pinned)) return pins;
+    const { buildWeek } = await import('../roster/week.js');
     const built = gridRows(buildWeek({ monday: mon, lists: slotsFor(m.templates, mon, m.wk?.overrides), people: m.people, leave: m.leave, calls: m.calls, holidays: m.holidays, seed: m.wk?.seed ?? 0 }).grid);
-    const rows = m.grid.map(r => ({ day: r.day, session: r.session, list: r.list, juniors: r.juniors }));
-    return JSON.stringify(built) === JSON.stringify(rows) ? null : keptAsks(built, rows);
+    return keptAsks(built, m.grid).map(a => ({ person: a.person, list: a.list, day: a.day, session: /** @type {'AM' | 'PM'} */ (a.session) }));
   }
 
   /**
-   * Builds the week again with a new seed. Asks go first, where the person is still free and the list still has room.
-   * @param {string} mon @param {import('../roster/week-edits.js').Ask[]} asks  the hand placements to keep
+   * Builds the week again with a new seed, the pins placed first.
+   * @param {string} mon @param {import('../roster/pins.js').Pin[]} pins  the pins to keep
    */
-  async function rebuild(mon, asks) {
+  async function rebuild(mon, pins) {
     if (building || waiting()) return;
     building = true; $('week-build').setAttribute('disabled', '');
     try {
@@ -134,14 +138,14 @@ export function weekEdit({ ctx, model, monday }) {
       const now = model(mon);
       const seed = (now.wk?.seed ?? 0) + 1;
       const lists = slotsFor(now.templates, mon, now.wk?.overrides);
-      const res = buildWeek({ monday: mon, lists, people: now.people, leave: now.leave, calls: now.calls, holidays: now.holidays, seed, requests: asks });
-      const grid = gridRows(res.grid);
+      const res = buildWeek({ monday: mon, lists, people: now.people, leave: now.leave, calls: now.calls, holidays: now.holidays, seed, pins });
+      const grid = withPins(gridRows(res.grid), pins);
+      const kept = pinsOf(grid).length;
       const short = res.problems.filter(p => p.got < p.min || p.noReg).length;
-      // the lists are kept as the template stood, unsettled, so a holiday or leave taken away later reopens them. The asks
-      // are not stored: the grid has the placements kept.
+      // the lists are kept as the template stood, unsettled, so a holiday or leave taken away later reopens them
       // the month's calls not made yet: built all the same, but post-call days are not known, so say so
       const said = [
-        asks.length && `Kept ${keptCount(asks, grid)} of ${asks.length} hand placement${asks.length === 1 ? '' : 's'}.`,
+        pins.length && (kept === pins.length ? `Kept ${kept} pin${kept === 1 ? '' : 's'}.` : `Kept ${kept} of ${pins.length} pins (the others' lists are closed this week).`),
         short && `${short} list${short === 1 ? ' is' : 's are'} below the minimum: see Short.`,
         !now.callsMade && 'Calls are not made yet: post-call not kept clear.',
       ].filter(Boolean);
@@ -157,15 +161,23 @@ export function weekEdit({ ctx, model, monday }) {
     const nameOf = (/** @type {string} */ id) => m.lists.find(l => l.id === id)?.name ?? 'the list';
     sheet.open({
       title: name, note: `${shortDay(day)}, ${session === 'AM' ? 'morning' : 'afternoon'}. Now on ${label(m.lists.find(l => l.id === list) ?? { site: '', name: 'no list' })}.`,
-      values: { to: list }, saveLabel: 'Move', deleteLabel: 'Take off the list',
+      values: { to: list, pinned: isPinned(m.grid, day, session, list, name) }, saveLabel: 'Save', deleteLabel: 'Take off the list',
       fields: [
         { key: 'to', label: 'Move to', type: 'select', options: () => [['', 'Free (no list)'], ...here.map(l => /** @type {[string, string]} */ ([l.id, `${label(l)} (${juniorsOn(m.grid, day, session, l.id).length}/${l.need})`]))] },
         { key: 'swap', label: 'Swap with', type: 'select', hint: 'The other person goes to the list this one leaves.',
           options: v => [['', 'Nobody'], ...(v.to ? juniorsOn(m.grid, day, session, v.to).filter(n => n !== name).map(n => /** @type {[string, string]} */ ([n, n])) : [])] },
+        { key: 'pinned', label: 'Pinned: Build again keeps them here', type: 'check', hint: 'Someone moved or added by hand is pinned too. Reset week (More) drops every pin.' },
       ],
       warn: v => (v.to && v.to !== list ? whyNot({ name, day, session, leave: m.leave, calls: m.calls, grid: m.grid, list: v.to }).filter(w => !w.includes('already on another')) : []),
-      onSave: v => saveGrid(mon, { kind: 'move', day, session, name, to: v.to || null, swapWith: v.swap || null },
-        v.swap ? `Swapped ${name} and ${v.swap}.` : v.to ? `Moved ${name} to ${nameOf(v.to)}.` : `${name} is free.`),
+      onSave: v => {
+        const was = isPinned(m.grid, day, session, list, name);
+        // staying put: only the pin changes (nothing to save when it did not)
+        if (v.to === list && !v.swap) return v.pinned === was ? undefined
+          : saveGrid(mon, { kind: 'pin', day, session, list, name, on: !!v.pinned }, v.pinned ? `Pinned ${name} on ${nameOf(list)}.` : `Unpinned ${name}.`);
+        return saveGrid(mon, [{ kind: 'move', day, session, name, to: v.to || null, swapWith: v.swap || null },
+          ...(v.to && !v.pinned ? [/** @type {GridEdit} */ ({ kind: 'pin', day, session, list: v.to, name, on: false })] : [])],
+        v.swap ? `Swapped ${name} and ${v.swap}.` : v.to ? `Moved ${name} to ${nameOf(v.to)}.` : `${name} is free.`);
+      },
       onDelete: () => saveGrid(mon, { kind: 'move', day, session, name, to: null }, `Took ${name} off ${nameOf(list)}.`),
     });
   }
@@ -230,5 +242,5 @@ export function weekEdit({ ctx, model, monday }) {
     return d.added.length + d.removed.length + d.changed.length;
   }
 
-  return { build, busy: () => building, moveSheet, addSheet, weekListSheet, epicSheet, shortButtons, takeOff, takeOffAll, drift };
+  return { build, reset, busy: () => building, moveSheet, addSheet, weekListSheet, epicSheet, shortButtons, takeOff, takeOffAll, drift };
 }

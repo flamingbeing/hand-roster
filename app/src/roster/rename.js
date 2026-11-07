@@ -55,7 +55,7 @@ export function renameRow(kind, row, from, to, only) {
     each('grid', g => {
       const spot = `grid|${g.day}|${g.session}|${g.list}`;
       return Array.isArray(g.juniors) && g.juniors.some((/** @type {unknown} */ n) => n === from) && hit(spot, from)
-        ? { ...g, juniors: g.juniors.map((/** @type {unknown} */ n) => (n === from ? to : n)) } : g;
+        ? { ...g, juniors: g.juniors.map((/** @type {unknown} */ n) => (n === from ? to : n)), ...(Array.isArray(g.pinned) ? { pinned: g.pinned.map((/** @type {unknown} */ n) => (n === from ? to : n)) } : {}) } : g;
     });
     /** @param {string} at @returns {(r: Record<string, any>) => Record<string, any>} */
     const consultants = at => r => {
