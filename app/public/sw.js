@@ -60,6 +60,7 @@ const SHELL = [
   'src/roster/week-edits.js',
   'src/roster/week.js',
   'src/roster/whatsapp.js',
+  'src/roster/who-could.js',
   'src/roster/xlsx.js',
   'src/screen-switch.js',
   'src/screens/calls.js',

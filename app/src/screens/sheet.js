@@ -29,6 +29,7 @@ import { $, dialog, h, fill } from '../dom.js';
  * @property {string} [deleteLabel]  shows a Delete button when onDelete is given
  * @property {(values: Record<string, any>) => string[]} [warn]
  * @property {{ node: HTMLElement, read: () => Record<string, any> }} [body]  drawn after the fields; its values join theirs
+ * @property {HTMLElement} [head]  drawn before the fields
  * @property {(values: Record<string, any>) => unknown} [onSave]
  * @property {() => unknown} [onDelete]
  */
@@ -117,7 +118,7 @@ function make() {
         f.hint && h('span', { class: 'small', id: `eh-${f.key}` }, f.hint));
     });
     $('edit-title').textContent = spec.title;
-    fill($('edit-body'), spec.note && h('p', { class: 'small' }, spec.note), rows, spec.body?.node, warnBox);
+    fill($('edit-body'), spec.note && h('p', { class: 'small' }, spec.note), spec.head, rows, spec.body?.node, warnBox);
     spec.body?.node.addEventListener('input', warnNow);   // its own boxes warn as they are typed in too
     $('edit-save').textContent = spec.saveLabel ?? 'Save';
     $('edit-delete').hidden = !spec.onDelete;

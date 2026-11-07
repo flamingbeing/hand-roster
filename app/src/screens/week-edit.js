@@ -4,7 +4,9 @@
 // week.js loads it on a roster maker's first edit or Build, or when a maker opens a built week. Each save works from the week as it is when saved
 // (roster/week-edits.js): a change another maker saved while a sheet was open stays. The copy a sheet opened with only
 // words and warns. A Build, a grid edit or a list change can be undone from its toast for a few seconds. Build again keeps
-// every pinned junior where they are (someone added or moved by hand is pinned); Reset week drops the pins and builds fresh.
+// every pinned junior where they are (someone added or moved by hand is pinned) and is a refill: everyone else stays where
+// they still can, so only the gaps and what no longer holds change; Reset week drops the pins and builds fresh. A tap on a
+// junior opens the cell sheet: the rules they break there, "Who could go here?" (roster/who-could.js), Move, Swap, Pin.
 // The rule check (roster/report.js, app-roster's score): the marks on the grid's names (week.js asks marks() each draw, so a
 // hand edit is checked again at once), the rule report (a toast after Build when something breaks, and More) and the lists
 // nobody can take, named in that toast. An accepted warning is kept on the week (`accepted`).
@@ -17,12 +19,13 @@ import { conText } from '../roster/model.js';
 import { listName, sectionsOf, whyNot } from '../roster/sections.js';
 import { shortOptions } from '../roster/short.js';
 import { gridRows, isPinned, juniorsOn } from '../roster/grid.js';
-import { pinsOf, withPins } from '../roster/pins.js';
+import { changedRows, keepOf, pinsOf, withPins } from '../roster/pins.js';
 import { applyEdit, applyEdits, keptAsks, mergeOverrides, undoFields } from '../roster/week-edits.js';
 import { listsDrift } from '../roster/lists-drift.js';
 import { rulesOf, weekRules, wordsOf } from '../roster/rule-cards.js';
 import { weekProblem } from '../roster/problem.js';
-import { checkSaid, marksOf, reportOf, shortLines } from '../roster/report.js';
+import { checkSaid, marksOf, readable, reportOf, shortLines } from '../roster/report.js';
+import { whoCould } from '../roster/who-could.js';
 import { slotsFor } from '../data/lists.js';
 import { editSheet } from './sheet.js';
 import { WEEK_NEEDS } from './week.js';
@@ -114,7 +117,9 @@ export function weekEdit({ ctx, model, monday }) {
     const mon = monday(), m = model(mon);
     if (!m.lists.length) { toast('Add the weekly lists first (Lists tab).'); return; }
     if (!m.built || !m.grid.some(r => r.juniors.length)) { await rebuild(mon, []); return; }
-    await rebuild(mon, await pinsNow(mon, m));
+    // Build again is a refill: the pins, then everything else on the grid that still holds; only the gaps and what no
+    // longer holds change (Reset week builds fresh)
+    await rebuild(mon, await pinsNow(mon, m), keepOf(m.grid));
   }
 
   /** Reset week: every pin dropped and the week built fresh (the list changes for this week stay) */
@@ -142,10 +147,10 @@ export function weekEdit({ ctx, model, monday }) {
   }
 
   /**
-   * Builds the week again with a new seed, the pins placed first.
-   * @param {string} mon @param {import('../roster/pins.js').Pin[]} pins  the pins to keep
+   * Builds the week again with a new seed, the pins placed first, then (a refill) the rest of the grid where it still holds.
+   * @param {string} mon @param {import('../roster/pins.js').Pin[]} pins  the pins to keep @param {import('../roster/pins.js').Pin[]} [keep]
    */
-  async function rebuild(mon, pins) {
+  async function rebuild(mon, pins, keep) {
     if (building || buildWaiting()) return;
     building = true; $('week-build').setAttribute('disabled', '');
     try {
@@ -153,9 +158,10 @@ export function weekEdit({ ctx, model, monday }) {
       const now = model(mon);
       const seed = (now.wk?.seed ?? 0) + 1;
       const lists = slotsFor(now.templates, mon, now.wk?.overrides);
-      const res = buildWeek({ monday: mon, lists, people: now.people, leave: now.leave, calls: now.calls, holidays: now.holidays, seed, pins, rules: rules() });
+      const res = buildWeek({ monday: mon, lists, people: now.people, leave: now.leave, calls: now.calls, holidays: now.holidays, seed, pins, keep, rules: rules() });
       const grid = withPins(gridRows(res.grid), pins);
       const kept = pinsOf(grid).length;
+      const changed = keep ? changedRows(now.grid, grid) : -1;
       const short = res.problems.filter(p => p.got < p.min || p.noReg).length;
       // the check: the lists nobody can take (from leave, calls and the rules alone) and the rules the new grid breaks
       // (warnings accepted before are dropped: they were accepted for a grid that is gone)
@@ -164,6 +170,7 @@ export function weekEdit({ ctx, model, monday }) {
       // the month's calls not made yet: built all the same, but post-call days are not known, so say so
       const said = [
         pins.length && (kept === pins.length ? `Kept ${kept} pin${kept === 1 ? '' : 's'}.` : `Kept ${kept} of ${pins.length} pins (the others' lists are closed this week).`),
+        changed >= 0 && (changed ? `Changed ${changed} list${changed === 1 ? '' : 's'}.` : 'Nothing needed to change.'),
         short && `${short} list${short === 1 ? ' is' : 's are'} below the minimum: see Short.`,
         !now.callsMade && 'Calls are not made yet: post-call not kept clear.',
       ].filter(Boolean);
@@ -174,15 +181,25 @@ export function weekEdit({ ctx, model, monday }) {
     } finally { building = false; $('week-build').toggleAttribute('disabled', !store.ready(WEEK_NEEDS)); }
   }
 
-  /** @param {Model} m  the week as drawn (words and warnings) @param {string} day @param {'AM' | 'PM'} session @param {string} name @param {string} list */
-  function moveSheet(m, day, session, name, list) {
+  /**
+   * The cell sheet (a tap on a junior on the grid): who is there, the rules they break there with why, "Who could go here?"
+   * ranked by app-roster's score with the rule that blocks or costs each (a tap puts that person there: a free one takes
+   * the place, one on another list swaps), and Move to, Swap with, Pin.
+   * @param {Model} m  the week as drawn (words and warnings) @param {string} day @param {'AM' | 'PM'} session @param {string} name @param {string} list
+   */
+  function cellSheet(m, day, session, name, list) {
     const mon = monday();
     const here = m.lists.filter(l => l.day === day && l.session === session && l.status === 'open');
     const label = (/** @type {any} */ l) => `${l.site} ${l.name}${l.consultant ? ` – ${conText(l)}` : ''}`;
-    const nameOf = (/** @type {string} */ id) => m.lists.find(l => l.id === id)?.name ?? 'the list';
+    const nameOf = (/** @type {string | null} */ id) => m.lists.find(l => l.id === id)?.name ?? 'the list';
+    const options = whoNode(m, day, session, name, list, (/** @type {import('../roster/who-could.js').Option} */ o) => {
+      sheet.close();
+      void saveGrid(mon, o.edit, o.from ? `Swapped ${o.person} and ${name}.` : `${o.person} is on ${nameOf(list)}; ${name} is free.`);
+    });
     sheet.open({
       title: name, note: `${shortDay(day)}, ${session === 'AM' ? 'morning' : 'afternoon'}. Now on ${label(m.lists.find(l => l.id === list) ?? { site: '', name: 'no list' })}.`,
       values: { to: list, pinned: isPinned(m.grid, day, session, list, name) }, saveLabel: 'Save', deleteLabel: 'Take off the list',
+      head: options,
       fields: [
         { key: 'to', label: 'Move to', type: 'select', options: () => [['', 'Free (no list)'], ...here.map(l => /** @type {[string, string]} */ ([l.id, `${label(l)} (${juniorsOn(m.grid, day, session, l.id).length}/${l.need})`]))] },
         { key: 'swap', label: 'Swap with', type: 'select', hint: 'The other person goes to the list this one leaves.',
@@ -201,6 +218,36 @@ export function weekEdit({ ctx, model, monday }) {
       },
       onDelete: () => saveGrid(mon, { kind: 'move', day, session, name, to: null }, `Took ${name} off ${nameOf(list)}.`),
     });
+  }
+
+  /**
+   * The cell sheet's top: the rules this person breaks here (and the list as a whole), then "Who could go here?".
+   * @param {Model} m @param {string} day @param {'AM' | 'PM'} session @param {string} name @param {string} list
+   * @param {(o: import('../roster/who-could.js').Option) => void} pick
+   */
+  function whoNode(m, day, session, name, list, pick) {
+    const mk = marks(m), words = wordsFn();
+    const mine = mk?.cells.get(`${list}|${name}`), all = mk?.slots.get(list);
+    const said = (/** @type {import('../roster/report.js').Mark | undefined} */ x, /** @type {string} */ who) => x && h('li', { class: `cs-mark is-${x.level}` },
+      h('span', { class: 'cs-level' }, x.level === 'block' ? 'Breaks' : 'Warning'), h('span', {}, `${who}: ${x.why.map(w => readable(w, dayName)).join('; ')}`));
+    const marked = [said(mine, name), said(all, 'This list')].filter(Boolean);
+    /** @type {import('../roster/who-could.js').Option[]} */
+    let opts = [];
+    if (m.built && store.loaded('rules')) {
+      const { problem } = problemOf(monday(), m);
+      opts = whoCould({ score: /** @type {any} */ (score), problem, grid: m.grid, day, session, list, name, people: m.people.filter(p => p.grade !== 'con').map(p => p.name) });
+    }
+    const LEVEL = { block: "Can't", warn: 'Warning', soft: 'Costs' };
+    const line = (/** @type {import('../roster/who-could.js').Option} */ o) => h('button', { type: 'button', class: `sh-option cs-who${o.ok ? '' : ' is-blocked'}`, dataset: { name: o.person }, onclick: () => pick(o) },
+      h('span', {}, o.person, h('span', { class: 'small' }, o.from ? ` · swap: ${name} goes to ${m.lists.find(l => l.id === o.from)?.name ?? 'their list'}` : ' · free')),
+      h('span', { class: `small${o.level ? ` is-${o.level}` : ''}` }, o.level ? `${LEVEL[o.level]}: ${o.rules.map(id => words(id, id)).join('; ')}` : 'No rule broken'));
+    const can = opts.filter(o => o.ok), cannot = opts.filter(o => !o.ok);
+    return h('div', { class: 'cs', id: 'cell-sheet' },
+      marked.length > 0 && h('ul', { class: 'cs-marks' }, marked),
+      opts.length > 0 && h('section', { class: 'cs-who-could' }, h('h3', {}, 'Who could go here?'),
+        can.length > 0 ? h('div', { class: 'sh-options' }, can.slice(0, 8).map(line)) : h('p', { class: 'small' }, 'Nobody can without breaking a must-hold rule.'),
+        can.length > 8 && h('details', {}, h('summary', { class: 'small' }, `${can.length - 8} more`), h('div', { class: 'sh-options' }, can.slice(8).map(line))),
+        cannot.length > 0 && h('details', {}, h('summary', { class: 'small' }, `Can't go here (${cannot.length})`), h('div', { class: 'sh-options' }, cannot.map(line)))));
   }
 
   /** @param {Model} m @param {string} day @param {'AM' | 'PM'} session @param {import('../roster/model.js').ListSlot} l */
@@ -322,5 +369,5 @@ export function weekEdit({ ctx, model, monday }) {
     await openWeekReport(mon, c.rows, c.short);
   }
 
-  return { report, marks, build, reset, busy: () => building, moveSheet, addSheet, weekListSheet, epicSheet, shortButtons, takeOff, takeOffAll, drift };
+  return { report, marks, build, reset, busy: () => building, cellSheet, addSheet, weekListSheet, epicSheet, shortButtons, takeOff, takeOffAll, drift };
 }
