@@ -176,6 +176,9 @@ test('rosters: named by month; calls, locked, holidays and problems are lists of
   assert.equal((await put({ ...base, seed: -1 })).ok, false);
   assert.equal((await put({ ...base, built: 'today' })).ok, false);
   assert.equal((await put({ ...base, extra: 1 })).ok, false);
+  assert.equal((await put({ ...base, accepted: ['calls-leads|2026-11-01|reg|'] })).ok, true, 'warnings accepted');
+  assert.equal((await put({ ...base, accepted: new Array(301).fill('x') })).ok, false, 'at most 300 accepted');
+  assert.equal((await put({ ...base, accepted: 'x' })).ok, false, 'accepted is a list');
   assert.equal((await as('member').set('spaces/_/rosters/2026-11', base)).ok, false, 'needs the server time stamp');
   assert.equal((await emu.anon().get('spaces/_/rosters/2026-11')).ok, false, 'signed out: no read');
   assert.equal((await as('viewer').set('spaces/_/rosters/2026-12', base, at)).ok, false, 'a viewer only reads');
@@ -194,6 +197,8 @@ test('weeks: named by a day; grid, lists and overrides are lists of a sensible s
   assert.equal((await put({ ...base, overrides: new Array(201).fill({}) })).ok, false);
   assert.equal((await put({ ...base, seed: 2000000 })).ok, false);
   assert.equal((await put({ ...base, owner: 'me' })).ok, false);
+  assert.equal((await put({ ...base, accepted: ['week-leads|l1|'] })).ok, true, 'warnings accepted');
+  assert.equal((await put({ ...base, accepted: new Array(301).fill('x') })).ok, false, 'at most 300 accepted');
   assert.equal((await as('member').set('spaces/_/weeks/2026-11-02', base)).ok, false, 'needs the server time stamp');
   assert.equal((await emu.anon().get('spaces/_/weeks/2026-11-02')).ok, false, 'signed out: no read');
   assert.equal((await as('viewer').set('spaces/_/weeks/2026-11-09', base, at)).ok, false, 'a viewer only reads');

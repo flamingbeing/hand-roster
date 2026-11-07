@@ -8,14 +8,19 @@
 // clipboard as chat text for WhatsApp, or, once "This is me" is set, only that person's calls (7 Nov 2026).
 // A person's phone, when set, is a call link beside their name: in a viewer's day cells (a maker's day is a button, which
 // can't hold a link) and in the day sheet (owner, 7 Nov 2026).
-import { validateRule } from '@core/roster';
+// The rule check (roster/report.js, app-roster's score of the rule cards): a maker sees a call that breaks a block rule marked
+// red and a warn rule amber, a Report button (the rule report sheet, screens/report.js), and Make calls names the calls
+// nobody can take; when something breaks, a second toast opens the report. An accepted warning is kept on the month.
+import { validateRule, describeRule, score, check } from '@core/roster';
 import { icon, emptyState, openMenu, undoToast } from '@core/ui';
 import { ICONS } from '../icons.js';
 import { $, h, fill, telLink } from '../dom.js';
 import { LOADING, REFUSED } from '../items.js';
 import { solveCalls } from '../roster/calls.js';
 import { checkCalls } from '../roster/calls-check.js';
-import { callRules, rulesOf } from '../roster/rule-cards.js';
+import { callRules, rulesOf, wordsOf } from '../roster/rule-cards.js';
+import { callsProblem } from '../roster/problem.js';
+import { checkSaid, marksOf, reportOf, shortLines } from '../roster/report.js';
 import { applyDayEdit, handCount, keepGoodCalls, lockedMap, problemLines, callChoices, dayLabel } from '../roster/calls-edit.js';
 import { callMapIn, firstMonth, monthCells, shiftMonth } from '../roster/sections.js';
 import { callRow, callRowsOf, DAY_TYPES, TIERS, TIER_LABEL, dayType, tierPlanOf, tiersShown } from '../roster/model.js';
@@ -86,8 +91,8 @@ export function create(ctx) {
     const after = callMapIn(nextRoster?.calls ?? [], shiftMonth(mon, 1));
     const plan = tierPlanOf(roster?.tierPlan);
     // the rule cards in force (spaces/_/rules over the defaults); the month's own "Days clear" wins over the gap card
-    const rules = callRules(rulesOf(/** @type {any} */ (store.get('rules')), validateRule));
-    return { roster, people, leave, requests, prior, after, calls: roster?.calls ?? [], holidays: roster?.holidays ?? [], minGap: roster?.minGap ?? rules.minGap, plan, rules,
+    const cards = rulesOf(/** @type {any} */ (store.get('rules')), validateRule), rules = callRules(cards);
+    return { cards, roster, people, leave, requests, prior, after, calls: roster?.calls ?? [], holidays: roster?.holidays ?? [], minGap: roster?.minGap ?? rules.minGap, plan, rules,
       phones: phonesOf(/** @type {any} */ (store.get('people'))) };
   }
 
@@ -201,9 +206,48 @@ export function create(ctx) {
       // the same lines the page's To look at list shows, so the two agree; unmet requests are said apart
       const check = checkCalls({ month: mon, calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, after: m.after, tiers: m.plan });
       const look = check.problems.length + check.empty.length, unmet = res.problems.filter(p => p.rule === 'want').length;
+      const c = checked(mon, { ...m, calls });
       const said = [look && `${look} thing${look === 1 ? '' : 's'} to look at.`, unmet && `${unmet} request${unmet === 1 ? '' : 's'} not met.`].filter(Boolean).join(' ');
       undo.show(said ? `${fixOnly ? 'Fixed' : 'Made'}. ${said}` : fixOnly ? 'Fixed' : 'Made', () => putBack(mon, was));
+      // what the rule check found, in a toast of its own whose button opens the report (the Made toast keeps its Undo)
+      if (c.words) toast(c.words, { ms: 10000, action: { label: 'Report', run: () => { void openCallsReport(mon, c.rows, c.short); } } });
     } finally { busy = false; $('calls-make').removeAttribute('disabled'); draw(); }
+  }
+
+  /** a month as app-roster's problem and roster @param {string} mon @param {ReturnType<typeof model>} m */
+  const problemOf = (mon, m) => callsProblem({ month: mon, calls: m.calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, tiers: m.plan, prior: m.prior, after: m.after, rules: m.cards });
+
+  /** The month's check: the report's rows, the calls nobody can take, the toast's words (empty: all fine) @param {string} mon @param {ReturnType<typeof model>} m */
+  function checked(mon, m) {
+    const { problem, roster } = problemOf(mon, m);
+    const byId = new Map(m.cards.map(r => [r.id, r]));
+    const words = (/** @type {string} */ id, /** @type {string} */ fallback) => { const r = byId.get(id); return r ? wordsOf(r, describeRule) : fallback; };
+    const rows = reportOf(score(/** @type {any} */ (problem), roster), { words, dayName, accepted: m.roster?.accepted });
+    const place = (/** @type {string} */ id) => { const [d, t] = id.split('|'); return `${dayName(d)} ${TIER_LABEL[/** @type {import('../roster/model.js').Tier} */ (t)] ?? t}`; };
+    const short = shortLines(check(/** @type {any} */ (problem), {}).short, place, words);
+    return { rows, short, words: checkSaid(rows, short) };
+  }
+
+  /** The rule report sheet (screens/report.js, loaded when first used) @param {string} mon @param {import('../roster/report.js').ReportRow[]} rows @param {{ slot: string, text: string }[]} short */
+  async function openCallsReport(mon, rows, short) {
+    const { openReport } = await import('./report.js');
+    openReport({
+      title: `Rules, ${monthTitle(mon)}`, rows, short,
+      accept: async (key, on) => {
+        const now = model(mon), was = now.roster?.accepted ?? [];
+        const accepted = on ? [...new Set([...was, key])].slice(-300) : was.filter(k => k !== key);
+        if (await app.data.rosters.upsert(mon, now.roster, { accepted })) { toast(REFUSED); return false; }
+        return true;
+      },
+    });
+  }
+
+  /** the Report button: the month on screen as it stands */
+  function report() {
+    if (!ctx.canWrite() || waiting()) return;
+    if (!store.ready(['rules'])) { toast(LOADING); return; }
+    const mon = month, c = checked(mon, model(mon));
+    void openCallsReport(mon, c.rows, c.short);
   }
 
   /** Undo: the month's fields put back as they were, on the month as it is by then @param {string} mon @param {Record<string, unknown>} was */
@@ -309,15 +353,19 @@ export function create(ctx) {
     empty.show(!m.people.length && canWrite);
     const prev = h('button', { type: 'button', 'aria-label': 'Previous month', onclick: () => step(-1) }, icon(ICONS.chevronLeft));
     const next = h('button', { type: 'button', 'aria-label': 'Next month', onclick: () => step(1) }, icon(ICONS.chevronRight));
+    const any = m.calls.some(c => TIERS.some(t => c[t]));
+    // the rule check's marks on the calls (a maker's; rechecked each draw, so after every hand edit)
+    const pk = canWrite && any && store.loaded('rules') ? problemOf(month, m) : null;
+    const marks = pk ? marksOf(score(/** @type {any} */ (pk.problem), pk.roster), m.roster?.accepted).cells : null;
     fill(bar, prev, h('h2', { class: 'cl-title', id: 'calls-title' }, monthTitle(month)), next,
       h('span', { class: 'cl-bar-end' },
         h('button', { type: 'button', id: 'calls-copy', 'aria-haspopup': me ? 'menu' : null, 'aria-expanded': me ? 'false' : null, onclick: copyClick }, icon(ICONS.clipboardCopy), 'Copy'),
         h('button', { type: 'button', id: 'calls-xlsx', onclick: exportXlsx }, icon(ICONS.download), 'Excel'),
         h('button', { type: 'button', id: 'calls-print', onclick: printMonth }, icon(ICONS.printer), 'Print'),
         canWrite && h('button', { type: 'button', onclick: monthSheet }, 'Settings'),
+        canWrite && any && h('button', { type: 'button', id: 'calls-report', onclick: report }, icon(ICONS.listChecks), 'Report'),
         canWrite && h('button', { type: 'button', class: 'ui-primary', id: 'calls-make', disabled: busy || !ready, onclick: make }, icon(ICONS.sparkles), 'Make calls')));
     const byDate = new Map(m.calls.map(c => [c.date, c]));
-    const any = m.calls.some(c => TIERS.some(t => c[t]));
     const check = checkCalls({ month, calls: m.calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, after: m.after, tiers: m.plan });
     const shownTiers = tiersShown(m.plan, m.calls);
     const bad = new Set(check.problems.map(p => `${p.date}|${p.tier}`));
@@ -341,14 +389,14 @@ export function create(ctx) {
       const row = byDate.get(date), type = dayType(date, m.holidays);
       const plan = m.plan[type];
       const tiers = TIERS.filter(t => plan.includes(t) || row?.[t])
-        .map(t => ({ t, name: row?.[t] ?? null, bad: bad.has(`${date}|${t}`), hand: !!row?.[t] && locked.has(`${date}|${t}`) }));
+        .map(t => ({ t, name: row?.[t] ?? null, bad: bad.has(`${date}|${t}`), hand: !!row?.[t] && locked.has(`${date}|${t}`), mk: row?.[t] ? marks?.get(`${date}|${t}|${row[t]}`) : undefined }));
       const label = dayLabel(date, type === 'ph', tiers) + (canWrite ? ' Tap to edit calls.' : '');
       const props = canWrite ? { type: 'button', onclick: () => daySheet(date) } : { role: 'listitem' };
       return h(canWrite ? 'button' : 'div', { ...props, class: `cl-day type-${type}${date === today ? ' is-today' : ''}`, dataset: { day: date }, 'aria-label': label },
         h('span', { class: 'cl-date' }, h('b', {}, String(Number(date.slice(8)))), h('span', { class: 'cl-wd' }, weekdayName(date)), type === 'ph' && h('span', { class: 'cl-ph small' }, 'PH')),
-        h('span', { class: 'cl-tiers' }, tiers.map(x => h('span', { class: `cl-tier${x.name ? '' : ' is-empty'}${x.bad ? ' is-bad' : ''}${x.hand ? ' is-hand' : ''}${me && x.name === me ? ' is-me' : ''}`, title: x.name ?? '' },
+        h('span', { class: 'cl-tiers' }, tiers.map(x => h('span', { class: `cl-tier${x.name ? '' : ' is-empty'}${x.bad ? ' is-bad' : ''}${x.mk ? ` is-${x.mk.level}` : ''}${x.hand ? ' is-hand' : ''}${me && x.name === me ? ' is-me' : ''}`, title: x.name ?? '' },
           h('i', {}, SHORT[x.t]), h('span', {}, x.name ?? '–'), !canWrite && telLink(m.phones, x.name),
-          x.bad && h('span', { class: 'visually-hidden' }, ' (problem)'), x.hand && h('span', { class: 'visually-hidden' }, ' (set by hand)')))));
+          x.bad && h('span', { class: 'visually-hidden' }, ' (problem)'), x.mk && h('span', { class: 'visually-hidden' }, ` (breaks: ${x.mk.why.map(readDays).join('; ')})`), x.hand && h('span', { class: 'visually-hidden' }, ' (set by hand)')))));
     };
     fill(cal, monthCells(month).map(d => d ? cell(d) : h('span', { class: 'cl-blank', 'aria-hidden': 'true' })));
 

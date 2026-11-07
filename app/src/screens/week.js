@@ -79,6 +79,8 @@ export function weekScreen(ctx) {
   let editor = null;
   /** @type {Map<string, string>} the roster maker's clashes (clashesOf) by day|session|name, why */
   let clashAt = new Map();
+  /** @type {{ cells: Map<string, import('../roster/report.js').Mark>, slots: Map<string, import('../roster/report.js').Mark> } | null} the rule check's marks (week-edit.js) */
+  let marks = null;
   const editCode = () => (editing ??= import('./week-edit.js').then(x => (editor = x.weekEdit({ ctx, model, monday: () => monday })),
     e => { editing = null; throw e; }));   // (offline before it was ever loaded: the next tap tries again)
   /** @param {(e: NonNullable<typeof editor>) => unknown} job */
@@ -131,6 +133,7 @@ export function weekScreen(ctx) {
       { label: 'Print', icon: ICONS.printer, run: () => printWeek() },
       { label: 'This is me', icon: ICONS.userCheck, run: () => pickMe(m.people) },
       ...(canWrite && m.built && m.lists.length && store.ready(WEEK_NEEDS) ? [null, { label: 'Check against Epic', icon: ICONS.listChecks, run: () => edit(e => e.epicSheet()) },
+        { label: 'Rule report', icon: ICONS.listChecks, run: () => edit(e => e.report()) },
         { label: 'Build again', icon: ICONS.refreshCw, run: () => edit(e => e.build()) },
         { label: 'Reset week', icon: ICONS.rotateCcw, run: () => edit(e => e.reset()) }] : []),
     ], { label: 'More' });
@@ -275,8 +278,8 @@ export function weekScreen(ctx) {
         h('button', { type: 'button', class: 'sh-off', 'aria-label': `Take ${c.name} off ${on}`, onclick: () => edit(e => e.takeOff(m, c)) }, 'Take off'));
     }))];
   /** a junior's button on a list, marked when it clashes @param {ReturnType<typeof model>} m @param {import('../roster/model.js').ListSlot} l @param {string} n @param {string} cls */
-  const nameBtn = (m, l, n, cls) => { const why = clashAt.get(`${l.day}|${l.session}|${n}`), pinned = isPinned(m.grid, l.day, l.session, l.id, n);
-    return { type: 'button', class: `${cls}${why ? ' is-clash' : ''}${n === me ? ' is-me' : ''}${pinned ? ' is-pinned' : ''}`, dataset: { name: n }, 'aria-label': `${n}${pinned ? ', pinned' : ''}: move, pin or take off${why ? `. Clash: ${why}` : ''}`, onclick: () => edit(e => e.moveSheet(m, l.day, l.session, n, l.id)) }; };
+  const nameBtn = (m, l, n, cls) => { const why = clashAt.get(`${l.day}|${l.session}|${n}`), pinned = isPinned(m.grid, l.day, l.session, l.id, n), mk = marks?.cells.get(`${l.id}|${n}`);
+    return { type: 'button', class: `${cls}${why ? ' is-clash' : ''}${mk ? ` is-${mk.level}` : ''}${n === me ? ' is-me' : ''}${pinned ? ' is-pinned' : ''}`, dataset: { name: n }, 'aria-label': `${n}${pinned ? ', pinned' : ''}: move, pin or take off${why ? `. Clash: ${why}` : ''}${mk ? `. Breaks: ${mk.why.join('; ')}` : ''}`, onclick: () => edit(e => e.moveSheet(m, l.day, l.session, n, l.id)) }; };
 
   /**
    * The Grid: the week as the hand-made sheet lays it out. Days across; AM and PM by site down, each cell the lists of that
@@ -300,7 +303,8 @@ export function weekScreen(ctx) {
       const head = l.emergency ? `EOT ${l.name}` : [con, l.name.replace(/^CLINIC\b/, 'Clinic')].filter(Boolean).join(' ');
       const mineHere = hasMe(l, juniors, me);
       const flag = l.holiday ? 'PH' : l.status === 'closed' ? 'closed' : l.emergency ? `${con || 'consultant'} away` : !open ? l.status.replace('-', ' ') : l.patients === 0 ? 'no patients' : '';
-      return h('div', { class: `wt-list kind-${l.kind}${off ? ' is-off' : ''}${l.emergency ? ' is-eot' : ''}${short ? ' is-short' : ''}${mineHere ? ' has-me' : ''}`, dataset: { list: l.id } },
+      const mk = marks?.slots.get(l.id);
+      return h('div', { class: `wt-list kind-${l.kind}${mk ? ` is-${mk.level}` : ''}${off ? ' is-off' : ''}${l.emergency ? ' is-eot' : ''}${short ? ' is-short' : ''}${mineHere ? ' has-me' : ''}`, dataset: { list: l.id } },
         canWrite ? h('button', { type: 'button', class: 'wt-head', 'aria-haspopup': 'menu', 'aria-expanded': 'false', onclick: (/** @type {MouseEvent} */ e) => openMenu(/** @type {HTMLElement} */ (e.currentTarget), [
           ...(open ? [{ label: 'Add a junior', icon: ICONS.plus, run: () => edit(e => e.addSheet(m, l.day, l.session, l)) }] : []),
           { label: 'Change for this week', icon: ICONS.pencil, run: () => edit(e => e.weekListSheet(l)) },
@@ -401,6 +405,7 @@ export function weekScreen(ctx) {
     $('week-show-day').setAttribute('aria-pressed', String(show === 'day'));
     const clashes = m.built && canWrite ? clashesOf({ grid: m.grid, lists: m.lists, leave: m.leave, calls: m.calls, holidays: m.holidays, ...m.pc }) : [];
     clashAt = new Map(clashes.map(c => [`${c.day}|${c.session}|${c.name}`, c.why.join(', ')]));
+    marks = m.built && canWrite ? editor?.marks(m) ?? null : null;
     fill($('week-short'), shortPanel(m, sec), clashPanel(m, clashes));
     // a built week is drawn from its lists as built: say so when the Lists tab has changed since (the maker's edit code counts)
     const stale = canWrite && m.built && !!m.wk?.lists?.length;

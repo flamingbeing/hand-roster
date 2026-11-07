@@ -32,9 +32,10 @@ const cleanRoster = cleaner({
   minGap: int(1, 7),
   seed: int(0, 1_000_000),
   built: int(0, Number.MAX_SAFE_INTEGER),
+  accepted: texts(300, 160),   // warnings the maker accepted (roster/report.js hitKey)
 });
 
-/** @typedef {import('./ops.js').Row & { calls?: import('../roster/model.js').CallDay[], locked?: string[], holidays?: string[], tierPlan?: Partial<import('../roster/model.js').TierPlan>, problems?: string[], minGap?: number, seed?: number, built?: number }} RosterRow */
+/** @typedef {import('./ops.js').Row & { calls?: import('../roster/model.js').CallDay[], locked?: string[], holidays?: string[], tierPlan?: Partial<import('../roster/model.js').TierPlan>, problems?: string[], minGap?: number, seed?: number, built?: number, accepted?: string[] }} RosterRow */
 /** the rosters kind, as cloud.js lists it */
 export const rosters = { COLL: 'rosters', clean: cleanRoster };
 
@@ -73,9 +74,10 @@ const cleanWeek = cleaner({
   } : null)),
   built: int(0, Number.MAX_SAFE_INTEGER),
   seed: int(0, 1_000_000),
+  accepted: texts(300, 160),   // warnings the maker accepted (roster/report.js hitKey)
 });
 
-/** @typedef {import('./ops.js').Row & { grid?: import('../roster/grid.js').GridRow[], lists?: import('../roster/model.js').ListSlot[], overrides?: import('./lists.js').Override[], built?: number, seed?: number }} WeekRow */
+/** @typedef {import('./ops.js').Row & { grid?: import('../roster/grid.js').GridRow[], lists?: import('../roster/model.js').ListSlot[], overrides?: import('./lists.js').Override[], built?: number, seed?: number, accepted?: string[] }} WeekRow */
 /** the weeks kind, as cloud.js lists it */
 export const weeks = { COLL: 'weeks', clean: cleanWeek };
 

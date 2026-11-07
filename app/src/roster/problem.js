@@ -5,7 +5,7 @@
 // `teams` (its consultants' teams) and `consultants`; a person's tags ('junior', 'registrar', 'r3').
 // Pure: no page, no package import (whoever scores passes the result to @core/roster; the unit tests do today).
 import { addDays, monthDays, rangeDays } from './dates.js';
-import { TIERS, callMapOf, consOf, conText, dayType, isJunior, isOffDay, minOf } from './model.js';
+import { TIERS, TIER_LABEL, callMapOf, consOf, conText, dayType, isJunior, isOffDay, minOf } from './model.js';
 
 /** @typedef {import('./model.js').Person} Person */
 /** @typedef {import('./rule-cards.js').RuleCard} RuleCard */
@@ -90,7 +90,7 @@ export function callsProblem(o) {
       const name = calls[day]?.[tier];
       if (!o.tiers[type].includes(tier) && !name) continue;
       const id = `${day}|${tier}`;
-      slots.push({ id, day, kind: 'call', tier, need: 1, min: 1, tags: [tier, ...(isOffDay(type) ? ['off-day'] : []), ...(tier === 'moNuh' || tier === 'moNtf' ? ['mo-tier'] : [])] });
+      slots.push({ id, day, kind: 'call', tier, name: TIER_LABEL[tier], need: 1, min: 1, tags: [tier, ...(isOffDay(type) ? ['off-day'] : []), ...(tier === 'moNuh' || tier === 'moNtf' ? ['mo-tier'] : [])] });
       roster[id] = name ? [name] : [];
     }
   }
