@@ -24,3 +24,17 @@ export const pinsOf = rows => rows.flatMap(r => (r.pinned ?? []).filter(n => r.j
 /** a new grid with these pins marked where the person is on that list (a pin the grid could not keep is left out) @param {GridRow[]} rows @param {Pin[]} pins @returns {GridRow[]} */
 export const withPins = (rows, pins) => pins.reduce((acc, p) => pin(acc, p.day, p.session, p.list, p.person, true), rows);
 
+
+/** a refill's keep (buildWeek `keep`): every placement on the grid that is not a pin @param {GridRow[]} rows @returns {Pin[]} */
+export const keepOf = rows => rows.flatMap(r => r.juniors.filter(n => !r.pinned?.includes(n)).map(person => ({ person, list: r.list, day: r.day, session: r.session })));
+
+/** how many list-sessions a new grid fills differently (anyone on or off) @param {GridRow[]} was @param {GridRow[]} now */
+export function changedRows(was, now) {
+  const key = (/** @type {GridRow} */ r) => `${r.day}|${r.session}|${r.list}`;
+  const before = new Map(was.map(r => [key(r), [...r.juniors].sort().join('\n')]));
+  const seen = new Set();
+  let n = 0;
+  for (const r of now) { seen.add(key(r)); if ((before.get(key(r)) ?? '') !== [...r.juniors].sort().join('\n')) n++; }
+  for (const r of was) if (!seen.has(key(r)) && r.juniors.length) n++;
+  return n;
+}

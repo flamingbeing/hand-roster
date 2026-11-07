@@ -31,6 +31,9 @@ import { TIERS, callMapOf, canWork, conText, consOf, isJunior, worksOn, leaveInd
  * @property {import('./pins.js').Pin[]} [pins]  placed before anything else, always: on leave, on call, over the list's need or
  *   not a junior (an AC) all the same (the Clashes panel says so); only a list not open that session or a person not in people
  *   drops a pin (owner 7 Nov 2026)
+ * @property {import('./pins.js').Pin[]} [keep]  a refill (Build again): the week's other placements, kept after the pins while
+ *   they still hold (the person around, able to work there, the list open, not on another list that session), so only the
+ *   gaps and what no longer holds change (owner's plan, 7 Nov 2026); over a list's need all the same, as the grid had it
  * @property {{ type: 'list-need', list: string, day: string, session: Session | 'both', need: number }[]} [needs]  a list wants a different number of juniors
  * @property {string[]} [holidays]  public holidays: their lists close and nobody is free or rostered
  * @property {boolean} [postCallAm]  post-call people can still work the AM (default: rules', else true)
@@ -135,6 +138,13 @@ export function buildWeek(o) {
         if (pn.day !== day || pn.session !== session || placedNow.has(pn.person)) continue;
         const l = todays.find(x => x.id === pn.list && x.status === 'open');
         if (l && o.people.some(p => p.name === pn.person)) { put(l, pn.person); placedNow.add(pn.person); }
+      }
+
+      // 0b. a refill: the grid as it was, where it still holds
+      for (const k of o.keep ?? []) {
+        if (k.day !== day || k.session !== session) continue;
+        const l = todays.find(x => x.id === k.list && x.status === 'open'), p = juniors.find(x => x.name === k.person);
+        if (l && p && canWork(p, l) && available(p, session)) put(l, p.name);
       }
 
       // 1. asked-for people first (an ask is by hand: site, by-hand, works-on and clinics-only limits don't apply)
