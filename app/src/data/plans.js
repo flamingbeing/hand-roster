@@ -85,7 +85,7 @@ export const weeks = { COLL: 'weeks', clean: cleanWeek };
 
 // rules: rule cards (roster/rule-cards.js), app-roster's shape; params plain JSON (a map)
 const json = (/** @type {unknown} */ v) => (v && typeof v === 'object' && !Array.isArray(v) ? JSON.parse(JSON.stringify(v)) : undefined);
-/** app-roster 0.1.0's rule types (tests compare) */
+/** app-roster 0.1.1's rule types (tests compare) */
 export const RULE_TYPES = ['cover', 'away', 'oneAtATime', 'sequence', 'eligible', 'leads', 'match', 'limit', 'requests', 'keep', 'balance'];
 /** @typedef {import('./ops.js').Row & Partial<import('../roster/rule-cards.js').RuleCard>} RuleRow */
 export const rules = { COLL: 'rules', clean: cleaner({ type: oneOf(RULE_TYPES), words: text(200), level: oneOf(['block', 'warn', 'soft']), priority: int(1, 3), tags: texts(20, 40), on: bool, params: json, topic: oneOf(['week', 'calls']) }) };

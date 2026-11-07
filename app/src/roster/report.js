@@ -8,7 +8,7 @@
 /** @typedef {{ id: string, type: string, words: string, level: Hit['level'], priority: number, on: boolean, ok: boolean, n: number, cost: number, hits: Hit[] }} RuleResult */
 /** @typedef {{ level?: 'block' | 'warn', why: string[], new?: boolean }} Mark  new: a build's preview changes it (screens/week-edit.js) */
 /** @typedef {{ key: string, level: Hit['level'], text: string, accepted: boolean }} ReportHit */
-/** @typedef {{ id: string, words: string, level: Hit['level'], on: boolean, broken: number, accepted: number, hits: ReportHit[] }} ReportRow */
+/** @typedef {{ id: string, words: string, level: Hit['level'], on: boolean, broken: number, below: number, accepted: number, hits: ReportHit[] }} ReportRow  below: a must-hold or warning rule's soft hits (a list past its minimum but short of its need): not broken */
 
 /** a hit's key, as `accepted` keeps it @param {Hit} h */
 export const hitKey = h => `${h.rule}|${h.slot ?? ''}|${h.person ?? ''}`.slice(0, 160);
@@ -36,7 +36,8 @@ export function marksOf(score, accepted = []) {
 
 /**
  * The report's rows: every rule in force, broken first (block, then warn, then soft), then those that hold; a rule's hits
- * with where and why. A warning accepted counts apart from the broken ones.
+ * with where and why. A warning accepted counts apart from the broken ones; a hard rule's soft hits (`below`) are not
+ * breaks: they sort with the preferences.
  * @param {{ rules: RuleResult[] }} score @param {{ words: (id: string, fallback: string) => string, dayName: (day: string) => string, accepted?: string[] }} o
  * @returns {ReportRow[]}
  */
@@ -48,11 +49,11 @@ export function reportOf(score, o) {
       const key = hitKey(h);
       return { key, level: h.level, text: readable(h.why, o.dayName), accepted: h.level === 'warn' && ok.has(key) };
     });
-    const accepted = hits.filter(h => h.accepted).length;
-    return { id: r.id, words: o.words(r.id, r.words), level: r.level, on: r.on, broken: hits.length - accepted, accepted, hits };
+    const accepted = hits.filter(h => h.accepted).length, below = r.level === 'soft' ? 0 : hits.filter(h => h.level === 'soft').length;
+    return { id: r.id, words: o.words(r.id, r.words), level: r.level, on: r.on, broken: hits.length - accepted - below, below, accepted, hits };
   });
-  return rows.map((r, i) => ({ r, i }))
-    .sort((a, b) => Number(!a.r.broken) - Number(!b.r.broken) || LEVEL[a.r.level] - LEVEL[b.r.level] || a.i - b.i).map(x => x.r);
+  const rank = (/** @type {ReportRow} */ r) => (r.broken ? LEVEL[r.level] : r.below ? 2 : 3);
+  return rows.map((r, i) => ({ r, i })).sort((a, b) => rank(a.r) - rank(b.r) || a.i - b.i).map(x => x.r);
 }
 
 /**

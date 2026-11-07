@@ -131,7 +131,7 @@ that tab); without it the print CSS prints the Week.
   (`weekRules`, `callRules`: points, post-call, asks, AM-to-PM, the call gap). The default cards give the same week and
   calls seed for seed (`app/test/rule-cards.unit.test.mjs`). `fixed` cards are always kept (not switchable yet).
 - `app/src/roster/problem.js` turns a built week or month into app-roster's slot model (`weekProblem`, `callsProblem`), so
-  `@core/roster`'s `score`, `check` and `candidates` read the same roster and cards; pinned at app-roster 0.1.0
+  `@core/roster`'s `score`, `check` and `candidates` read the same roster and cards; pinned at app-roster 0.1.1
   (devDependency + `modules.json` core; e2e copy in `e2e/fixtures/core/roster/`). The tests check that the package's
   score of a built week breaks only what the builder itself reports short.
 - `tools/modules.mjs` and `tools/sw-files.mjs` carry app-starter#139's lines (app-roster as a core package, its imports

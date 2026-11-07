@@ -57,6 +57,11 @@ export function whoWords(w) {
   const s = bits.length ? `people ${bits.join(', ')}` : 'anyone';
   return w.not ? `anyone but ${s.replace(/^people /, '')}` : s;
 }
+/** why a person can't go where only `w` may: "Ann is rank AC" (a not-rule), "Ann is not tagged registrar" @param {string} name @param {Who | undefined} w */
+export function whyNot(name, w) {
+  const s = whoWords(w && { ...w, not: false }).replace(/^people /, '');
+  return w?.not ? `${name} is ${s}, so can't go here` : `${name} is not ${w?.people?.length && !w.tags?.length ? 'one of ' : ''}${s}`;
+}
 const plural = (/** @type {number} */ n, /** @type {string} */ w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 /** @param {State} st @param {string} sid */
 const slotName = (st, sid) => { const s = st.slot.get(sid); return s ? (s.name ? `${s.name} (${s.day}${s.session ? ' ' + s.session : ''})` : sid) : sid; };
@@ -193,7 +198,7 @@ export const RULE_TYPES = {
       /** @type {Hit[]} */ const out = [];
       const p = pid ? st.person.get(pid) : undefined;
       if (!pid || !covers(r, p) || isWho(r.params.who, p)) return out;
-      for (const s of mine(st, pid, r.params.slots)) hit(r, out, { slot: s.id, person: pid, day: s.day, units: 1, why: `${personName(st, pid)} is not one of ${whoWords(r.params.who)}` });
+      for (const s of mine(st, pid, r.params.slots)) hit(r, out, { slot: s.id, person: pid, day: s.day, units: 1, why: whyNot(personName(st, pid), r.params.who) });
       return out;
     },
   },
