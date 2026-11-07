@@ -27,6 +27,11 @@ select { padding: .5rem 2rem .5rem .65rem; }
 .rl-more { margin-block: .25rem var(--gap); }
 .rl-who { display: inline-flex; align-items: center; gap: .4rem; margin-inline-start: auto; color: var(--muted); }
 .rl-month { font-size: .8rem; font-weight: 600; color: var(--muted); margin: .6rem 0 .2rem; }
+/* the Rules tab (screens/rules.js): a card's switch sits beside its row, outside the row's button */
+.ru-row { display: flex; align-items: center; }
+.ru-row > .ui-row { flex: 1 1 auto; min-width: 0; }
+.ru-switch, .ru-off { flex: none; margin-inline: .5rem 1rem; }
+.ru-search { flex: 1 1 12rem; min-width: 0; }
 .print-only { display: none; }
 
 /* ---- Week ---- */

@@ -71,6 +71,7 @@ const SHELL = [
   'src/screens/not-set-up.js',
   'src/screens/people.js',
   'src/screens/rows.js',
+  'src/screens/rules.js',
   'src/screens/sheet.js',
   'src/screens/signed-out.js',
   'src/screens/week-edit.js',

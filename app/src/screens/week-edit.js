@@ -174,7 +174,7 @@ export function weekEdit({ ctx, model, monday }) {
           options: v => [['', 'Nobody'], ...(v.to ? juniorsOn(m.grid, day, session, v.to).filter(n => n !== name).map(n => /** @type {[string, string]} */ ([n, n])) : [])] },
         { key: 'pinned', label: 'Pinned: Build again keeps them here', type: 'check', hint: 'Someone moved or added by hand is pinned too. Reset week (More) drops every pin.' },
       ],
-      warn: v => (v.to && v.to !== list ? whyNot({ name, day, session, leave: m.leave, calls: m.calls, grid: m.grid, list: v.to }).filter(w => !w.includes('already on another')) : []),
+      warn: v => (v.to && v.to !== list ? whyNot({ name, day, session, leave: m.leave, calls: m.calls, grid: m.grid, list: v.to, ...m.pc }).filter(w => !w.includes('already on another')) : []),
       onSave: v => {
         const was = isPinned(m.grid, day, session, list, name);
         // staying put: only the pin changes (nothing to save when it did not)
@@ -192,7 +192,7 @@ export function weekEdit({ ctx, model, monday }) {
   function addSheet(m, day, session, l) {
     const mon = monday();
     const juniors = m.people.filter(p => p.grade !== 'con');
-    const sec = sectionsOf({ monday: mon, people: m.people, leave: m.leave, calls: m.calls, lists: m.lists, grid: m.grid, holidays: m.holidays });
+    const sec = sectionsOf({ monday: mon, people: m.people, leave: m.leave, calls: m.calls, lists: m.lists, grid: m.grid, holidays: m.holidays, ...m.pc });
     const freeNames = new Set((sec.free[day] ?? []).filter(f => f.when === 'FULL DAY' || f.when === session).map(f => f.name));
     const ordered = [...juniors.filter(p => freeNames.has(p.name)), ...juniors.filter(p => !freeNames.has(p.name))];
     if (!ordered.length) { toast('Add people first (People tab).'); return; }
@@ -200,7 +200,7 @@ export function weekEdit({ ctx, model, monday }) {
       title: `Add to ${l.name}`, note: `${l.site}${l.consultant ? ` – ${conText(l)}` : ''}, ${shortDay(day)} ${session === 'AM' ? 'morning' : 'afternoon'}. Free people are listed first.`,
       values: { name: ordered[0].name }, saveLabel: 'Add',
       fields: [{ key: 'name', label: 'Junior', type: 'select', options: ordered.map(p => /** @type {[string, string]} */ ([p.name, `${p.name}${freeNames.has(p.name) ? '' : ' (not free)'}`])) }],
-      warn: v => whyNot({ name: v.name, day, session, leave: m.leave, calls: m.calls, grid: m.grid, list: l.id }).filter(w => !w.includes('already on another')),
+      warn: v => whyNot({ name: v.name, day, session, leave: m.leave, calls: m.calls, grid: m.grid, list: l.id, ...m.pc }).filter(w => !w.includes('already on another')),
       onSave: v => saveGrid(mon, { kind: 'add', day, session, list: l.id, name: v.name }, `Added ${v.name} to ${l.name}.`),
     });
   }

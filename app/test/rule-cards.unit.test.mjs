@@ -159,3 +159,27 @@ test('package score: a made month breaks no block rule when the solver reports n
   const hits = R.score(pk.problem, pk.roster).hits.filter(h => h.rule === 'calls-gap' || h.rule === 'calls-one-tier');
   assert.ok(gaps > 0 && hits.length > 0, 'both find the clash');
 });
+
+test('rule cards: the Rules tab order, words and saved fields; a priority moved scales the points by the bands', async () => {
+  const { ordered, wordsOf, savedFields, defaultOf } = await import('../src/roster/rule-cards.js');
+  const levels = ordered(DEFAULT_RULES).map(r => r.level);
+  assert.deepEqual(levels, [...levels].sort((a, b) => ['block', 'warn', 'soft'].indexOf(a) - ['block', 'warn', 'soft'].indexOf(b)), 'blocks, then warnings, then soft');
+  const soft = ordered(DEFAULT_RULES).filter(r => r.level === 'soft').map(r => r.priority);
+  assert.deepEqual(soft, [...soft].sort(), 'soft by priority');
+  const say = (/** @type {any} */ r) => wordsOf(r, R.describeRule);
+  assert.equal(say(defaultOf('week-post-call')), 'The day after a call is post-call: no list in the PM');
+  assert.equal(say(edit(DEFAULT_RULES, 'week-post-call', { params: { then: {} } }).find(r => r.id === 'week-post-call')), 'The day after a call is post-call: no list all day');
+  assert.equal(say(defaultOf('calls-gap')), "At least 2 clear days between one person's calls");
+  assert.equal(say({ ...defaultOf('week-site'), words: 'Mine' }), 'Mine');
+  for (const r of DEFAULT_RULES) assert.ok(say(r).length > 10 && !/any slot|no any/.test(say(r)), r.id);
+  const f = savedFields(/** @type {any} */ (defaultOf('week-ac')));
+  assert.deepEqual(Object.keys(f).sort(), ['level', 'on', 'params', 'priority', 'tags', 'topic', 'type', 'words']);
+  assert.deepEqual(rulesKind.clean(f), f, 'the cleaner keeps a saved card whole');
+  assert.equal(f.words, '', "a default's own words are not stored");
+  assert.equal(rulesOf([{ id: 'week-ac', ...f, on: true }]).find(r => r.id === 'week-ac')?.words, defaultOf('week-ac')?.words, 'so the copy keeps them');
+  assert.equal(savedFields({ ...defaultOf('week-ac'), words: 'Mine' }).words, 'Mine');
+  // week-balance is priority 2 (band 30): moved to 1 (band 100) its 3 points count 10, to 3 (band 10) 1
+  assert.equal(weekRules(rulesOf([{ id: 'week-balance', priority: 1 }])).points.sessions, 10);
+  assert.equal(weekRules(rulesOf([{ id: 'week-balance', priority: 3 }])).points.sessions, 1);
+  assert.equal(callRules(rulesOf([{ id: 'calls-want', priority: 2 }])).points.want, 1.5);
+});

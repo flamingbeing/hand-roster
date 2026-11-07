@@ -1,32 +1,21 @@
-// The Week tab (#week-page, the first screen): a week's daily roster. Mon to Fri, AM and PM, each by site, each list with the
-// juniors on it; then who is on call, on leave, post-call and free. It opens on the Grid: the whole week as the hand-made
-// sheet lays it out (days across, AM and PM by site down), the way the department already reads it (owner, 6 Nov 2026).
-// Day shows the same as cards, one day at a time (day chips) and the five side by side once the page itself is about 58rem
-// wide (the side bar's room counts, 7 Nov 2026); the choice is kept on the device. Printing shows one thing on one landscape
-// page: the hand-made grid once the export code is in, else the view on screen. The bar holds one step at a time:
-// for the roster maker, Check against Epic and Build week until the week is built, then Share (chat text, the two Excel
-// files, print) with Epic and Build again in that menu; a viewer has Share alone. "Build week" fills the grid
-// from the lists, leave and calls (roster/week.js, loaded when first used); a tap on a junior moves, swaps or removes them.
-// The grid is stored per week; leave, post-call, on-call and free are worked out each time (roster/sections.js). The lists are
-// settled each time too (roster/settle.js): a public holiday closes them, a consultant away closes their clinics and turns
-// their OT into an emergency slot. "Check against Epic" takes the week's booked patients and who is away, consultant by
-// consultant (their leave is not in the junior leave calendar); the Short panel offers ways to fill a list below its minimum.
-// The edits (screens/week-edit.js) load on the roster maker's first edit or Build, so a viewer never loads them; each
-// saves from the week as it is then and can be undone from its toast (6 Nov 2026).
-// "This is me" (More) keeps a name on this device: it stands out wherever it shows, with a My week card on top
-// (screens/week-mine.js, loaded once a name is set) (7 Nov 2026). Their own lists and cells are marked too, and a viewer
-// with no name set is asked once, on this device, to pick it (7 Nov 2026). A person's phone, when set, is a call link
-// beside their name on call (dom.js telLink, 7 Nov 2026).
-// On a phone the Grid shows about two days: it opens at today's column, once per week shown (7 Nov 2026).
+// The Week tab (#week-page, the first screen): a week's roster, Mon to Fri, AM and PM by site, each list with its juniors;
+// then on call, leave, post-call and free. It opens on the Grid (days across, AM and PM by site down, as the hand-made
+// sheet; owner, 6 Nov 2026); Day shows cards, one day at a time or the five side by side on a wide page (kept per device).
+// Printing: one landscape page. The bar holds one step at a time: for the maker, Check against Epic and Build week until
+// the week is built, then Share (chat text, Excel, print) with Epic and Build again in its menu; a viewer has Share alone.
+// Build week (roster/week.js, loaded on first use) fills the grid from the lists, leave and calls; a tap on a junior moves,
+// swaps or removes them. Only the grid is stored; leave, post-call, on-call and free (roster/sections.js) and the settled
+// lists (a holiday or a consultant away closes them) are worked out each time. The edits (screens/week-edit.js) load on
+// a maker's first edit or Build; each can be undone from its toast. "This is me" (More; screens/week-mine.js) marks a
+// name on this device, with a My week card; a viewer with none is asked once. A phone, when set, is a call link beside
+// a name on call. On a phone the Grid opens at today's column.
 import { icon, loadState, emptyState, openMenu, lazyModules } from '@core/ui';
 import { ICONS } from '../icons.js';
 import { $, sectionScreen, h, fill, telLink } from '../dom.js';
 import { addDays, mondayOf, nextWorkday, rangeDays, shortDay, weekday, weekdayName, MONTHS, MONTH_NAMES, todayKey } from '../roster/dates.js';
 import { TIERS, TIER_LABEL, conText, dayType, hasMe, leads, minOf, regLed, settleLists, tierPlanOf } from '../roster/model.js';
-import { callsAround, callsUnmade, clashesOf } from '../roster/sections.js';
-import { listName, sectionsOf } from '../roster/sections.js';
+import { callsAround, callsUnmade, clashesOf, listName, sectionsOf, firstWeek, makerWeek } from '../roster/sections.js';
 import { isPinned, juniorsOn, weekBuilt } from '../roster/grid.js';
-import { firstWeek, makerWeek } from '../roster/sections.js';
 import { slotsFor } from '../data/lists.js';
 import { activePeople, meOf, phonesOf } from '../data/people.js';
 import { leaveOf } from '../data/leave.js';
@@ -68,7 +57,10 @@ export function weekModel(store, mon) {
   /** @param {string} day @returns {import('../roster/model.js').TierPlan} the call tiers of that day's month */
   const planOn = day => tierPlanOf(rosters.find(r => r.id === day.slice(0, 7))?.tierPlan);
   const unmade = callsUnmade(/** @type {any} */ (rosters), mon);   // a build can't keep their post-call days clear
-  return { wk, templates, built, raw, lists, grid, people, leave, calls, holidays, planOn, unmade, callsMade: !unmade.length, phones: phonesOf(/** @type {any} */ (store.get('people'))) };
+  // the post-call card as saved (as rule-cards.js weekRules reads it; the cards stay off the first screen)
+  const c = /** @type {any[]} */ (store.get('rules')).find(r => r.id === 'week-post-call' && !r._deleted), then = c?.on === false ? null : c?.params?.then ?? { sessions: ['PM'] };
+  const pc = { postCall: !!then, postCallAm: !then || (then.sessions?.length > 0 && !then.sessions.includes('AM')) };
+  return { wk, templates, built, raw, lists, grid, people, leave, calls, holidays, pc, planOn, unmade, callsMade: !unmade.length, phones: phonesOf(/** @type {any} */ (store.get('people'))) };
 }
 
 /**
@@ -110,7 +102,7 @@ export function weekScreen(ctx) {
   if (!store.loaded('lists')) loading.loading();
 
   const view = sectionScreen('week-view');
-  store.on(WEEK_NEEDS, () => draw());
+  store.on([...WEEK_NEEDS, 'rules'], () => draw());
   ctx.onRole(() => draw());
   app.settings.watch('defaultSite', () => { site = String(app.settings.get('defaultSite') || 'all'); draw(); });
   app.settings.watch('showPatients', () => draw());
@@ -383,7 +375,7 @@ export function weekScreen(ctx) {
     }
     const m = model();
     me = meOf(app.settings.get('me'), m.people);
-    const sec = sectionsOf({ monday, people: m.people, leave: m.leave, calls: m.calls, lists: m.lists, grid: m.grid, holidays: m.holidays });
+    const sec = sectionsOf({ monday, people: m.people, leave: m.leave, calls: m.calls, lists: m.lists, grid: m.grid, holidays: m.holidays, ...m.pc });
     const days = sec.days;
     if (!days.includes(selected)) selected = days[0];
 
@@ -407,7 +399,7 @@ export function weekScreen(ctx) {
     if (away) $('week-title').setAttribute('aria-label', `${weekTitle(monday)}. Back to this week`); else $('week-title').removeAttribute('aria-label');
     $('week-show-grid').setAttribute('aria-pressed', String(show === 'grid'));
     $('week-show-day').setAttribute('aria-pressed', String(show === 'day'));
-    const clashes = m.built && canWrite ? clashesOf({ grid: m.grid, lists: m.lists, leave: m.leave, calls: m.calls, holidays: m.holidays }) : [];
+    const clashes = m.built && canWrite ? clashesOf({ grid: m.grid, lists: m.lists, leave: m.leave, calls: m.calls, holidays: m.holidays, ...m.pc }) : [];
     clashAt = new Map(clashes.map(c => [`${c.day}|${c.session}|${c.name}`, c.why.join(', ')]));
     fill($('week-short'), shortPanel(m, sec), clashPanel(m, clashes));
     // a built week is drawn from its lists as built: say so when the Lists tab has changed since (the maker's edit code counts)
