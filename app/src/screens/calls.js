@@ -133,7 +133,8 @@ export function create(ctx) {
   // Make calls on a month that has calls already asks first (7 Nov 2026): a late leave or request should not reshuffle the
   // whole month. Three ways out, as Build week's (app-ui has only yes or no): Fix the problems only (keep every call the
   // check finds fine and fill the problem calls and the empty tiers), Make all new, or Cancel (the sheet's own). Calls set
-  // by hand stay either way. A month with no calls yet is made straight away.
+  // by hand stay either way. A month with no calls yet is made straight away. Both ways hold the clear-days rule against
+  // last month's calls and next month's once made, a hard rule (owner 7 Nov 2026; see solveCalls).
   async function make() {
     if (busy || !ctx.canWrite() || waiting()) return;
     const mon = month, open = model(mon);   // (the month on screen may change while it works)

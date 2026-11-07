@@ -180,6 +180,44 @@ test('calls: next month\'s calls (after) count for the gap at the month\'s end; 
   assert.match(gap.text, /on call again on 2026-12-01, 0 clear day\(s\) after 2026-11-30/);
 });
 
+test('calls: next month\'s calls are a hard rule like last month\'s (owner 7 Nov 2026): nobody within the gap of one, in any seed', () => {
+  // December made first (all four tiers every day), then November around it: before this rule seeds 3 and 6 put someone on
+  // 29 or 30 Nov and again on 1 or 2 Dec, as the month's last days were built last and boxed in
+  for (const minGap of [2, 3]) {
+    for (let seed = 1; seed <= 6; seed++) {
+      const dec = solveCalls({ month: '2026-12', people, seed: seed * 7, minGap, iterations: 20000 });
+      const r = solveCalls({ month, people, seed, minGap, after: dec.assignments, iterations: 20000 });
+      assert.ok(!r.problems.some(p => /again on 2026-12/.test(p.text)), `minGap ${minGap} seed ${seed}: ${r.problems.map(p => p.text).join('; ')}`);
+      for (const [d, row] of Object.entries(dec.assignments)) {
+        for (const name of Object.values(row)) {
+          for (const [n, nrow] of Object.entries(r.assignments)) {
+            if (Object.values(nrow).includes(name)) assert.ok(diffDays(n, d) > minGap, `minGap ${minGap} seed ${seed}: ${name} on ${n} and ${d}`);
+          }
+        }
+      }
+      if (minGap === 2) assert.deepEqual(r.problems, [], `seed ${seed}`);
+    }
+  }
+});
+
+test('calls: when only someone on call next month can take a day, the day is still filled and the clash reported', () => {
+  const only = { weekday: ['con'], sat: ['con'], sun: ['con'], ph: ['con'] };
+  const two = [{ name: 'Dr Ann Test', grade: 'con' }, { name: 'Dr Bo Test', grade: 'con' }];
+  const r = solveCalls({ month, people: two, tiers: only, minGap: 1, seed: 1, iterations: 3000,
+    leave: [{ name: 'Dr Bo Test', from: '2026-11-30', to: '2026-11-30' }], after: { '2026-12-01': { con: 'Dr Ann Test' } } });
+  assert.equal(r.assignments['2026-11-30'].con, 'Dr Ann Test');
+  assert.ok(r.problems.some(p => p.rule === 'gap' && p.date === '2026-11-30' && p.name === 'Dr Ann Test'));
+  assert.ok(!r.problems.some(p => p.rule === 'unfilled'));
+  // two MO tiers and two MOs free on the 30th, one of them on call on 1 Dec: both tiers filled (the clash reported), not one left empty
+  const mos = ['Ann', 'Bo', 'Cy', 'Di', 'Ed', 'Flo'].map(n => ({ name: `Dr ${n} Test`, grade: 'mo', rank: 'MO' }));
+  const twoMo = { weekday: ['moNuh', 'moNtf'], sat: ['moNuh', 'moNtf'], sun: ['moNuh', 'moNtf'], ph: ['moNuh', 'moNtf'] };
+  const away = mos.slice(2).map(p => ({ name: p.name, from: '2026-11-30', to: '2026-11-30' }));
+  const m = solveCalls({ month, people: mos, tiers: twoMo, leave: away, seed: 1, iterations: 5000, after: { '2026-12-01': { moNuh: 'Dr Ann Test' } } });
+  assert.deepEqual(Object.values(m.assignments['2026-11-30']).sort(), ['Dr Ann Test', 'Dr Bo Test']);
+  assert.ok(m.problems.some(p => p.rule === 'gap' && p.date === '2026-11-30' && p.name === 'Dr Ann Test'));
+  assert.ok(!m.problems.some(p => p.rule === 'unfilled'));
+});
+
 test('calls: an impossible month reports what it could not do instead of breaking a rule silently', () => {
   // one registrar for a 30-day REG tier: the gap rule cannot hold
   const small = [

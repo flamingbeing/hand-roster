@@ -1,8 +1,9 @@
 // The monthly on-call solver. For every day it fills the tiers that day has (CON, REG, REG 2, MO NUH, MO NTFGH) from the people
 // who may take them. Hard rules: nobody on leave, nobody on two tiers in a day, a minimum gap between a person's calls (the
-// month before and, once made, the month after counted),
-// "cannot" requests, locked entries kept. Soft: even call totals (scaled to the days a person is around), even weekend and
-// public holiday calls, even spread of tiers, calls spaced out, "want" requests, juniors on their own grade's tiers.
+// month before and, once made, the month after counted: whoever is on call too close to one of those is not a candidate
+// for the day unless the day cannot be filled otherwise, owner 7 Nov 2026), "cannot" requests, locked entries kept.
+// Soft: even call totals (scaled to the days a person is around), even weekend and public holiday calls, even spread of
+// tiers, calls spaced out, "want" requests, juniors on their own grade's tiers.
 // Method (the idea of flamingbeing's roster-core solver, much smaller): greedy construction hardest slot first, then
 // simulated annealing with swap and reassign moves, hard and soft costs kept apart. Deterministic from the seed and
 // capped by an iteration budget. Pure: no page, no clock.
@@ -47,6 +48,24 @@ export function prng(a) {
   };
 }
 
+/**
+ * Whether each slot can be given a different person from its list (a small matching: a day has at most five slots).
+ * @param {number[][]} lists @returns {boolean}
+ */
+function staffable(lists) {
+  /** @type {Map<number, number>} person -> slot */
+  const by = new Map();
+  /** @param {number} s @param {Set<number>} seen @returns {boolean} */
+  const place = (s, seen) => lists[s].some(i => {
+    if (seen.has(i)) return false;
+    seen.add(i);
+    const o = by.get(i);
+    if (o === undefined || place(o, seen)) { by.set(i, s); return true; }
+    return false;
+  });
+  return lists.every((_, s) => place(s, new Set()));
+}
+
 const HARD = 1000;
 const W = { total: 1, weekend: 1.5, tier: 0.3, spread: 0.4, want: 5, grade: 1.5 };
 
@@ -70,36 +89,6 @@ export function solveCalls(o) {
   const P = people.length;
   const spreadTarget = minGap + 3;
 
-  /** @type {{ date: string, di: number, tier: Tier, off: boolean, cands: number[], locked: number }[]} */
-  const slots = [];
-  /** @type {Map<string, number>} */
-  const cannot = new Map();
-  for (const r of requests) if (r.type === 'cannot') cannot.set(`${r.name}|${r.date}`, 1);
-  days.forEach((date, di) => {
-    const type = dayType(date, holidays);
-    for (const tier of TIERS) {
-      if (!plan[type].includes(tier) && !o.locked?.[date]?.[tier]) continue; // (a tier off the plan only when given by hand, as REG 2)
-      const cands = [];
-      for (let i = 0; i < P; i++) {
-        const p = people[i];
-        if (canTake(p, tier) && !lv.blocks(p.name, date) && !cannot.has(`${p.name}|${date}`)) cands.push(i);
-      }
-      const lockName = o.locked?.[date]?.[tier];
-      const locked = lockName ? (idx.get(lockName) ?? -2) : -1;
-      slots.push({ date, di, tier, off: isOffDay(type), cands: o.fill === false && !lockName ? [] : cands, locked });
-    }
-  });
-  const S = slots.length;
-
-  // per person: availability (days not on leave), weekend availability, the grade pool they share totals with
-  // a registrar on MO call tiers only (People "MO calls only") is balanced with the MOs
-  const poolOf = people.map(p => (p.grade === 'reg' && p.tiers && !p.tiers.some(t => t === 'reg' || t === 'reg2') ? 'mo' : p.grade));
-  const avail = people.map(p => days.filter(d => !lv.blocks(p.name, d)).length);
-  const availOff = people.map(p => days.filter((d, i) => isOffDay(dayType(d, holidays)) && !lv.blocks(p.name, d)).length);
-  const pools = [...new Set(poolOf)];
-  const poolAvail = pools.map(g => people.reduce((s, p, i) => s + (poolOf[i] === g ? avail[i] : 0), 0));
-  const poolAvailOff = pools.map(g => people.reduce((s, p, i) => s + (poolOf[i] === g ? availOff[i] : 0), 0));
-
   // prior calls, as day offsets before the month's first day
   /** @type {number[][]} */
   const priorDays = people.map(() => []);
@@ -120,6 +109,49 @@ export function solveCalls(o) {
       for (const t of TIERS) { const n = o.after[date]?.[t]; const i = n ? idx.get(n) : undefined; if (i !== undefined) afterDays[i].push(off); }
     }
   }
+  // Owner, 7 Nov 2026: the calls already made either side of the month (last month's, and next month's once made) are fixed,
+  // so the clear-days rule against them is a hard rule, as leave is: whoever is on call within minGap days of one is not a
+  // candidate for that day (nobody on 30 Nov if on call 1 Dec), in Make all new and Fix the problems only alike. Only when
+  // that would leave a slot of the day without anyone (the day's open slots cannot all be given to different clear people)
+  // do they stay candidates for that day, so it is still filled and the clash reported as a 'gap'.
+  /** @param {number} i @param {number} di */
+  const nearFixed = (i, di) => priorDays[i].some(d => di - d <= minGap) || afterDays[i].some(d => d - di <= minGap);
+  /** @type {{ date: string, di: number, tier: Tier, off: boolean, cands: number[], locked: number }[]} */
+  const slots = [];
+  /** @type {Map<string, number>} */
+  const cannot = new Map();
+  for (const r of requests) if (r.type === 'cannot') cannot.set(`${r.name}|${r.date}`, 1);
+  days.forEach((date, di) => {
+    const type = dayType(date, holidays);
+    /** @type {{ cands: number[], clear: number[] }[]} */
+    const open = [];
+    const taken = new Set();   // people the day's locked calls hold already
+    for (const tier of TIERS) {
+      if (!plan[type].includes(tier) && !o.locked?.[date]?.[tier]) continue; // (a tier off the plan only when given by hand, as REG 2)
+      const cands = [];
+      for (let i = 0; i < P; i++) {
+        const p = people[i];
+        if (canTake(p, tier) && !lv.blocks(p.name, date) && !cannot.has(`${p.name}|${date}`)) cands.push(i);
+      }
+      const lockName = o.locked?.[date]?.[tier];
+      const locked = lockName ? (idx.get(lockName) ?? -2) : -1;
+      if (locked >= 0) taken.add(locked);
+      else if (cands.length) open.push({ cands, clear: cands.filter(i => !nearFixed(i, di)) });
+      slots.push({ date, di, tier, off: isOffDay(type), cands: o.fill === false && !lockName ? [] : cands, locked });
+    }
+    if (open.length && staffable(open.map(x => x.clear.filter(i => !taken.has(i))))) for (const x of open) x.cands.splice(0, x.cands.length, ...x.clear);
+  });
+  const S = slots.length;
+
+  // per person: availability (days not on leave), weekend availability, the grade pool they share totals with
+  // a registrar on MO call tiers only (People "MO calls only") is balanced with the MOs
+  const poolOf = people.map(p => (p.grade === 'reg' && p.tiers && !p.tiers.some(t => t === 'reg' || t === 'reg2') ? 'mo' : p.grade));
+  const avail = people.map(p => days.filter(d => !lv.blocks(p.name, d)).length);
+  const availOff = people.map(p => days.filter((d, i) => isOffDay(dayType(d, holidays)) && !lv.blocks(p.name, d)).length);
+  const pools = [...new Set(poolOf)];
+  const poolAvail = pools.map(g => people.reduce((s, p, i) => s + (poolOf[i] === g ? avail[i] : 0), 0));
+  const poolAvailOff = pools.map(g => people.reduce((s, p, i) => s + (poolOf[i] === g ? availOff[i] : 0), 0));
+
   // wanted: person -> day -> tier or '*'
   /** @type {Map<string, string>} */
   const wants = new Map();
