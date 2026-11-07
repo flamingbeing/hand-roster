@@ -26,7 +26,7 @@ import { shortOptions } from '../roster/short.js';
 import { gridRows, isPinned, juniorsOn, weekBuilt } from '../roster/grid.js';
 import { WEEK_PLAN, backToDraftOf, gridChanges, planSig, planState, planWrite, publishOf, undoOf, undoPlan } from '../roster/drafts.js';
 import { changedRows, keepOf, pinsOf, withPins } from '../roster/pins.js';
-import { applyEdit, applyEdits, keptAsks, mergeOverrides } from '../roster/week-edits.js';
+import { applyEdit, applyEdits, mergeOverrides } from '../roster/week-edits.js';
 import { listsDrift } from '../roster/lists-drift.js';
 import { rulesOf, weekRules, wordsOf } from '../roster/rule-cards.js';
 import { weekProblem } from '../roster/problem.js';
@@ -207,7 +207,7 @@ export function weekEdit({ ctx, model, monday, draw }) {
     if (!m.built || !m.grid.some(r => r.juniors.length)) { await rebuild(mon, []); return; }
     // Build again is a refill: the pins, then everything else on the grid that still holds; only the gaps and what no
     // longer holds change (Reset week builds fresh)
-    await rebuild(mon, await pinsNow(mon, m), keepOf(m.grid));
+    await rebuild(mon, pinsOf(m.grid), keepOf(m.grid));   // (no more guessing pins from a fresh build: a rule change read as hand edits, 7 Nov)
   }
 
   /** Reset week: every pin dropped and the week built fresh (the list changes for this week stay) */
@@ -221,18 +221,6 @@ export function weekEdit({ ctx, model, monday, draw }) {
     });
   }
 
-  /**
-   * The week's pins for Build again. A week built before pins (7 Nov 2026) has none: its hand placements, a junior the last
-   * build would not put there now, become pins instead, so Build again keeps them as it did.
-   * @param {string} mon @param {Model} m @returns {Promise<import('../roster/pins.js').Pin[]>}
-   */
-  async function pinsNow(mon, m) {
-    const pins = pinsOf(m.grid);
-    if (pins.length || m.grid.some(r => r.pinned)) return pins;
-    const { buildWeek } = await import('../roster/week.js');
-    const built = gridRows(buildWeek({ monday: mon, lists: slotsFor(m.templates, mon, m.wk?.overrides), people: m.people, leave: m.leave, calls: m.calls, holidays: m.holidays, seed: m.wk?.seed ?? 0, rules: rules() }).grid);
-    return keptAsks(built, m.grid).map(a => ({ person: a.person, list: a.list, day: a.day, session: /** @type {'AM' | 'PM'} */ (a.session) }));
-  }
 
   /**
    * Builds the week again with a new seed, the pins placed first, then (a refill) the rest of the grid where it still holds.
