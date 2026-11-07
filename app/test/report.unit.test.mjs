@@ -108,3 +108,15 @@ test('report: a call too soon after another is marked on that call', () => {
   assert.ok(mk, 'the clash is marked on one of the two calls');
   assert.ok(mk.why.some(w => w.includes('MO (NUH)')), 'calls are named by their tier');
 });
+
+test('report: a list past its minimum but short of its need is not a broken must-hold rule', () => {
+  const rule = { id: 'week-cover', type: 'cover', words: 'Every open list gets at least its minimum', level: /** @type {const} */ ('block'), priority: 1, on: true, ok: false, n: 1, cost: 1,
+    hits: [{ rule: 'week-cover', level: /** @type {const} */ ('soft'), units: 1, slot: 's1', day: '2026-11-12', why: 'KRWOT 3 (2026-11-12 AM) has 1 of 2' }] };
+  const pref = { id: 'week-even', type: 'balance', words: 'Sessions are shared evenly', level: /** @type {const} */ ('soft'), priority: 2, on: true, ok: true, n: 0, cost: 0, hits: [] };
+  const rows = reportOf({ rules: [pref, rule] }, { words, dayName });
+  assert.equal(rows[0].id, 'week-cover', 'still listed before the rules that hold');
+  assert.equal(rows[0].broken, 0);
+  assert.equal(rows[0].below, 1);
+  assert.equal(checkSaid(rows, []), '', 'the toast says nothing is broken');
+  assert.deepEqual(marksOf({ hits: rule.hits }).slots.size, 0, 'and no mark');
+});

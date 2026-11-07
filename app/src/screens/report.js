@@ -12,7 +12,7 @@ const LEVEL_WORD = { block: 'Must hold', warn: 'Warning', soft: 'Preference' };
  *   accept?: (key: string, on: boolean) => Promise<boolean> }} o  accept: saves a warning as accepted (on) or not, true when it saved
  */
 export function openReport(o) {
-  const broken = o.rows.filter(r => r.broken && r.level !== 'soft').length, unmet = o.rows.filter(r => r.broken && r.level === 'soft').length;
+  const broken = o.rows.filter(r => r.broken && r.level !== 'soft').length, unmet = o.rows.filter(r => (r.broken && r.level === 'soft') || (!r.broken && r.below)).length;
   const said = [broken ? `${broken} rule${broken === 1 ? '' : 's'} broken` : 'Every must-hold rule and warning holds', unmet && `${unmet} preference${unmet === 1 ? '' : 's'} not fully met`].filter(Boolean).join(', ');
   const node = h('div', { class: 'rp', id: 'rule-report' },
     o.short.length > 0 && h('section', { class: 'rp-short' }, h('h3', {}, "Can't be filled"),
@@ -23,7 +23,7 @@ export function openReport(o) {
         h('summary', {},
           h('span', { class: 'rp-level' }, LEVEL_WORD[r.level]),
           h('span', { class: 'rp-words' }, r.words),
-          h('span', { class: 'rp-count' }, r.broken ? `${r.broken}` : 'holds', r.accepted ? ` (${r.accepted} accepted)` : '')),
+          h('span', { class: 'rp-count' }, r.broken ? `${r.broken}` : r.below ? `holds, ${r.below} under ideal` : 'holds', r.accepted ? ` (${r.accepted} accepted)` : '')),
         r.hits.length > 0 && h('ul', { class: 'rp-hits' }, r.hits.map(x => hitLine(x, o.accept))))))));
   editSheet().open({
     title: o.title, fields: [], saveLabel: 'Close', body: { node, read: () => ({}) },

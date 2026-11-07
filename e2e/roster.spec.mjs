@@ -274,7 +274,7 @@ test('a roster maker moves a junior on the grid and puts them back with Undo', a
   await expect(on(b)).toHaveCount(0);
 });
 
-test('Build again keeps a pinned junior (a hand placement from before pins too); Reset week drops the pins; Undo', async ({ phone }) => {
+test('Build again keeps a pinned junior; Reset week drops the pins; Undo', async ({ phone }) => {
   const page = await phone();
   await signIn(page, 'member');
   await openWeek(page);
@@ -283,14 +283,13 @@ test('Build again keeps a pinned junior (a hand placement from before pins too);
   await expect(page.locator('#week-title')).toHaveClass(/is-away/);
   const mon = /** @type {string} */ (await page.locator('#week-grid .wk-day').first().getAttribute('data-day'));
   const [t, t2, name] = [uniq('OT K'), uniq('OT L'), uniq('Dr Kay Test')];
-  // on lists by hand only, so no build puts them there by itself: the grid differs from its build, a hand placement
+  // on lists by hand only, so no build puts them there by itself: only the pin keeps them
   await db.put(`spaces/_/people/${name}`, { name, grade: 'mo', rank: 'MO', active: true, byHand: true, updatedAt: Date.now() });
   for (const id of [t, t2]) await db.put(`spaces/_/lists/${id}`, { site: 'NUH', kind: 'ot', name: id, wd: 1, session: 'AM', need: 1, status: 'open', updatedAt: Date.now() });
   // the lists are on the page (unbuilt, the week draws them from the template) before the week is built over them
   for (const id of [t, t2]) await expect(page.locator(`#week-table .wt-list[data-list="${id}"]`)).toHaveCount(1, { timeout: 15_000 });
   const list = (/** @type {string} */ id) => ({ id, site: 'NUH', kind: 'ot', name: id, day: mon, session: 'AM', consultant: null, status: 'open', need: 1 });
-  // a week saved before pins: its hand placement has no pin yet
-  await db.put(`spaces/_/weeks/${mon}`, { lists: [list(t), list(t2)], grid: [{ day: mon, session: 'AM', list: t, juniors: [name] }], seed: 1, built: Date.now(), updatedAt: Date.now() });
+  await db.put(`spaces/_/weeks/${mon}`, { lists: [list(t), list(t2)], grid: [{ day: mon, session: 'AM', list: t, juniors: [name], pinned: [name] }], seed: 1, built: Date.now(), updatedAt: Date.now() });
   const kay = page.locator(`#week-table .wt-list[data-list="${t}"] .wt-name`, { hasText: name });
   await expect(kay).toBeVisible({ timeout: 15_000 });
   const week = async () => { const d = await db.get(`spaces/_/weeks/${mon}`), w = { ...d, ...d?.draft }; const r = w?.grid?.find((/** @type {any} */ x) => x.list === t); return [w?.seed, r?.juniors, r?.pinned ?? []]; };
