@@ -116,6 +116,7 @@ select { padding: .5rem 2rem .5rem .65rem; }
 /* a junior on a list while on leave, on call or post-call (the Clashes block); underlined so it is not colour alone */
 .sh-options + h2, .sh-list + h2 { margin-top: .7rem; }
 .wt-name.is-clash, .wk-chip.is-clash { color: var(--danger); text-decoration: underline dotted; text-underline-offset: .2em; }
+.wt-name.is-pinned svg, .wk-chip.is-pinned svg { width: .8em; height: .8em; margin-inline-start: .2em; vertical-align: -.05em; opacity: .7; }
 /* the Epic check: consultants by day and session, scrolling sideways on a phone with the names kept in view */
 .ep-wrap { overflow-x: auto; margin: 0 0 var(--gap); }
 .ep-table { border-collapse: collapse; font-size: .9rem; }

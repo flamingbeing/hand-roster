@@ -95,8 +95,12 @@ export function dayType(day, holidays = []) {
 /** @param {DayType} t @returns {boolean} counts toward the weekend/holiday balance */
 export const isOffDay = t => t !== 'weekday';
 
-/** @param {Person} p @returns {boolean} a junior doctor: filled into lists */
-export const isJunior = p => p.grade !== 'con' && !p.extra;
+/**
+ * a junior doctor: filled into lists. An AC (associate consultant) is graded as a registrar for calls but runs their own
+ * clinics and lists, and the hand-made grids never put one on a list as a junior (owner 7 Nov 2026); a pin still can.
+ * @param {Person} p @returns {boolean}
+ */
+export const isJunior = p => p.grade !== 'con' && !p.extra && p.rank !== 'AC';
 
 /**
  * Who may take a call tier. Consultants only CON; the REG tier goes to registrars and ACs (not fellows); the MO tiers

@@ -27,6 +27,7 @@ export function sectionsOf({ monday, people, leave, calls, lists, grid, postCall
   const map = callMapOf(calls);
   const juniors = people.filter(isJunior);
   const names = new Set(juniors.map(p => p.name));
+  const byGrade = new Map(people.map(p => [p.name, p.grade]));
   /** @param {string} day @returns {string[]} */
   const callers = day => TIERS.map(t => map[day]?.[t]).filter(/** @returns {n is string} */ n => !!n);
   // a place on a list not open this week (closed since the build) does not take the session: free, and offered on Short
@@ -39,7 +40,7 @@ export function sectionsOf({ monday, people, leave, calls, lists, grid, postCall
   for (const day of days) {
     const prev = callers(addDays(day, -1)), today = callers(day);
     onCall[day] = Object.fromEntries(TIERS.map(t => [t, map[day]?.[t] ?? null]));
-    postCall[day] = prev.filter(n => names.has(n));
+    postCall[day] = prev.filter(n => names.has(n) || byGrade.get(n) === 'reg');   // an AC: post-call though never on a list as a junior
     leaveOut[day] = people.filter(p => lv.blocks(p.name, day)).map(p => p.name).sort();
     free[day] = [];
     if (holidays.includes(day)) continue;

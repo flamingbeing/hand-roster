@@ -42,9 +42,17 @@ export const rosters = { COLL: 'rosters', clean: cleanRoster };
 const rows = (max, one) => (/** @type {unknown} */ v) => (Array.isArray(v) ? v.slice(0, max).map(one).filter(Boolean) : undefined);
 const dayOk = (/** @type {unknown} */ d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
 
+/** @param {unknown} v @returns {string[]} */
+const names = v => (Array.isArray(v) ? v : []).filter((/** @type {unknown} */ n) => typeof n === 'string').map((/** @type {string} */ n) => n.slice(0, 60)).slice(0, 10);
+/** a grid row: its pinned only those of its juniors (Build again keeps them there) @param {any} r */
+function gridRow(r) {
+  const juniors = names(r.juniors), pinned = names(r.pinned).filter(n => juniors.includes(n));
+  return { day: r.day, session: r.session, list: r.list.slice(0, 64), juniors, ...(pinned.length ? { pinned } : {}) };
+}
+
 const cleanWeek = cleaner({
   grid: rows(800, r => (r && dayOk(r.day) && (r.session === 'AM' || r.session === 'PM') && typeof r.list === 'string'
-    ? { day: r.day, session: r.session, list: r.list.slice(0, 64), juniors: (Array.isArray(r.juniors) ? r.juniors : []).filter((/** @type {unknown} */ n) => typeof n === 'string').map((/** @type {string} */ n) => n.slice(0, 60)).slice(0, 10) } : null)),
+    ? gridRow(r) : null)),
   lists: rows(400, r => (r && dayOk(r.day) && typeof r.id === 'string' ? {
     id: r.id.slice(0, 64), site: text(20)(r.site) ?? '', kind: oneOf(['ot', 'msp', 'clinic', 'hot'])(r.kind) ?? 'ot', name: text(40)(r.name) ?? '', day: r.day,
     session: r.session === 'PM' ? 'PM' : 'AM', consultant: optText(60)(r.consultant) ?? null, ...(optText(60)(r.consultant2) ? { consultant2: optText(60)(r.consultant2) } : {}), ...(optText(60)(r.consultant3) ? { consultant3: optText(60)(r.consultant3) } : {}), rooms: optText(40)(r.rooms) ?? null,

@@ -27,6 +27,9 @@ import { TIERS, callMapOf, canWork, conText, consOf, isJunior, worksOn, leaveInd
  * @property {Leave[]} [leave]
  * @property {CallDay[]} [calls]  the month's calls; the day before the week counts for post-call
  * @property {{ type: 'list-person', person: string, list: string, day: string, session: Session | 'both' }[]} [requests]  a person asked for a list
+ * @property {import('./grid.js').Pin[]} [pins]  placed before anything else, always: on leave, on call, over the list's need or
+ *   not a junior (an AC) all the same (the Clashes panel says so); only a list not open that session or a person not in people
+ *   drops a pin (owner 7 Nov 2026)
  * @property {{ type: 'list-need', list: string, day: string, session: Session | 'both', need: number }[]} [needs]  a list wants a different number of juniors
  * @property {string[]} [holidays]  public holidays: their lists close and nobody is free or rostered
  * @property {boolean} [postCallAm]  post-call people can still work the AM (default true)
@@ -71,6 +74,8 @@ export function buildWeek(o) {
   const calls = callMapOf(o.calls ?? []);
   const postCallAm = o.postCallAm ?? true;
   const juniors = o.people.filter(isJunior);
+  // on call and post-call: everyone on the junior tiers, an AC too (not filled into lists, but on the REG tier)
+  const juniorCalls = new Set(o.people.filter(p => p.grade !== 'con').map(p => p.name));
   /** @type {Map<string, string | undefined>} */
   const teamOf = new Map(o.people.map(p => [p.name, p.team?.trim().toLowerCase()]));
   const holidays = o.holidays ?? [];
@@ -97,8 +102,8 @@ export function buildWeek(o) {
   for (const day of days) {
     const prev = onCallOn(addDays(day, -1));
     const today = onCallOn(day);
-    onCall[day] = today.filter(n => juniors.some(p => p.name === n));
-    postCall[day] = prev.filter(n => juniors.some(p => p.name === n));
+    onCall[day] = today.filter(n => juniorCalls.has(n));
+    postCall[day] = prev.filter(n => juniorCalls.has(n));
     leaveOut[day] = o.people.filter(p => lv.blocks(p.name, day)).map(p => p.name);
     /** @type {Record<Session, Set<string>>} */
     const taken = { AM: new Set(), PM: new Set() };
@@ -115,8 +120,17 @@ export function buildWeek(o) {
       const order = [...todays].sort((a, b) => (KIND_ORDER[a.kind] ?? 9) - (KIND_ORDER[b.kind] ?? 9) || b.need - a.need);
       /** @type {Map<string, string[]>} */
       const placed = new Map(todays.map(l => [l.id, []]));
+      /** @type {Set<string>} pinned this session */
+      const placedNow = new Set();
       /** @param {ListSlot} l @param {string} name */
-      const put = (l, name) => { placed.get(l.id)?.push(name); taken[session].add(name); const st = stats[name]; st.sessions++; if (l.kind === 'clinic' || l.kind === 'hot') st.clinic++; else st.ot++; };
+      const put = (l, name) => { placed.get(l.id)?.push(name); taken[session].add(name); const st = stats[name]; if (!st) return; st.sessions++; if (l.kind === 'clinic' || l.kind === 'hot') st.clinic++; else st.ot++; };
+
+      // 0. pins: where the roster maker pinned them, whatever else holds (only once a session each)
+      for (const pn of o.pins ?? []) {
+        if (pn.day !== day || pn.session !== session || placedNow.has(pn.person)) continue;
+        const l = todays.find(x => x.id === pn.list && x.status === 'open');
+        if (l && o.people.some(p => p.name === pn.person)) { put(l, pn.person); placedNow.add(pn.person); }
+      }
 
       // 1. asked-for people first (an ask is by hand: site, by-hand, works-on and clinics-only limits don't apply)
       for (const r of o.requests ?? []) {

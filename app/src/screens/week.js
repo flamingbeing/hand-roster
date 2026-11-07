@@ -25,7 +25,7 @@ import { addDays, mondayOf, nextWorkday, rangeDays, shortDay, weekday, weekdayNa
 import { TIERS, TIER_LABEL, conText, dayType, hasMe, leads, minOf, regLed, settleLists, tierPlanOf } from '../roster/model.js';
 import { callsAround, callsUnmade, clashesOf } from '../roster/sections.js';
 import { listName, sectionsOf } from '../roster/sections.js';
-import { juniorsOn, weekBuilt } from '../roster/grid.js';
+import { isPinned, juniorsOn, weekBuilt } from '../roster/grid.js';
 import { firstWeek, makerWeek } from '../roster/sections.js';
 import { slotsFor } from '../data/lists.js';
 import { activePeople, meOf, phonesOf } from '../data/people.js';
@@ -139,7 +139,8 @@ export function weekScreen(ctx) {
       { label: 'Print', icon: ICONS.printer, run: () => printWeek() },
       { label: 'This is me', icon: ICONS.userCheck, run: () => pickMe(m.people) },
       ...(canWrite && m.built && m.lists.length && store.ready(WEEK_NEEDS) ? [null, { label: 'Check against Epic', icon: ICONS.listChecks, run: () => edit(e => e.epicSheet()) },
-        { label: 'Build again', icon: ICONS.refreshCw, run: () => edit(e => e.build()) }] : []),
+        { label: 'Build again', icon: ICONS.refreshCw, run: () => edit(e => e.build()) },
+        { label: 'Reset week', icon: ICONS.rotateCcw, run: () => edit(e => e.reset()) }] : []),
     ], { label: 'More' });
   });
   // Ctrl+P and the browser's own print draw the same sheet once the export code is in: a button loads it, and on a laptop
@@ -282,8 +283,10 @@ export function weekScreen(ctx) {
         h('button', { type: 'button', class: 'sh-off', 'aria-label': `Take ${c.name} off ${on}`, onclick: () => edit(e => e.takeOff(m, c)) }, 'Take off'));
     }))];
   /** a junior's button on a list, marked when it clashes @param {ReturnType<typeof model>} m @param {import('../roster/model.js').ListSlot} l @param {string} n @param {string} cls */
-  const nameBtn = (m, l, n, cls) => { const why = clashAt.get(`${l.day}|${l.session}|${n}`);
-    return { type: 'button', class: `${cls}${why ? ' is-clash' : ''}${n === me ? ' is-me' : ''}`, dataset: { name: n }, 'aria-label': `${n}: move or take off${why ? `. Clash: ${why}` : ''}`, onclick: () => edit(e => e.moveSheet(m, l.day, l.session, n, l.id)) }; };
+  const nameBtn = (m, l, n, cls) => { const why = clashAt.get(`${l.day}|${l.session}|${n}`), pinned = isPinned(m.grid, l.day, l.session, l.id, n);
+    return { type: 'button', class: `${cls}${why ? ' is-clash' : ''}${n === me ? ' is-me' : ''}${pinned ? ' is-pinned' : ''}`, dataset: { name: n }, 'aria-label': `${n}${pinned ? ', pinned' : ''}: move, pin or take off${why ? `. Clash: ${why}` : ''}`, onclick: () => edit(e => e.moveSheet(m, l.day, l.session, n, l.id)) }; };
+  /** a junior's name, with the pin icon when pinned (makers only: a viewer has no pins to keep) @param {ReturnType<typeof model>} m @param {import('../roster/model.js').ListSlot} l @param {string} n */
+  const nameText = (m, l, n) => (isPinned(m.grid, l.day, l.session, l.id, n) ? [n, icon(ICONS.pin)] : n);
 
   /**
    * The Grid: the week as the hand-made sheet lays it out. Days across; AM and PM by site down, each cell the lists of that
@@ -315,7 +318,7 @@ export function weekScreen(ctx) {
         mineHere && h('span', { class: 'visually-hidden' }, ', you'),
         (flag || l.rooms) && h('span', { class: 'wt-flag' }, [l.rooms, flag].filter(Boolean).join(' · ')),
         (juniors.length > 0 || short) && h('div', { class: 'wt-names' },
-          juniors.flatMap((n, i) => [i > 0 && ', ', canWrite ? h('button', nameBtn(m, l, n, 'wt-name'), n)
+          juniors.flatMap((n, i) => [i > 0 && ', ', canWrite ? h('button', nameBtn(m, l, n, 'wt-name'), nameText(m, l, n))
             : h('span', { class: n === me ? 'wt-name is-me' : 'wt-name' }, n)]),
           short && h('span', { class: 'wt-need' }, juniors.length < min ? `needs ${min - juniors.length}` : l.kind === 'hot' ? 'needs a reg or R3' : 'needs a reg')));
     };
@@ -366,7 +369,7 @@ export function weekScreen(ctx) {
         canWrite && h('button', { type: 'button', class: 'wk-edit', 'aria-label': `Change ${l.name} for this week`, onclick: () => edit(e => e.weekListSheet(l)) }, icon(ICONS.pencil))),
       noteBits.length > 0 && h('div', { class: 'wk-note small' }, noteBits.join(' · ')),
       (open || juniors.length > 0) && h('div', { class: 'wk-juniors' },
-        juniors.map(n => h('button', { ...nameBtn(m, l, n, 'wk-chip'), disabled: !canWrite }, n)),
+        juniors.map(n => h('button', { ...nameBtn(m, l, n, 'wk-chip'), disabled: !canWrite }, canWrite ? nameText(m, l, n) : n)),
         open && short && m.built && h('span', { class: 'wk-need small' }, juniors.length < min ? `needs ${min - juniors.length} more` : l.kind === 'hot' ? 'needs a registrar or R3' : 'needs a registrar'),
         open && under && m.built && h('span', { class: 'wk-want small' }, `could take ${l.need - juniors.length} more`),
         open && canWrite && juniors.length < Math.max(l.need, 1) + 1 && h('button', { type: 'button', class: 'wk-add', 'aria-label': `Add a junior to ${l.name}`, onclick: () => edit(e => e.addSheet(m, l.day, l.session, l)) }, icon(ICONS.plus))));
