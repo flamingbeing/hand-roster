@@ -51,6 +51,7 @@ const SHELL = [
   'src/roster/parse-info.js',
   'src/roster/rename.js',
   'src/roster/sections.js',
+  'src/roster/short.js',
   'src/roster/week-edits.js',
   'src/roster/week.js',
   'src/roster/whatsapp.js',

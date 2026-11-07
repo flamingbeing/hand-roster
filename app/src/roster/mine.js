@@ -50,13 +50,31 @@ export function myWeek({ name, days, lists, grid, sec, calls, leave, built, holi
 }
 
 /**
+ * The day of the person's next call on or after today, from every stored month, or undefined when none is made.
+ * @param {string} name @param {{ calls?: import('./model.js').CallDay[] }[]} rosters @param {string} today
+ * @returns {import('./model.js').CallDay | undefined}
+ */
+export const nextCallDay = (name, rosters, today) => rosters.flatMap(r => r.calls ?? []).filter(c => c.date >= today && TIERS.some(t => c[t] === name))
+  .sort((a, b) => a.date.localeCompare(b.date))[0];
+
+/**
+ * Who else is on call on the person's next call day, by tier: [['CON', 'Dr Cy Test'], ...] (the My week card, each with a
+ * call link when they have a phone, owner 7 Nov 2026).
+ * @param {string} name @param {{ calls?: import('./model.js').CallDay[] }[]} rosters @param {string} today
+ * @returns {[string, string][]}
+ */
+export function nextCallWith(name, rosters, today) {
+  const day = nextCallDay(name, rosters, today);
+  return day ? TIERS.filter(t => day[t] && day[t] !== name).map(t => /** @type {[string, string]} */ ([TIER_LABEL[t], String(day[t])])) : [];
+}
+
+/**
  * The person's next call on or after today, from every stored month: 'Next call: Sat 14 Nov (REG)', or '' when none is made.
  * @param {string} name @param {{ calls?: import('./model.js').CallDay[] }[]} rosters @param {string} today
  * @returns {string}
  */
 export function nextCall(name, rosters, today) {
-  const next = rosters.flatMap(r => r.calls ?? []).filter(c => c.date >= today && TIERS.some(t => c[t] === name))
-    .sort((a, b) => a.date.localeCompare(b.date))[0];
+  const next = nextCallDay(name, rosters, today);
   if (!next) return '';
   const tiers = TIERS.filter(t => next[t] === name).map(t => TIER_LABEL[t]).join(', ');
   return `Next call: ${next.date === today ? 'today' : `${weekdayName(next.date)} ${shortDay(next.date)}`} (${tiers})`;

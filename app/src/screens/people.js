@@ -2,6 +2,7 @@
 // device). Add, edit and take off (inactive people stay in the
 // data, so old rosters still read; delete sends one to the bin). A name is the key leave, requests and calls use; a rename
 // carries the person's leave, requests and lists along (roster/rename.js), while calls made and built weeks keep the old name.
+// A phone number is optional; it shows as a call link beside the person's name on call, to every signed-in viewer (7 Nov 2026).
 import { icon, emptyState, undoToast } from '@core/ui';
 import { ICONS } from '../icons.js';
 import { $, h, fill } from '../dom.js';
@@ -83,7 +84,7 @@ export function create(ctx) {
     sheet.open({
       title: row ? 'Edit person' : 'Add person', saveLabel: 'Save',
       note: 'Leave, requests and lists can change with the name; calls already made and built weeks keep the old one.',
-      values: { name: row?.name ?? '', carry: true, grade: row?.grade ?? 'reg', rank: row?.rank ?? '', site: row?.site ?? '', team: row?.team ?? '', active: row?.active !== false, noCall: !!row?.noCall, moCalls: !!row?.moCalls, siteOnly: !!row?.siteOnly, byHand: !!row?.byHand, clinicsOnly: !!row?.clinicsOnly, extra: !!row?.extra },
+      values: { name: row?.name ?? '', carry: true, grade: row?.grade ?? 'reg', rank: row?.rank ?? '', site: row?.site ?? '', team: row?.team ?? '', phone: row?.phone ?? '', active: row?.active !== false, noCall: !!row?.noCall, moCalls: !!row?.moCalls, siteOnly: !!row?.siteOnly, byHand: !!row?.byHand, clinicsOnly: !!row?.clinicsOnly, extra: !!row?.extra },
       fields: [
         { key: 'name', label: 'Name', required: true, max: 60 },
         ...(row ? [{ key: 'carry', label: 'Also change it in their leave, requests and lists', type: /** @type {const} */ ('check') }] : []),
@@ -94,6 +95,7 @@ export function create(ctx) {
         } },
         { key: 'site', label: 'Home site', type: 'select', options: [['', 'Any'], ...SITES.map(s => /** @type {[string, string]} */ ([s, s]))] },
         { key: 'team', label: 'Team', max: 30, list: 'people-teams' },
+        { key: 'phone', label: 'Phone (optional)', type: 'tel', max: 20, hint: 'A call link beside their name when on call; everyone signed in sees it.' },
         { key: 'active', label: 'On the roster now', type: 'check' },
         { key: 'noCall', label: 'Does not take calls', type: 'check' },
         { key: 'moCalls', label: 'MO calls only (a registrar not at REG level for calls)', type: 'check' },
@@ -107,7 +109,8 @@ export function create(ctx) {
         const name = String(v.name);
         const plan = row && name && name !== row.name ? planText(planFor(row.name, name)) : '';
         return [others.includes(name.toLowerCase()) && 'Someone on the roster already has this name.',
-          plan && (v.carry ? `Also changes the name in ${plan}.` : `The old name stays on ${plan}.`)].filter(s => !!s).map(String);
+          plan && (v.carry ? `Also changes the name in ${plan}.` : `The old name stays on ${plan}.`),
+          /[^\d +]/.test(String(v.phone ?? '')) && 'Only digits, spaces and + are kept in the phone.'].filter(s => !!s).map(String);
       },
       onDelete: row ? async () => {
         if (await app.data.people.remove(row)) { toast(REFUSED); return; }
@@ -116,7 +119,7 @@ export function create(ctx) {
       } : undefined,
       onSave: async v => {
         if (others.includes(String(v.name).toLowerCase())) { toast('That name is taken.'); return; }
-        const fields = { name: v.name, grade: v.grade, rank: v.rank || null, site: v.site || null, team: v.team || null, active: v.active, noCall: v.noCall, moCalls: v.moCalls, siteOnly: v.siteOnly, byHand: v.byHand, works: v.works?.length ? v.works : null, clinicsOnly: v.clinicsOnly, extra: v.extra };
+        const fields = { name: v.name, grade: v.grade, rank: v.rank || null, site: v.site || null, team: v.team || null, phone: v.phone || null, active: v.active, noCall: v.noCall, moCalls: v.moCalls, siteOnly: v.siteOnly, byHand: v.byHand, works: v.works?.length ? v.works : null, clinicsOnly: v.clinicsOnly, extra: v.extra };
         if (!row) { toast(await app.data.people.add(fields) ? REFUSED : 'Saved'); return; }
         // the rows under the old name first, then the person (as the store holds them at Save)
         const plan = v.carry && v.name !== row.name ? planFor(row.name, v.name) : null;
@@ -142,7 +145,7 @@ export function create(ctx) {
     /** @param {import('../data/people.js').PersonRow} r @param {(string | false | null | undefined)[]} first */
     const row = (r, first) => ({
       main: r.name, dim: r.active === false,
-      sub: [...first, r.rank, r.site, r.noCall && 'no calls', !r.noCall && r.moCalls && r.grade === 'reg' && 'MO calls', r.siteOnly && r.site && `${r.site} only`, r.byHand && 'by hand', r.works?.length && worksText(r.works), r.clinicsOnly && 'clinics only', r.extra && 'extra'].filter(Boolean).join(' · '),
+      sub: [...first, r.rank, r.site, r.phone, r.noCall && 'no calls', !r.noCall && r.moCalls && r.grade === 'reg' && 'MO calls', r.siteOnly && r.site && `${r.site} only`, r.byHand && 'by hand', r.works?.length && worksText(r.works), r.clinicsOnly && 'clinics only', r.extra && 'extra'].filter(Boolean).join(' · '),
       tag: r.active === false ? 'Inactive' : '',
       onOpen: canWrite ? () => open(r) : null,
     });

@@ -78,6 +78,12 @@ test('people: a name, a grade from the list, a site from the list; no extra fiel
   assert.equal((await put({ ...base, team: null })).ok, true, 'team cleared');
   assert.equal((await put({ ...base, team: 'x'.repeat(31) })).ok, false);
   assert.equal((await put({ ...base, team: 2 })).ok, false, 'team is text');
+  assert.equal((await put({ ...base, phone: '+65 8000 0000' })).ok, true, 'a phone (made up)');
+  assert.equal((await put({ ...base, phone: null })).ok, true, 'phone cleared');
+  assert.equal((await put({ ...base, phone: '8000-0000' })).ok, false, 'digits, spaces and + only');
+  assert.equal((await put({ ...base, phone: '' })).ok, false, 'an empty phone is null instead');
+  assert.equal((await put({ ...base, phone: '8'.repeat(21) })).ok, false);
+  assert.equal((await put({ ...base, phone: 80000000 })).ok, false, 'phone is text');
   assert.equal((await put({ ...base, active: 'yes' })).ok, false);
   assert.equal((await put({ ...base, email: 'a@example.com' })).ok, false, 'no field the app did not list');
   assert.equal((await put({ ...base, createdAt: 1 })).ok, true);

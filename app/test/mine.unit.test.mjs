@@ -3,7 +3,7 @@
 // Invented names only.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { dayLabel, myWeek, nextCall } from '../src/roster/mine.js';
+import { dayLabel, myWeek, nextCall, nextCallWith } from '../src/roster/mine.js';
 import { sectionsOf } from '../src/roster/sections.js';
 import { activePeople, meOf } from '../src/data/people.js';
 import { hasMe } from '../src/roster/model.js';
@@ -78,6 +78,9 @@ test('next call: the first on or after today, across a month end and from any st
   assert.equal(nextCall('Dr Ann Test', rosters, '2026-11-20'), 'Next call: today (REG)');
   assert.equal(nextCall('Dr Ben Test', rosters, '2026-11-29'), '');
   assert.equal(nextCall('Dr Ben Test', [{ id: '2026-11' }], '2026-11-01'), '', 'a month with no calls made');
+  assert.deepEqual(nextCallWith('Dr Ben Test', [{ id: '2026-11' }], '2026-11-01'), [], 'no call, nobody with');
+  const with2 = [{ id: '2026-11', calls: [{ date: '2026-11-20', con: 'Dr Eve Test', reg: 'Dr Ann Test', moNuh: 'Dr Ben Test', moNtf: null }] }];
+  assert.deepEqual(nextCallWith('Dr Ann Test', with2, '2026-11-19'), [['CON', 'Dr Eve Test'], ['MO (NUH)', 'Dr Ben Test']], 'the others that day, by tier');
   assert.equal(dayLabel('2026-11-09'), 'Mon 9');
 });
 

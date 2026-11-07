@@ -6,9 +6,11 @@
 // A narrow page shows the days as a list, a page about 52rem wide or more as a month grid. Print (or Ctrl+P on this tab)
 // prints the month on one landscape page: the grid and the calls per person (7 Nov 2026). Copy puts the month's calls on the
 // clipboard as chat text for WhatsApp, or, once "This is me" is set, only that person's calls (7 Nov 2026).
+// A person's phone, when set, is a call link beside their name: in a viewer's day cells (a maker's day is a button, which
+// can't hold a link) and in the day sheet (owner, 7 Nov 2026).
 import { icon, emptyState, openMenu, undoToast } from '@core/ui';
 import { ICONS } from '../icons.js';
-import { $, h, fill } from '../dom.js';
+import { $, h, fill, telLink } from '../dom.js';
 import { LOADING, REFUSED } from '../items.js';
 import { solveCalls } from '../roster/calls.js';
 import { checkCalls } from '../roster/calls-check.js';
@@ -17,7 +19,7 @@ import { callMapIn, firstMonth, monthCells, shiftMonth } from '../roster/section
 import { callRow, callRowsOf, DAY_TYPES, TIERS, TIER_LABEL, dayType, tierPlanOf, tiersShown } from '../roster/model.js';
 import { MONTHS, MONTH_NAMES, monthDays, shortDay, weekdayName, todayKey } from '../roster/dates.js';
 import { holidaysIn, readHolidays } from '../roster/holidays.js';
-import { activePeople, meOf } from '../data/people.js';
+import { activePeople, meOf, phonesOf } from '../data/people.js';
 import { leaveOf, requestsOf } from '../data/leave.js';
 import { editSheet } from './sheet.js';
 
@@ -81,7 +83,8 @@ export function create(ctx) {
     const prior = callMapIn(prevRoster?.calls ?? [], shiftMonth(mon, -1));
     const after = callMapIn(nextRoster?.calls ?? [], shiftMonth(mon, 1));
     const plan = tierPlanOf(roster?.tierPlan);
-    return { roster, people, leave, requests, prior, after, calls: roster?.calls ?? [], holidays: roster?.holidays ?? [], minGap: roster?.minGap ?? 2, plan };
+    return { roster, people, leave, requests, prior, after, calls: roster?.calls ?? [], holidays: roster?.holidays ?? [], minGap: roster?.minGap ?? 2, plan,
+      phones: phonesOf(/** @type {any} */ (store.get('people'))) };
   }
 
   /** the month's calls as an Excel file (date rows by the four tiers, then the counts) */
@@ -219,12 +222,15 @@ export function create(ctx) {
     // (REG 2 is offered every day: the roster has one on a few days, entered by hand)
     const tiers = TIERS.filter(t => plan.includes(t) || t === 'reg2' || m.calls.find(c => c.date === date)?.[t]);
     const row = m.calls.find(c => c.date === date);
+    const callable = tiers.filter(t => m.phones.has(row?.[t] ?? ''));
     sheet.open({
       title: `${weekdayName(date)} ${shortDay(date)}`, note: 'A call set here is kept when the calls are made again.', saveLabel: 'Save',
       values: Object.fromEntries(tiers.map(t => [t, row?.[t] ?? ''])),
       fields: tiers.map(t => ({ key: t, label: TIER_LABEL[t], type: /** @type {const} */ ('select'),
         // free people first, each with their calls this month and why they may not be free
         options: () => callChoices({ date, tier: t, people: m.people, calls: m.calls, prior: m.prior, after: m.after, leave: m.leave, requests: m.requests, minGap: m.minGap, current: row?.[t] }) })),
+      // who is on call that day now, each with their call link
+      body: callable.length ? { node: h('p', { class: 'small cl-call' }, 'Call: ', callable.map((t, i) => [i > 0 && ' · ', `${SHORT[t]} ${row?.[t]} `, telLink(m.phones, row?.[t])])), read: () => ({}) } : undefined,
       warn: v => {
         const next = Object.fromEntries(tiers.map(t => [t, v[t] || null]));
         const calls = [...m.calls.filter(c => c.date !== date), { date, ...callRow({ ...row, ...next }) }];
@@ -328,7 +334,7 @@ export function create(ctx) {
       return h(canWrite ? 'button' : 'div', { ...props, class: `cl-day type-${type}${date === today ? ' is-today' : ''}`, dataset: { day: date }, 'aria-label': label },
         h('span', { class: 'cl-date' }, h('b', {}, String(Number(date.slice(8)))), h('span', { class: 'cl-wd' }, weekdayName(date)), m.holidays.includes(date) && h('span', { class: 'cl-ph small' }, 'PH')),
         h('span', { class: 'cl-tiers' }, tiers.map(x => h('span', { class: `cl-tier${x.name ? '' : ' is-empty'}${x.bad ? ' is-bad' : ''}${x.hand ? ' is-hand' : ''}${me && x.name === me ? ' is-me' : ''}`, title: x.name ?? '' },
-          h('i', {}, SHORT[x.t]), h('span', {}, x.name ?? '–'),
+          h('i', {}, SHORT[x.t]), h('span', {}, x.name ?? '–'), !canWrite && telLink(m.phones, x.name),
           x.bad && h('span', { class: 'visually-hidden' }, ' (problem)'), x.hand && h('span', { class: 'visually-hidden' }, ' (set by hand)')))));
     };
     fill(cal, monthCells(month).map(d => d ? cell(d) : h('span', { class: 'cl-blank', 'aria-hidden': 'true' })));
