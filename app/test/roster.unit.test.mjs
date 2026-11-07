@@ -558,3 +558,17 @@ test('build again: hand placements kept as asks, unless the person is away now',
   const over = [...asks, { type: 'list-person', person: 'Dr Ben Test', list: 'ot1', day, session: 'AM' }];
   assert.equal(keptCount(over, gridRows(buildWeek({ monday: day, lists, people, seed: 1, requests: /** @type {any} */ (over) }).grid)), 3);
 });
+
+test('sections: post-call off (the post-call card off) lists nobody as post-call and leaves them free', async () => {
+  const { sectionsOf, whyNot } = await import('../src/roster/sections.js');
+  const people = [{ name: 'Dr Ann Test', grade: 'mo', rank: 'MO' }];
+  const calls = [{ date: '2031-03-02', con: null, reg: null, reg2: null, moNuh: 'Dr Ann Test', moNtf: null }];
+  const o = { monday: '2031-03-03', people: /** @type {any} */ (people), leave: [], calls: /** @type {any} */ (calls), lists: [], grid: [] };
+  assert.deepEqual(sectionsOf(o).postCall['2031-03-03'], ['Dr Ann Test']);
+  assert.deepEqual(sectionsOf(o).free['2031-03-03'], [{ name: 'Dr Ann Test', when: 'AM' }]);
+  assert.deepEqual(sectionsOf({ ...o, postCall: false }).postCall['2031-03-03'], []);
+  assert.deepEqual(sectionsOf({ ...o, postCall: false }).free['2031-03-03'], [{ name: 'Dr Ann Test', when: 'FULL DAY' }]);
+  const w = { name: 'Dr Ann Test', day: '2031-03-03', session: /** @type {const} */ ('PM'), leave: [], calls: /** @type {any} */ (calls), grid: [] };
+  assert.deepEqual(whyNot(w), ['Dr Ann Test is post-call then']);
+  assert.deepEqual(whyNot({ ...w, postCall: false }), []);
+});

@@ -20,7 +20,8 @@ const card = c => ({ words: '', priority: 2, tags: [], on: true, params: {}, ...
 /** @type {RuleCard[]} */
 export const DEFAULT_RULES = [
   // ---- the week ----
-  card({ id: 'week-leave', topic: 'week', type: 'away', level: 'block', fixed: true, priority: 1, params: { slots: {} } }),
+  card({ id: 'week-leave', topic: 'week', type: 'away', level: 'block', fixed: true, priority: 1,
+    words: 'Nobody is on a list while on leave (all day, or the AM or PM they are away)', params: { slots: {} } }),
   card({ id: 'week-on-call', topic: 'week', type: 'sequence', level: 'block', fixed: true, priority: 1,
     words: 'Nobody on call that day is on a list (they show as free, on call)', params: { first: CALL, then: {}, from: 0, to: 0 } }),
   // then.sessions ['PM']: post-call takes the PM only; [] (any session) takes the whole day
@@ -51,9 +52,9 @@ export const DEFAULT_RULES = [
     words: 'OT and MSP lists are shared evenly', params: { slots: { kinds: ['ot', 'msp'] }, who: { tags: ['junior'] }, points: 1.5 } }),
   card({ id: 'week-balance-clinic', topic: 'week', type: 'balance', level: 'soft', priority: 2,
     words: 'Clinics are shared evenly', params: { slots: { kinds: ['clinic', 'hot'] }, who: { tags: ['junior'] }, points: 1.5 } }),
-  card({ id: 'week-reg-ot', topic: 'week', type: 'eligible', level: 'soft', priority: 2,
+  card({ id: 'week-reg-ot', topic: 'week', type: 'eligible', level: 'soft', priority: 2, words: 'Registrars go to OT and MSP lists first',
     params: { slots: { kinds: ['ot', 'msp'] }, who: { attrs: { grade: ['reg'] } }, points: 4 } }),
-  card({ id: 'week-mo-clinic', topic: 'week', type: 'eligible', level: 'soft', priority: 2,
+  card({ id: 'week-mo-clinic', topic: 'week', type: 'eligible', level: 'soft', priority: 2, words: 'MOs go to clinics first',
     params: { slots: { kinds: ['clinic', 'hot'] }, who: { attrs: { grade: ['mo'] } }, points: 2 } }),
   card({ id: 'week-site', topic: 'week', type: 'match', level: 'soft', priority: 2,
     words: 'People go to lists at their own site (NUH or NTFGH)', params: { slots: {}, personKey: 'site', slotKey: 'site', points: 2 } }),
@@ -64,7 +65,8 @@ export const DEFAULT_RULES = [
     params: { slots: {}, personKey: 'team', slotKey: 'teams', points: 0.25 } }),
 
   // ---- the month's calls ----
-  card({ id: 'calls-leave', topic: 'calls', type: 'away', level: 'block', fixed: true, priority: 1, params: { slots: CALL } }),
+  card({ id: 'calls-leave', topic: 'calls', type: 'away', level: 'block', fixed: true, priority: 1,
+    words: 'Nobody is on call while on leave', params: { slots: CALL } }),
   card({ id: 'calls-one-tier', topic: 'calls', type: 'oneAtATime', level: 'block', fixed: true, priority: 1,
     words: 'Nobody is on two call tiers the same day', params: { slots: CALL } }),
   card({ id: 'calls-cannot', topic: 'calls', type: 'requests', level: 'block', fixed: true, priority: 1,
@@ -104,7 +106,8 @@ export function rulesOf(saved = [], problems = () => []) {
   const out = DEFAULT_RULES.map(d => {
     const s = mine.get(d.id);
     if (!s) return d;
-    const merged = { ...d, ...s, params: { ...d.params, ...(s.params ?? {}) }, topic: d.topic, fixed: d.fixed };
+    // (a copy saved with no words of its own keeps the default's: they can improve for everyone)
+    const merged = { ...d, ...s, words: s.words || d.words, params: { ...d.params, ...(s.params ?? {}) }, topic: d.topic, fixed: d.fixed };
     const r = d.fixed ? { ...merged, type: d.type, level: d.level, on: true } : merged;
     return problems(r).length ? d : r;
   });
@@ -118,10 +121,17 @@ export function rulesOf(saved = [], problems = () => []) {
 
 /** @param {RuleCard[]} rules @param {string} id */
 const find = (rules, id) => rules.find(r => r.id === id) ?? /** @type {RuleCard} */ (BY_ID.get(id));
-/** a card's points, 0 when it is off; a number from 0 to 100, else the default card's @param {RuleCard[]} rules @param {string} id */
+// app-roster's soft weight bands (PRIORITY_WEIGHT): a card moved to another priority scales its points by the bands' ratio
+const BAND = { 1: 100, 2: 30, 3: 10 };
+/**
+ * a card's points, 0 when it is off: a number from 0 to 100, else the default card's; times the band ratio when its
+ * priority is not the default's (Rules tab)
+ * @param {RuleCard[]} rules @param {string} id
+ */
 const pts = (rules, id) => {
-  const r = find(rules, id), n = r.params?.points;
-  return r.on === false ? 0 : typeof n === 'number' && n >= 0 && n <= 100 ? n : /** @type {any} */ (BY_ID.get(id)).params.points;
+  const r = find(rules, id), d = /** @type {RuleCard} */ (BY_ID.get(id)), n = r.params?.points;
+  const p = r.on === false ? 0 : typeof n === 'number' && n >= 0 && n <= 100 ? n : d.params.points;
+  return r.priority === d.priority || !BAND[r.priority] ? p : p * BAND[r.priority] / BAND[d.priority];
 };
 /** @param {RuleCard[]} rules @param {string} id */
 const isOn = (rules, id) => find(rules, id).on !== false;
@@ -175,3 +185,30 @@ export function callRules(rules = DEFAULT_RULES) {
     },
   };
 }
+
+/** the default card with this id (none: an own card) @param {string} id */
+export const defaultOf = id => BY_ID.get(id);
+
+/** the Rules tab's order: blocks, then warnings, then soft rules; each by priority, then as listed @param {RuleCard[]} rules */
+export const ordered = rules => rules.map((r, i) => ({ r, i }))
+  .sort((a, b) => LEVEL_ORDER.indexOf(a.r.level) - LEVEL_ORDER.indexOf(b.r.level) || a.r.priority - b.r.priority || a.i - b.i).map(x => x.r);
+const LEVEL_ORDER = ['block', 'warn', 'soft'];
+
+/**
+ * A card's words: the maker's own, else its default's, else what its numbers say (post-call, the call gap), else the
+ * package's (describe: @core/roster describeRule, passed in so this file stays pure).
+ * @param {RuleCard} r @param {(r: RuleCard) => string} describe
+ */
+export function wordsOf(r, describe) {
+  if (r.words) return r.words;
+  if (r.id === 'week-post-call') {
+    const s = r.params?.then?.sessions;
+    return `The day after a call is post-call: no list ${Array.isArray(s) && s.length && !s.includes('AM') ? 'in the PM' : 'all day'}`;
+  }
+  if (r.id === 'calls-gap') { const n = Number(r.params?.to) || 2; return `At least ${n} clear day${n === 1 ? '' : 's'} between one person's calls`; }
+  return describe(r);
+}
+
+/** the fields a card is saved with (spaces/_/rules; fixed and id are not stored, nor a default's own words) @param {RuleCard} r */
+export const savedFields = r => ({ type: r.type, words: r.words && r.words !== BY_ID.get(r.id)?.words ? r.words : '', level: r.level, priority: r.priority, tags: r.tags ?? [], on: r.on !== false,
+  params: r.params ?? {}, topic: r.topic ?? 'week' });

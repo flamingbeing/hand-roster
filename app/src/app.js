@@ -1,6 +1,5 @@
-// The page's wiring: the shell and Settings page (shell.js), the kit's sync chip, the account block, and the screen
-// switch. The Week tab (screens/week.js) is the first screen and loads with the page; Calls, People, Lists and Leave
-// (screens/) load when their tab is first opened, and the rest warm up once the first screen is up.
+// The page's wiring: the shell and Settings page (shell.js), the sync chip, the account block, the screen switch. Week
+// (screens/week.js) loads with the page; the other tabs (screens/) when first opened, and warm up once Week is up.
 import { syncChip, syncButton, plural, loadState, toaster, lazyModules, conflictSheet, refusedList } from '@core/ui';
 import { start, usingEmulator, emulatorSignIn, lastSignedIn } from './cloud.js';
 import { $ } from './dom.js';
@@ -65,19 +64,19 @@ else {
     people: () => import('./screens/people.js'),
     lists: () => import('./screens/lists.js'),
     leave: () => import('./screens/leave.js'),
+    rules: () => import('./screens/rules.js'),
   });
-  /** @type {Record<string, 'calls' | 'people' | 'lists' | 'leave'>} */
-  const pages = { 'calls-page': 'calls', 'people-page': 'people', 'lists-page': 'lists', 'leave-page': 'leave' };
+  /** @typedef {'calls' | 'people' | 'lists' | 'leave' | 'rules'} Tab */
   /** @type {Set<string>} */
   const made = new Set();
-  /** @param {'calls' | 'people' | 'lists' | 'leave'} name */
+  /** @param {Tab} name */
   const make = name => {
     if (made.has(name)) return;
     made.add(name);
     tabs.need(name).then(m => m.create(ctx), err => { made.delete(name); console.warn(err); });
   };
-  for (const [id, name] of Object.entries(pages)) {
-    const page = $(id);
+  for (const name of /** @type {Tab[]} */ (['calls', 'people', 'lists', 'leave', 'rules'])) {
+    const page = $(`${name}-page`);
     if (!page.hidden) make(name);
     new MutationObserver(() => { if (!page.hidden) make(name); }).observe(page, { attributes: true, attributeFilter: ['hidden'] });
     page.addEventListener('draw-ahead', () => make(name));

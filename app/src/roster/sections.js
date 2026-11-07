@@ -17,11 +17,11 @@ import { callMapOf, callRow, conText, consOf, isJunior, worksOn, leads, leaveInd
  * `short` holds the lists below their minimum (the Short panel), `under` the ones with fewer than they want (not counting
  * an emergency slot's MO). On a public holiday nobody is listed as free. Someone on a list that is not open this week
  * counts as free that session (clashesOf flags them).
- * @param {{ monday: string, people: Person[], leave: Leave[], calls: CallDay[], lists: ListSlot[], grid: GridRow[], postCallAm?: boolean, holidays?: string[] }} o
+ * @param {{ monday: string, people: Person[], leave: Leave[], calls: CallDay[], lists: ListSlot[], grid: GridRow[], postCall?: boolean, postCallAm?: boolean, holidays?: string[] }} o  postCall false: the day after a call is not post-call
  * @returns {{ days: string[], leave: Record<string, string[]>, postCall: Record<string, string[]>, onCall: Record<string, Record<string, string | null>>,
  *   free: Record<string, FreeEntry[]>, short: Gap[], under: Gap[] }}
  */
-export function sectionsOf({ monday, people, leave, calls, lists, grid, postCallAm = true, holidays = [] }) {
+export function sectionsOf({ monday, people, leave, calls, lists, grid, postCall: pc = true, postCallAm = true, holidays = [] }) {
   const days = rangeDays(monday, addDays(monday, 4));
   const lv = leaveIndex(leave);
   const map = callMapOf(calls);
@@ -38,7 +38,7 @@ export function sectionsOf({ monday, people, leave, calls, lists, grid, postCall
   /** @type {Record<string, Record<string, string | null>>} */ const onCall = {};
   /** @type {Record<string, FreeEntry[]>} */ const free = {};
   for (const day of days) {
-    const prev = callers(addDays(day, -1)), today = callers(day);
+    const prev = pc ? callers(addDays(day, -1)) : [], today = callers(day);
     onCall[day] = Object.fromEntries(TIERS.map(t => [t, map[day]?.[t] ?? null]));
     postCall[day] = prev.filter(n => names.has(n) || byGrade.get(n) === 'reg');
     leaveOut[day] = people.filter(p => lv.blocks(p.name, day)).map(p => p.name).sort();
@@ -75,15 +75,15 @@ export function sectionsOf({ monday, people, leave, calls, lists, grid, postCall
 /**
  * Why putting a person on a list in a session is a problem, in words ([] when it is fine): leave, on call, post-call, or
  * already on another list that session. A hand edit may go ahead anyway; the sheet shows these as a warning.
- * @param {{ name: string, day: string, session: 'AM' | 'PM', leave: Leave[], calls: CallDay[], grid: GridRow[], list?: string | null, postCallAm?: boolean }} o
+ * @param {{ name: string, day: string, session: 'AM' | 'PM', leave: Leave[], calls: CallDay[], grid: GridRow[], list?: string | null, postCall?: boolean, postCallAm?: boolean }} o
  * @returns {string[]}
  */
-export function whyNot({ name, day, session, leave, calls, grid, list = null, postCallAm = true }) {
+export function whyNot({ name, day, session, leave, calls, grid, list = null, postCall = true, postCallAm = true }) {
   const lv = leaveIndex(leave), map = callMapOf(calls);
   const out = [];
   if (lv.blocks(name, day, session)) out.push(`${name} is on leave then`);
   if (TIERS.some(t => map[day]?.[t] === name)) out.push(`${name} is on call that day`);
-  if (TIERS.some(t => map[addDays(day, -1)]?.[t] === name) && (session === 'PM' || !postCallAm)) out.push(`${name} is post-call then`);
+  if (postCall && TIERS.some(t => map[addDays(day, -1)]?.[t] === name) && (session === 'PM' || !postCallAm)) out.push(`${name} is post-call then`);
   const there = grid.find(r => r.day === day && r.session === session && r.juniors.includes(name) && r.list !== list);
   if (there) out.push(`${name} is already on another list that session`);
   return out;
@@ -93,17 +93,17 @@ export function whyNot({ name, day, session, leave, calls, grid, list = null, po
  * Juniors a built grid has on a list while on leave, on call or post-call (leave or calls changed since the build), or on a
  * list that is not open this week (a holiday, the consultant away or on leave, or closed since the build: 7 Nov 2026), with
  * why ('on leave then', 'the list is closed (public holiday)'). Not a double booking; on a public holiday only the closed list.
- * @param {{ grid: GridRow[], lists?: ListSlot[], leave: Leave[], calls: CallDay[], holidays?: string[], postCallAm?: boolean }} o
+ * @param {{ grid: GridRow[], lists?: ListSlot[], leave: Leave[], calls: CallDay[], holidays?: string[], postCall?: boolean, postCallAm?: boolean }} o
  *   lists: the week's lists, settled
  * @returns {{ day: string, session: 'AM' | 'PM', list: string, name: string, why: string[] }[]}
  */
-export function clashesOf({ grid, lists = [], leave, calls, holidays = [], postCallAm = true }) {
+export function clashesOf({ grid, lists = [], leave, calls, holidays = [], postCall = true, postCallAm = true }) {
   const byId = new Map(lists.map(l => [l.id, l]));
   return grid.flatMap(r => {
     const l = byId.get(r.list), shut = l && l.status !== 'open' ? shutText(l) : '';
     const ph = holidays.includes(r.day);
     return r.juniors.map(name => ({ day: r.day, session: r.session, list: r.list, name,
-      why: [...(shut ? [shut] : []), ...(ph ? [] : whyNot({ name, day: r.day, session: r.session, leave, calls, grid: [], postCallAm }).map(w => w.slice(name.length + 4)))] }));
+      why: [...(shut ? [shut] : []), ...(ph ? [] : whyNot({ name, day: r.day, session: r.session, leave, calls, grid: [], postCall, postCallAm }).map(w => w.slice(name.length + 4)))] }));
   }).filter(c => c.why.length);
 }
 

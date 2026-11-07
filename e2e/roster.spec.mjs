@@ -77,7 +77,7 @@ test('a laptop: the side bar with icons and a hide button, the pages use the wid
   await expect(page.locator('.ui-side-toggle')).toBeVisible();
   await expect(page.locator('.ui-bar-menu')).toBeHidden();
   await expect(page.locator('.ui-tabbar')).toBeHidden();
-  await expect(page.locator('#side .side-icon svg')).toHaveCount(6);
+  await expect(page.locator('#side .side-icon svg')).toHaveCount(7);
   // the week grid runs past the kit's 800 px reading width
   expect((await page.locator('#week-page').boundingBox())?.width).toBeGreaterThan(900);
   // two teams sit side by side (the other tests' people are in the same space: found by name)

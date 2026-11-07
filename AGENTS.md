@@ -3,7 +3,7 @@
 Instructions for every AI assistant working here (Claude Code reads this through `CLAUDE.md`).
 
 A roster app for a hand surgery department: the week's OT lists and clinics with the juniors on each, the monthly calls,
-the people, leave and requests. Admins and members edit; viewers read. Tabs: Week (first), Calls, People, Lists, Leave.
+the people, leave and requests. Admins and members edit; viewers read. Tabs: Week (first), Calls, People, Lists, Leave, Rules.
 
 How it is laid out: `app/src/roster/` is the pure engine (no DOM, no Firebase; covered by `app/test/roster.unit.test.mjs`);
 `app/src/data/` is one module per kind (people, lists, leave and requests, rosters and weeks) that cleans a record and
