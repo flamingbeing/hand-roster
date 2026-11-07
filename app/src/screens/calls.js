@@ -18,7 +18,7 @@ import { applyDayEdit, handCount, keepGoodCalls, lockedMap, problemLines, callCh
 import { callMapIn, firstMonth, monthCells, shiftMonth } from '../roster/sections.js';
 import { callRow, callRowsOf, DAY_TYPES, TIERS, TIER_LABEL, dayType, tierPlanOf, tiersShown } from '../roster/model.js';
 import { MONTHS, MONTH_NAMES, monthDays, shortDay, weekdayName, todayKey } from '../roster/dates.js';
-import { holidaysIn, readHolidays } from '../roster/holidays.js';
+import { holidaysIn, readHolidays, weekendHolidays } from '../roster/holidays.js';
 import { activePeople, meOf, phonesOf } from '../data/people.js';
 import { leaveOf, requestsOf } from '../data/leave.js';
 import { editSheet } from './sheet.js';
@@ -251,10 +251,11 @@ export function create(ctx) {
   function monthSheet() {
     if (waiting()) return;
     const mon = month, m = model(mon);
-    // Singapore's public holidays for the month (roster/holidays.js): Suggest adds the weekday ones; the admin still saves
+    // Singapore's public holidays for the month (roster/holidays.js, MOM's list): Suggest adds the weekday ones; the admin
+    // still saves. A weekend one counts as the weekend for calls (owner, 7 Nov 2026), so it is named, not added
     const pub = holidaysIn(mon);
     const named = [pub.suggest.length && `Singapore: ${pub.suggest.map(p => `${shortDay(p.day)} ${p.name}`).join(', ')}.`,
-      pub.weekendNames.length && `On a weekend (not added): ${pub.weekendNames.join(', ')}.`].filter(Boolean).join(' ');
+      pub.weekendNames.length && `On a weekend (counts as the weekend for calls, not added): ${pub.weekendNames.join(', ')}.`].filter(Boolean).join(' ');
     const outOfMonth = `use YYYY-MM-DD within ${monthTitle(mon)}`;
     const suggestBtn = h('button', { type: 'button', id: 'calls-suggest-holidays', disabled: !pub.suggest.length, onclick: () => {
       const area = /** @type {HTMLTextAreaElement} */ ($('ef-holidays'));
@@ -275,7 +276,12 @@ export function create(ctx) {
       ],
       body: { node: h('div', { class: 'cl-suggest' }, suggestBtn), read: () => ({}) },
       // a typo, a day that does not exist or a day of another month is named here, never dropped unseen
-      warn: v => { const { ignored } = readHolidays(v.holidays, mon); return ignored.length ? [`Ignored: ${ignored.join(', ')} (${outOfMonth}).`] : []; },
+      // a weekend day typed in is kept but said: calls treat it as the weekend, not a holiday (owner, 7 Nov 2026)
+      warn: v => {
+        const { days, ignored } = readHolidays(v.holidays, mon), wk = weekendHolidays(days);
+        return [ignored.length && `Ignored: ${ignored.join(', ')} (${outOfMonth}).`,
+          wk.length && `On a weekend: ${wk.map(shortDay).join(', ')} count as the weekend for calls, not as a holiday.`].filter(s => typeof s === 'string');
+      },
       onSave: async v => {
         if (waiting()) return;
         const { days: holidays, ignored } = readHolidays(v.holidays, mon);
@@ -329,10 +335,10 @@ export function create(ctx) {
       const plan = m.plan[type];
       const tiers = TIERS.filter(t => plan.includes(t) || row?.[t])
         .map(t => ({ t, name: row?.[t] ?? null, bad: bad.has(`${date}|${t}`), hand: !!row?.[t] && locked.has(`${date}|${t}`) }));
-      const label = dayLabel(date, m.holidays.includes(date), tiers) + (canWrite ? ' Tap to edit calls.' : '');
+      const label = dayLabel(date, type === 'ph', tiers) + (canWrite ? ' Tap to edit calls.' : '');
       const props = canWrite ? { type: 'button', onclick: () => daySheet(date) } : { role: 'listitem' };
       return h(canWrite ? 'button' : 'div', { ...props, class: `cl-day type-${type}${date === today ? ' is-today' : ''}`, dataset: { day: date }, 'aria-label': label },
-        h('span', { class: 'cl-date' }, h('b', {}, String(Number(date.slice(8)))), h('span', { class: 'cl-wd' }, weekdayName(date)), m.holidays.includes(date) && h('span', { class: 'cl-ph small' }, 'PH')),
+        h('span', { class: 'cl-date' }, h('b', {}, String(Number(date.slice(8)))), h('span', { class: 'cl-wd' }, weekdayName(date)), type === 'ph' && h('span', { class: 'cl-ph small' }, 'PH')),
         h('span', { class: 'cl-tiers' }, tiers.map(x => h('span', { class: `cl-tier${x.name ? '' : ' is-empty'}${x.bad ? ' is-bad' : ''}${x.hand ? ' is-hand' : ''}${me && x.name === me ? ' is-me' : ''}`, title: x.name ?? '' },
           h('i', {}, SHORT[x.t]), h('span', {}, x.name ?? '–'), !canWrite && telLink(m.phones, x.name),
           x.bad && h('span', { class: 'visually-hidden' }, ' (problem)'), x.hand && h('span', { class: 'visually-hidden' }, ' (set by hand)')))));

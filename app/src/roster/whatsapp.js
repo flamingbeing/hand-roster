@@ -75,8 +75,8 @@ export function callsText({ month, calls, holidays = [], tierPlan = DEFAULT_TIER
   const by = new Map(calls.filter(c => c.date.startsWith(month)).map(c => [c.date, c]));
   const [y, m] = month.split('-').map(Number);
   const when = `${MONTH_NAMES[m - 1]} ${y}`;
-  /** @param {string} date @returns {string} 'Mon 2 Nov' or 'Mon 2 Nov (PH)' */
-  const dateOf = date => `${weekdayName(date)} ${shortDay(date)}${holidays.includes(date) ? ' (PH)' : ''}`;
+  /** @param {string} date @returns {string} 'Mon 2 Nov' or 'Mon 2 Nov (PH)'; a weekend holiday reads as the weekend day (dayType) */
+  const dateOf = date => `${weekdayName(date)} ${shortDay(date)}${dayType(date, holidays) === 'ph' ? ' (PH)' : ''}`;
   if (name) {
     const lines = monthDays(month).flatMap(date => {
       const row = by.get(date);

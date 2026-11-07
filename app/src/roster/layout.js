@@ -469,7 +469,7 @@ export function callsLayout({ month, calls, holidays = [], counts = [], tierPlan
       const type = dayType(date, holidays), plan = tierPlan[type], row = by.get(date);
       return {
         off: type !== 'weekday',
-        cells: [shortDay(date), `${weekdayName(date)}${holidays.includes(date) ? ' (PH)' : ''}`,
+        cells: [shortDay(date), `${weekdayName(date)}${type === 'ph' ? ' (PH)' : ''}`,
           ...tiers.map(t => row?.[t] ?? (plan.includes(t) ? '' : '–'))],
       };
     }),

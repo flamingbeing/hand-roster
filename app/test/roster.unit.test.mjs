@@ -30,6 +30,10 @@ test('model: tiers per day type, tier eligibility, session-aware leave', () => {
   assert.equal(dayType('2026-10-17'), 'sat');
   assert.equal(dayType('2026-10-18'), 'sun');
   assert.equal(dayType('2026-10-14', ['2026-10-14']), 'ph');
+  // a holiday on a Saturday or Sunday is the weekend kind for calls, not 'ph' (owner, 7 Nov 2026); its Monday in lieu is 'ph'
+  assert.equal(dayType('2026-03-21', ['2026-03-21']), 'sat', 'Hari Raya Puasa 2026, a Saturday');
+  assert.equal(dayType('2026-11-08', ['2026-11-08', '2026-11-09']), 'sun', 'Deepavali 2026, a Sunday');
+  assert.equal(dayType('2026-11-09', ['2026-11-08', '2026-11-09']), 'ph', 'its Monday in lieu');
   assert.deepEqual(DEFAULT_TIER_PLAN.sun, ['con', 'reg', 'moNuh', 'moNtf'], 'all four tiers every day, as the HRM roster has');
   assert.deepEqual(tierPlanOf({ sun: ['con'] }), { ...DEFAULT_TIER_PLAN, sun: ['con'] }, "a roster's own plan, the default for the rest");
   assert.equal(canTake({ name: 'a', grade: 'reg', rank: 'Reg' }, 'reg2'), true);
@@ -68,7 +72,7 @@ const requests = [
   { name: 'Dr Reg Dee', date: '2026-11-17', type: 'cannot' },
   { name: 'Dr Mo Dee', date: '2026-11-20', type: 'want' },
 ];
-const holidays = ['2026-11-08'];
+const holidays = ['2026-11-08', '2026-11-09'];   // Deepavali 2026 (a Sunday) and its Monday in lieu
 
 /** fewer tiers at the weekend (the app's first default): the weekend cases below are about a plan's shape */
 const OLD_PLAN = { weekday: ['con', 'reg', 'moNuh', 'moNtf'], sat: ['con', 'reg'], sun: ['con'], ph: ['con', 'reg'] };
@@ -103,11 +107,13 @@ test('calls: every slot filled, hard rules hold on a 30-day month', () => {
   for (const [name, ds] of byPerson) {
     for (let i = 1; i < ds.length; i++) assert.ok(diffDays(ds[i - 1], ds[i]) >= 3, `${name}: ${ds[i - 1]} then ${ds[i]} is under the 2-day gap`);
   }
-  // the weekend rows: Saturday CON + REG, Sunday CON only, the holiday (a Sunday) CON + REG
+  // the weekend rows: Saturday CON + REG, Sunday CON only; the holiday on a Sunday is a Sunday (CON only, owner 7 Nov
+  // 2026) and its Monday in lieu takes the holiday plan (CON + REG)
   assert.equal(weekday('2026-11-07'), 6);
   assert.deepEqual(Object.keys(r.assignments['2026-11-07']).sort(), ['con', 'reg']);
   assert.deepEqual(Object.keys(r.assignments['2026-11-15']), ['con']);
-  assert.deepEqual(Object.keys(r.assignments['2026-11-08']).sort(), ['con', 'reg']);
+  assert.deepEqual(Object.keys(r.assignments['2026-11-08']), ['con']);
+  assert.deepEqual(Object.keys(r.assignments['2026-11-09']).sort(), ['con', 'reg']);
 });
 
 test('calls: totals are fair within each grade and the wanted day is given', () => {

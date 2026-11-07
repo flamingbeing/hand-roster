@@ -1,9 +1,13 @@
 // Singapore public holidays, to suggest a month's holidays in Calls > Settings (the admin still saves them).
 // Pure: no page, no clock. Only screens/calls.js imports it (a lazy screen), never the start-up files.
 // The dates are copied from the Ministry of Manpower's page (https://www.mom.gov.sg/employment-practices/public-holidays),
-// checked 7 Nov 2026, including the Mondays it names as the day off for a holiday on a Sunday. Add each new year here
-// once the ministry publishes it; a year not in the table suggests nothing.
-import { isDay, isWeekend, shortDay } from './dates.js';
+// checked against it again 7 Nov 2026 (page last updated 19 Jun 2026), including the Mondays it names as the day off for a
+// holiday on a Sunday. A holiday on a Saturday gets no day in lieu (MOM names none), so the table never has one. Add each
+// new year here once the ministry publishes it; a year not in the table suggests nothing.
+// Owner decision 7 Nov 2026: public holidays follow MOM's official Singapore list. A holiday on a Saturday or Sunday counts
+// as a weekend day for calls (weekend plan and weekend balance), not as a holiday (model.js dayType); a Monday in lieu is a
+// holiday only when the holiday falls on a Sunday.
+import { addDays, isDay, isWeekend, shortDay, weekday } from './dates.js';
 
 /** @type {Record<string, [string, string][]>} year: [day, name] */
 const TABLE = {
@@ -39,19 +43,45 @@ const TABLE = {
   ],
 };
 
+const IN_LIEU = /\(in lieu\)/;
+/** @param {string} day @returns {boolean} a holiday in the table falls on this day */
+const listed = day => (TABLE[day.slice(0, 4)] ?? []).some(([d, name]) => d === day && !IN_LIEU.test(name));
+
 /**
- * A month's public holidays. Only Monday to Friday ones are suggested; a Saturday or Sunday holiday is already a day off
- * (whether it should count as a holiday for calls is the owner's call), so it is only named.
+ * A day in lieu stands only for a holiday on a Sunday (MOM's rule): the Monday after it, or the next day after that is not
+ * itself a holiday. A Saturday holiday gets none. Kept as a guard so a mistyped table row can never suggest an in-lieu day
+ * after a Saturday.
+ * @param {string} day @returns {boolean}
+ */
+export function inLieuStands(day) {
+  if (isWeekend(day)) return false;
+  let d = addDays(day, -1);
+  while (listed(d) && weekday(d) !== 0) d = addDays(d, -1);   // step back over weekday holidays (a Sunday then Monday pair)
+  return weekday(d) === 0 && listed(d);
+}
+
+/**
+ * A month's public holidays. Only Monday to Friday ones are suggested (with a Monday in lieu of a Sunday holiday); a
+ * Saturday or Sunday holiday counts as a weekend day for calls (owner, 7 Nov 2026), so it is only named, never added.
  * @param {string} month YYYY-MM
  * @returns {{ suggest: { day: string, name: string }[], weekendNames: string[] }} weekendNames like '8 Nov Deepavali'
  */
 export function holidaysIn(month) {
   const all = (TABLE[month.slice(0, 4)] ?? []).filter(([day]) => day.startsWith(`${month}-`));
   return {
-    suggest: all.filter(([day]) => !isWeekend(day)).map(([day, name]) => ({ day, name })),
+    suggest: all.filter(([day, name]) => !isWeekend(day) && (!IN_LIEU.test(name) || inLieuStands(day))).map(([day, name]) => ({ day, name })),
     weekendNames: all.filter(([day]) => isWeekend(day)).map(([day, name]) => `${shortDay(day)} ${name}`),
   };
 }
+
+/** The table's rows for one year, for tests. @param {string | number} year @returns {[string, string][]} */
+export const holidayTable = year => [...(TABLE[String(year)] ?? [])];
+
+/**
+ * Typed holiday days that fall on a Saturday or Sunday: they count as the weekend for calls, not as a holiday.
+ * @param {string[]} days YYYY-MM-DD @returns {string[]}
+ */
+export const weekendHolidays = days => days.filter(isWeekend);
 
 /**
  * The holidays field as typed, read for one month: lines (or commas) of YYYY-MM-DD. A line of several days split by spaces

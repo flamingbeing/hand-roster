@@ -79,11 +79,18 @@ export const tierPlanOf = saved => /** @type {TierPlan} */ (Object.fromEntries(D
 /** @param {TierPlan} plan @param {CallDay[]} calls @returns {Tier[]} the tiers a month shows: the plan's, and any entered outside it */
 export const tiersShown = (plan, calls) => TIERS.filter(t => DAY_TYPES.some(([d]) => plan[d].includes(t)) || calls.some(c => c[t]));
 
-/** @param {string} day @param {string[]} [holidays] @returns {DayType} a public holiday wins over the weekday */
+/**
+ * The kind of day for calls. A public holiday on Monday to Friday is 'ph'; one on a Saturday or Sunday stays 'sat' or
+ * 'sun' (the weekend plan and the weekend balance), never 'ph'. Owner decision 7 Nov 2026: public holidays follow MOM's
+ * official Singapore list, and a holiday on a weekend counts as a weekend day for calls, not as a holiday; the Monday in
+ * lieu of a Sunday holiday is its own weekday holiday.
+ * @param {string} day @param {string[]} [holidays] @returns {DayType}
+ */
 export function dayType(day, holidays = []) {
-  if (holidays.includes(day)) return 'ph';
   const w = weekday(day);
-  return w === 6 ? 'sat' : w === 0 ? 'sun' : 'weekday';
+  if (w === 6) return 'sat';
+  if (w === 0) return 'sun';
+  return holidays.includes(day) ? 'ph' : 'weekday';
 }
 /** @param {DayType} t @returns {boolean} counts toward the weekend/holiday balance */
 export const isOffDay = t => t !== 'weekday';
