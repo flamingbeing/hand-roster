@@ -85,7 +85,7 @@ test('a laptop: the side bar with icons and a hide button, the pages use the wid
   for (const [i, name] of names.entries()) await db.put(`spaces/_/people/${name}`, { name, grade: 'reg', rank: 'Reg', team: uniq(`Team ${i}`), active: true, updatedAt: Date.now() });
   await page.locator('#side [data-tab-page="#people-page"]').click();
   const blockOf = (/** @type {string} */ name) => page.locator('#people-host .rl-block', { hasText: name });
-  await expect(blockOf(names[1])).toBeVisible({ timeout: 15_000 });
+  for (const n of names) await expect(blockOf(n)).toBeVisible({ timeout: 15_000 });
   const [a, b] = [await blockOf(names[0]).boundingBox(), await blockOf(names[1]).boundingBox()];
   expect(a && b && (Math.abs(a.y - b.y) < 2 || Math.abs(a.x - b.x) > 100)).toBe(true);
   expect((await page.locator('#people-host .rl-block').first().boundingBox())?.width).toBeLessThan(700);
@@ -294,7 +294,7 @@ test('Build again keeps a pinned junior (a hand placement from before pins too);
   await expect(page.locator('#edit-sheet')).toContainText('dropping 1 pin');
   await kept.getByRole('button', { name: 'Undo' }).waitFor({ state: 'detached', timeout: 15_000 }).catch(() => {});
   await page.locator('#edit-save').click();
-  const built = page.locator('.toast', { hasText: 'Built' }).filter({ hasNotText: 'Kept' });
+  const built = page.locator('.toast', { hasText: 'Built' }).filter({ hasNotText: /Kept \d+ pin/ });   // a regex: a plain string ignores case, and 'kept clear' can be in it
   await expect(built).toBeVisible({ timeout: 15_000 });
   await expect(kay).toHaveCount(0);
   await built.getByRole('button', { name: 'Undo' }).click();
