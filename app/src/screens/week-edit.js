@@ -12,7 +12,8 @@ import { shortDay } from '../roster/dates.js';
 import { conText } from '../roster/model.js';
 import { sectionsOf, whyNot } from '../roster/sections.js';
 import { shortOptions } from '../roster/short.js';
-import { gridRows, isPinned, juniorsOn, pinsOf, withPins } from '../roster/grid.js';
+import { gridRows, isPinned, juniorsOn } from '../roster/grid.js';
+import { pinsOf, withPins } from '../roster/pins.js';
 import { applyEdit, applyEdits, keptAsks, mergeOverrides, undoFields } from '../roster/week-edits.js';
 import { listsDrift } from '../roster/lists-drift.js';
 import { slotsFor } from '../data/lists.js';
@@ -115,7 +116,7 @@ export function weekEdit({ ctx, model, monday }) {
   /**
    * The week's pins for Build again. A week built before pins (7 Nov 2026) has none: its hand placements, a junior the last
    * build would not put there now, become pins instead, so Build again keeps them as it did.
-   * @param {string} mon @param {Model} m @returns {Promise<import('../roster/grid.js').Pin[]>}
+   * @param {string} mon @param {Model} m @returns {Promise<import('../roster/pins.js').Pin[]>}
    */
   async function pinsNow(mon, m) {
     const pins = pinsOf(m.grid);
@@ -127,7 +128,7 @@ export function weekEdit({ ctx, model, monday }) {
 
   /**
    * Builds the week again with a new seed, the pins placed first.
-   * @param {string} mon @param {import('../roster/grid.js').Pin[]} pins  the pins to keep
+   * @param {string} mon @param {import('../roster/pins.js').Pin[]} pins  the pins to keep
    */
   async function rebuild(mon, pins) {
     if (building || waiting()) return;

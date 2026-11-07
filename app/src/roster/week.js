@@ -27,7 +27,7 @@ import { TIERS, callMapOf, canWork, conText, consOf, isJunior, worksOn, leaveInd
  * @property {Leave[]} [leave]
  * @property {CallDay[]} [calls]  the month's calls; the day before the week counts for post-call
  * @property {{ type: 'list-person', person: string, list: string, day: string, session: Session | 'both' }[]} [requests]  a person asked for a list
- * @property {import('./grid.js').Pin[]} [pins]  placed before anything else, always: on leave, on call, over the list's need or
+ * @property {import('./pins.js').Pin[]} [pins]  placed before anything else, always: on leave, on call, over the list's need or
  *   not a junior (an AC) all the same (the Clashes panel says so); only a list not open that session or a person not in people
  *   drops a pin (owner 7 Nov 2026)
  * @property {{ type: 'list-need', list: string, day: string, session: Session | 'both', need: number }[]} [needs]  a list wants a different number of juniors

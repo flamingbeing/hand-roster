@@ -44,7 +44,7 @@ const dayOk = (/** @type {unknown} */ d) => typeof d === 'string' && /^\d{4}-\d{
 
 /** @param {unknown} v @returns {string[]} */
 const names = v => (Array.isArray(v) ? v : []).filter((/** @type {unknown} */ n) => typeof n === 'string').map((/** @type {string} */ n) => n.slice(0, 60)).slice(0, 10);
-/** a grid row: its pinned only those of its juniors (Build again keeps them there) @param {any} r */
+/** @param {any} r */
 function gridRow(r) {
   const juniors = names(r.juniors), pinned = names(r.pinned).filter(n => juniors.includes(n));
   return { day: r.day, session: r.session, list: r.list.slice(0, 64), juniors, ...(pinned.length ? { pinned } : {}) };

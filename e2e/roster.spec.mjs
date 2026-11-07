@@ -287,7 +287,6 @@ test('Build again keeps a pinned junior (a hand placement from before pins too);
   await expect(kept).toBeVisible({ timeout: 15_000 });
   await expect.poll(week, { timeout: 15_000 }).toEqual([2, [name], [name]]);
   await expect(kay).toHaveClass(/is-pinned/);
-  await expect(kay.locator('svg')).toHaveCount(1);
   // Reset week: a sheet first; Reset builds fresh, so a by-hand-only junior is off the list
   await page.locator('#week-more').click();
   await clickOpens(page.getByRole('menuitem', { name: 'Reset week' }), page.locator('#edit-sheet'));

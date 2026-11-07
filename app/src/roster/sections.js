@@ -40,7 +40,7 @@ export function sectionsOf({ monday, people, leave, calls, lists, grid, postCall
   for (const day of days) {
     const prev = callers(addDays(day, -1)), today = callers(day);
     onCall[day] = Object.fromEntries(TIERS.map(t => [t, map[day]?.[t] ?? null]));
-    postCall[day] = prev.filter(n => names.has(n) || byGrade.get(n) === 'reg');   // an AC: post-call though never on a list as a junior
+    postCall[day] = prev.filter(n => names.has(n) || byGrade.get(n) === 'reg');
     leaveOut[day] = people.filter(p => lv.blocks(p.name, day)).map(p => p.name).sort();
     free[day] = [];
     if (holidays.includes(day)) continue;

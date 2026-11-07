@@ -3,7 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildWeek } from '../src/roster/week.js';
-import { gridRows, isPinned, pin, pinsOf, withPins } from '../src/roster/grid.js';
+import { gridRows, isPinned } from '../src/roster/grid.js';
+import { pin, pinsOf, withPins } from '../src/roster/pins.js';
 import { isJunior } from '../src/roster/model.js';
 import { applyEdit, applyEdits } from '../src/roster/week-edits.js';
 import { weeks } from '../src/data/plans.js';

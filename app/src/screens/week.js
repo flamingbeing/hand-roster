@@ -285,8 +285,6 @@ export function weekScreen(ctx) {
   /** a junior's button on a list, marked when it clashes @param {ReturnType<typeof model>} m @param {import('../roster/model.js').ListSlot} l @param {string} n @param {string} cls */
   const nameBtn = (m, l, n, cls) => { const why = clashAt.get(`${l.day}|${l.session}|${n}`), pinned = isPinned(m.grid, l.day, l.session, l.id, n);
     return { type: 'button', class: `${cls}${why ? ' is-clash' : ''}${n === me ? ' is-me' : ''}${pinned ? ' is-pinned' : ''}`, dataset: { name: n }, 'aria-label': `${n}${pinned ? ', pinned' : ''}: move, pin or take off${why ? `. Clash: ${why}` : ''}`, onclick: () => edit(e => e.moveSheet(m, l.day, l.session, n, l.id)) }; };
-  /** a junior's name, with the pin icon when pinned (makers only: a viewer has no pins to keep) @param {ReturnType<typeof model>} m @param {import('../roster/model.js').ListSlot} l @param {string} n */
-  const nameText = (m, l, n) => (isPinned(m.grid, l.day, l.session, l.id, n) ? [n, icon(ICONS.pin)] : n);
 
   /**
    * The Grid: the week as the hand-made sheet lays it out. Days across; AM and PM by site down, each cell the lists of that
@@ -318,7 +316,7 @@ export function weekScreen(ctx) {
         mineHere && h('span', { class: 'visually-hidden' }, ', you'),
         (flag || l.rooms) && h('span', { class: 'wt-flag' }, [l.rooms, flag].filter(Boolean).join(' · ')),
         (juniors.length > 0 || short) && h('div', { class: 'wt-names' },
-          juniors.flatMap((n, i) => [i > 0 && ', ', canWrite ? h('button', nameBtn(m, l, n, 'wt-name'), nameText(m, l, n))
+          juniors.flatMap((n, i) => [i > 0 && ', ', canWrite ? h('button', nameBtn(m, l, n, 'wt-name'), n)
             : h('span', { class: n === me ? 'wt-name is-me' : 'wt-name' }, n)]),
           short && h('span', { class: 'wt-need' }, juniors.length < min ? `needs ${min - juniors.length}` : l.kind === 'hot' ? 'needs a reg or R3' : 'needs a reg')));
     };
@@ -369,7 +367,7 @@ export function weekScreen(ctx) {
         canWrite && h('button', { type: 'button', class: 'wk-edit', 'aria-label': `Change ${l.name} for this week`, onclick: () => edit(e => e.weekListSheet(l)) }, icon(ICONS.pencil))),
       noteBits.length > 0 && h('div', { class: 'wk-note small' }, noteBits.join(' · ')),
       (open || juniors.length > 0) && h('div', { class: 'wk-juniors' },
-        juniors.map(n => h('button', { ...nameBtn(m, l, n, 'wk-chip'), disabled: !canWrite }, canWrite ? nameText(m, l, n) : n)),
+        juniors.map(n => h('button', { ...nameBtn(m, l, n, 'wk-chip'), disabled: !canWrite }, n)),
         open && short && m.built && h('span', { class: 'wk-need small' }, juniors.length < min ? `needs ${min - juniors.length} more` : l.kind === 'hot' ? 'needs a registrar or R3' : 'needs a registrar'),
         open && under && m.built && h('span', { class: 'wk-want small' }, `could take ${l.need - juniors.length} more`),
         open && canWrite && juniors.length < Math.max(l.need, 1) + 1 && h('button', { type: 'button', class: 'wk-add', 'aria-label': `Add a junior to ${l.name}`, onclick: () => edit(e => e.addSheet(m, l.day, l.session, l)) }, icon(ICONS.plus))));

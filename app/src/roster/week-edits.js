@@ -1,7 +1,9 @@
 // A roster maker's edits to a week, as pure steps (screens/week-edit.js saves them). Each edit is worked out from the
 // week as it is when it is saved, never from the copy a sheet opened with: a change another maker saved in between stays.
 // Undo puts back the fields an edit changed, as they were just before it.
-import { juniorsOn, listOf, move, pin, place } from './grid.js';
+import { juniorsOn, listOf } from './grid.js';
+import { move, place } from './grid-edits.js';
+import { pin } from './pins.js';
 import { coOf, minOf } from './model.js';
 
 /** @typedef {import('./grid.js').GridRow} GridRow */
