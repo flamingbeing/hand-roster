@@ -6,7 +6,7 @@
 
 /** @typedef {{ rule: string, level: 'block' | 'warn' | 'soft', units: number, why: string, slot?: string, person?: string, day?: string, cost?: number }} Hit */
 /** @typedef {{ id: string, type: string, words: string, level: Hit['level'], priority: number, on: boolean, ok: boolean, n: number, cost: number, hits: Hit[] }} RuleResult */
-/** @typedef {{ level: 'block' | 'warn', why: string[] }} Mark */
+/** @typedef {{ level?: 'block' | 'warn', why: string[], new?: boolean }} Mark  new: a build's preview changes it (screens/week-edit.js) */
 /** @typedef {{ key: string, level: Hit['level'], text: string, accepted: boolean }} ReportHit */
 /** @typedef {{ id: string, words: string, level: Hit['level'], on: boolean, broken: number, accepted: number, hits: ReportHit[] }} ReportRow */
 

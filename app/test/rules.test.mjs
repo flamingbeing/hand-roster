@@ -179,6 +179,14 @@ test('rosters: named by month; calls, locked, holidays and problems are lists of
   assert.equal((await put({ ...base, accepted: ['calls-leads|2026-11-01|reg|'] })).ok, true, 'warnings accepted');
   assert.equal((await put({ ...base, accepted: new Array(301).fill('x') })).ok, false, 'at most 300 accepted');
   assert.equal((await put({ ...base, accepted: 'x' })).ok, false, 'accepted is a list');
+  // a maker's draft: the month's own plan fields, checked as the month's; null drops it; settings stay outside it
+  assert.equal((await put({ ...base, draft: { calls: base.calls, locked: [], problems: [], seed: 2, built: 1, accepted: [] } })).ok, true, 'a draft');
+  assert.equal((await put({ ...base, draft: null })).ok, true, 'a draft dropped');
+  assert.equal((await put({ ...base, draft: { holidays: [] } })).ok, false, 'holidays are a setting, not in a draft');
+  assert.equal((await put({ ...base, draft: { calls: 'none' } })).ok, false, 'draft calls are a list');
+  assert.equal((await put({ ...base, draft: { calls: new Array(63).fill({ date: '2026-11-01' }) } })).ok, false, 'at most 62 draft days');
+  assert.equal((await put({ ...base, draft: 'x' })).ok, false, 'a draft is a map');
+  assert.equal((await as('viewer').set('spaces/_/rosters/2026-11', { ...base, draft: null }, at)).ok, false, 'a viewer cannot publish');
   assert.equal((await as('member').set('spaces/_/rosters/2026-11', base)).ok, false, 'needs the server time stamp');
   assert.equal((await emu.anon().get('spaces/_/rosters/2026-11')).ok, false, 'signed out: no read');
   assert.equal((await as('viewer').set('spaces/_/rosters/2026-12', base, at)).ok, false, 'a viewer only reads');
@@ -199,6 +207,14 @@ test('weeks: named by a day; grid, lists and overrides are lists of a sensible s
   assert.equal((await put({ ...base, owner: 'me' })).ok, false);
   assert.equal((await put({ ...base, accepted: ['week-leads|l1|'] })).ok, true, 'warnings accepted');
   assert.equal((await put({ ...base, accepted: new Array(301).fill('x') })).ok, false, 'at most 300 accepted');
+  // a maker's draft: the week's own fields, checked as the week's; null drops it
+  assert.equal((await put({ ...base, draft: { grid: base.grid, lists: [], overrides: [], built: 1, seed: 4, accepted: [] } })).ok, true, 'a draft');
+  assert.equal((await put({ ...base, draft: null })).ok, true, 'a draft dropped');
+  assert.equal((await put({ ...base, draft: { grid: new Array(801).fill({}) } })).ok, false, 'at most 800 draft rows');
+  assert.equal((await put({ ...base, draft: { seed: 2000000 } })).ok, false);
+  assert.equal((await put({ ...base, draft: { owner: 'me' } })).ok, false, 'only the week\'s fields in a draft');
+  assert.equal((await put({ ...base, draft: [] })).ok, false, 'a draft is a map');
+  assert.equal((await as('viewer').set('spaces/_/weeks/2026-11-02', { ...base, draft: null }, at)).ok, false, 'a viewer cannot publish');
   assert.equal((await as('member').set('spaces/_/weeks/2026-11-02', base)).ok, false, 'needs the server time stamp');
   assert.equal((await emu.anon().get('spaces/_/weeks/2026-11-02')).ok, false, 'signed out: no read');
   assert.equal((await as('viewer').set('spaces/_/weeks/2026-11-09', base, at)).ok, false, 'a viewer only reads');

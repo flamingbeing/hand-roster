@@ -43,9 +43,10 @@ test('after one hand edit from the cell sheet, Build again changes no unpinned c
   // Build again: Uma (pinned by the hand edit) stays, A's open seat is filled, B and C keep their unpinned people
   await page.locator('#week-more').click();
   await page.getByRole('menuitem', { name: 'Build again' }).click();
+  await page.locator('#week-apply').click();   // (a preview first)
   await expect(page.locator('.toast', { hasText: 'Built' })).toBeVisible({ timeout: 15_000 });
   const rows = async () => {
-    const w = await db.get(`spaces/_/weeks/${mon}`);
+    const d = await db.get(`spaces/_/weeks/${mon}`), w = { ...d, ...d?.draft };   // (Build again saves into the week's draft)
     const r = (/** @type {string} */ id) => w?.grid?.find((/** @type {any} */ x) => x.list === id);
     return { seed: w?.seed, a: r(a)?.juniors.includes(p4) && r(a)?.juniors.length, b: r(b)?.juniors, c: r(c)?.juniors, pins: [r(b)?.pinned ?? [], r(c)?.pinned ?? []] };
   };

@@ -25,6 +25,17 @@ service cloud.firestore {
     function isDay(v) { return v is string && v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'); }
     function dayIn(d, f) { return f in d && isDay(d[f]); }
     function optList(d, f, max) { return !(f in d) || (d[f] is list && d[f].size() <= max); }
+    // A maker's draft of a week or a month (src/roster/drafts.js): absent, null (dropped) or a map of the plan's own fields,
+    // checked as the record's; viewers read it with the record but the app shows them the record's own fields.
+    function draftOk(d, keys) { return !('draft' in d) || d.draft == null || (d.draft is map && d.draft.keys().hasOnly(keys)); }
+    function weekPlanOk(d) {
+      return optList(d, 'grid', 800) && optList(d, 'accepted', 300) && optList(d, 'lists', 400) && optList(d, 'overrides', 200)
+        && optIntIn(d, 'seed', 0, 1000000) && (!('built' in d) || d.built is number);
+    }
+    function monthPlanOk(d) {
+      return optList(d, 'calls', 62) && optList(d, 'accepted', 300) && optList(d, 'locked', 200) && optList(d, 'problems', 60)
+        && optIntIn(d, 'seed', 0, 1000000) && (!('built' in d) || d.built is number);
+    }
     function recordOk(d) {
       return (!('_edits' in d) || d._edits is map)
         && d.updatedAt is number
@@ -98,29 +109,28 @@ service cloud.firestore {
     }
 
     // A month's on-call roster, named YYYY-MM: calls (a row per day), locked (entries set by hand), holidays, problems,
-    // tierPlan (which call tiers each kind of day has) and accepted (warnings a maker accepted).
+    // tierPlan (which call tiers each kind of day has), accepted (warnings a maker accepted) and draft (a maker's working copy).
     match /spaces/{g}/rosters/{id} {
       allow read: if can(g, ['admin', 'member', 'viewer']);
       allow create, update: if can(g, ['admin', 'member']) && stamped() && id.matches('^[0-9]{4}-(0[1-9]|1[0-2])$')
-        && request.resource.data.keys().hasOnly(['calls', 'locked', 'holidays', 'problems', 'tierPlan', 'minGap', 'seed', 'built', 'accepted', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
-        && optList(request.resource.data, 'calls', 62) && optList(request.resource.data, 'accepted', 300) && optList(request.resource.data, 'locked', 200)
-        && optList(request.resource.data, 'holidays', 31) && optList(request.resource.data, 'problems', 60)
-        && optIntIn(request.resource.data, 'minGap', 0, 7) && optIntIn(request.resource.data, 'seed', 0, 1000000)
-        && (!('built' in request.resource.data) || request.resource.data.built is number)
+        && request.resource.data.keys().hasOnly(['calls', 'locked', 'holidays', 'problems', 'tierPlan', 'minGap', 'seed', 'built', 'accepted', 'draft', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
+        && monthPlanOk(request.resource.data) && optList(request.resource.data, 'holidays', 31) && optIntIn(request.resource.data, 'minGap', 0, 7)
+        && draftOk(request.resource.data, ['calls', 'locked', 'problems', 'seed', 'built', 'accepted'])
+        && (request.resource.data.get('draft', null) == null || monthPlanOk(request.resource.data.draft))
         && (!('tierPlan' in request.resource.data) || (request.resource.data.tierPlan is map && request.resource.data.tierPlan.keys().hasOnly(['weekday', 'sat', 'sun', 'ph'])))
         && recordOk(request.resource.data);
       allow delete: if can(g, ['admin', 'member']);
     }
 
-    // A week's daily roster, named by its Monday (YYYY-MM-DD): the grid, a snapshot of the lists as built, this week's changes and
-    // accepted (warnings a maker accepted).
+    // A week's daily roster, named by its Monday (YYYY-MM-DD): the grid, a snapshot of the lists as built, this week's changes,
+    // accepted (warnings a maker accepted) and draft (a maker's working copy).
     match /spaces/{g}/weeks/{id} {
       allow read: if can(g, ['admin', 'member', 'viewer']);
       allow create, update: if can(g, ['admin', 'member']) && stamped() && isDay(id)
-        && request.resource.data.keys().hasOnly(['grid', 'lists', 'overrides', 'built', 'seed', 'accepted', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
-        && optList(request.resource.data, 'grid', 800) && optList(request.resource.data, 'accepted', 300) && optList(request.resource.data, 'lists', 400) && optList(request.resource.data, 'overrides', 200)
-        && optIntIn(request.resource.data, 'seed', 0, 1000000)
-        && (!('built' in request.resource.data) || request.resource.data.built is number)
+        && request.resource.data.keys().hasOnly(['grid', 'lists', 'overrides', 'built', 'seed', 'accepted', 'draft', 'createdAt', 'updatedAt', 'serverAt', '_edits'])
+        && weekPlanOk(request.resource.data)
+        && draftOk(request.resource.data, ['grid', 'lists', 'overrides', 'built', 'seed', 'accepted'])
+        && (request.resource.data.get('draft', null) == null || weekPlanOk(request.resource.data.draft))
         && recordOk(request.resource.data);
       allow delete: if can(g, ['admin', 'member']);
     }

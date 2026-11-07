@@ -212,7 +212,9 @@ test('Make calls on a month with calls: Cancel changes nothing, Fix the problems
   for (let i = 0; i < 12 && (await page.locator('#calls-title').textContent()) !== title; i++) await page.getByRole('button', { name: 'Next month' }).click();
   await expect(page.locator('#calls-title')).toHaveText(title);
   await expect(page.locator('#calls-host .cl-problem', { hasText: ann })).toHaveCount(1, { timeout: 15_000 });
-  const con = async (/** @type {string} */ d) => (await db.get(`spaces/_/rosters/${month}`))?.calls?.find((/** @type {any} */ c) => c.date === `${month}-${d}`)?.con ?? null;
+  // the month as the maker sees it (the draft laid over), and as viewers do (the month's own fields)
+  const maker = async () => { const r = await db.get(`spaces/_/rosters/${month}`); return { ...r, ...r?.draft }; };
+  const con = async (/** @type {string} */ d) => (await maker())?.calls?.find((/** @type {any} */ c) => c.date === `${month}-${d}`)?.con ?? null;
   const ask = async () => {
     await clickOpens(page.locator('#calls-make'), page.locator('#edit-sheet'));
     await expect(page.locator('#edit-sheet')).toContainText('has calls already');
@@ -223,12 +225,23 @@ test('Make calls on a month with calls: Cancel changes nothing, Fix the problems
   await page.locator('#edit-sheet [data-close]').click();
   await expect(page.locator('#edit-sheet')).toBeHidden();
   expect((await db.get(`spaces/_/rosters/${month}`))?.seed).toBeUndefined();
-  // Fix only: the 1st and the 5th stay, the 2nd goes to someone else, an empty day is filled
+  // Fix only: a preview first (the changed calls marked; Discard saves nothing), then Apply saves it into a draft: the 1st and
+  // the 5th stay, the 2nd goes to someone else, an empty day is filled; viewers still see the month as it was
   await ask();
   await page.locator('#edit-save').click();
+  await expect(page.locator('#calls-plan')).toContainText('Preview', { timeout: 15_000 });
+  await expect(page.locator('#calls-host .cl-tier.is-new').first()).toBeVisible();
+  await page.locator('#calls-discard').click();
+  await expect(page.locator('#calls-plan')).toContainText('Published');
+  expect((await db.get(`spaces/_/rosters/${month}`))?.seed).toBeUndefined();
+  await ask();
+  await page.locator('#edit-save').click();
+  await page.locator('#calls-apply').click();
   const toast = page.locator('.toast', { hasText: 'Fixed' });
   await expect(toast).toBeVisible({ timeout: 15_000 });
-  await expect.poll(() => db.get(`spaces/_/rosters/${month}`).then(d => d?.seed), { timeout: 15_000 }).toBe(1);
+  await expect.poll(() => maker().then(d => d?.seed), { timeout: 15_000 }).toBe(1);
+  await expect(page.locator('#calls-plan')).toContainText('Viewers see the published calls until you publish');
+  expect((await db.get(`spaces/_/rosters/${month}`))?.calls?.find((/** @type {any} */ c) => c.date === `${month}-02`)?.con).toBe(ann);
   expect([await con('01'), await con('05')]).toEqual([ann, dan]);
   expect(await con('02')).not.toBe(ann);
   expect(await con('03')).not.toBeNull();
@@ -280,9 +293,10 @@ test('Build again keeps a pinned junior (a hand placement from before pins too);
   await db.put(`spaces/_/weeks/${mon}`, { lists: [list(t), list(t2)], grid: [{ day: mon, session: 'AM', list: t, juniors: [name] }], seed: 1, built: Date.now(), updatedAt: Date.now() });
   const kay = page.locator(`#week-table .wt-list[data-list="${t}"] .wt-name`, { hasText: name });
   await expect(kay).toBeVisible({ timeout: 15_000 });
-  const week = async () => { const w = await db.get(`spaces/_/weeks/${mon}`); const r = w?.grid?.find((/** @type {any} */ x) => x.list === t); return [w?.seed, r?.juniors, r?.pinned ?? []]; };
+  const week = async () => { const d = await db.get(`spaces/_/weeks/${mon}`), w = { ...d, ...d?.draft }; const r = w?.grid?.find((/** @type {any} */ x) => x.list === t); return [w?.seed, r?.juniors, r?.pinned ?? []]; };
   const menu = async (/** @type {string} */ item) => { await page.locator('#week-more').click(); await page.getByRole('menuitem', { name: item }).click(); };
   await menu('Build again');
+  await page.locator('#week-apply').click();   // (a week with juniors on it: a preview first)
   const kept = page.locator('.toast', { hasText: 'Kept 1 pin.' });
   await expect(kept).toBeVisible({ timeout: 15_000 });
   await expect.poll(week, { timeout: 15_000 }).toEqual([2, [name], [name]]);
@@ -293,6 +307,7 @@ test('Build again keeps a pinned junior (a hand placement from before pins too);
   await expect(page.locator('#edit-sheet')).toContainText('dropping 1 pin');
   await kept.getByRole('button', { name: 'Undo' }).waitFor({ state: 'detached', timeout: 15_000 }).catch(() => {});
   await page.locator('#edit-save').click();
+  await page.locator('#week-apply').click();
   const built = page.locator('.toast', { hasText: 'Built' }).filter({ hasNotText: /Kept \d+ pin/ });   // a regex: a plain string ignores case, and 'kept clear' can be in it
   await expect(built).toBeVisible({ timeout: 15_000 });
   await expect(kay).toHaveCount(0);
@@ -316,7 +331,8 @@ test('a built week says when the Lists tab has changed since, and its Build agai
   await expect(page.locator('#week-state-note')).toContainText('The Lists tab has changed since', { timeout: 15_000 });
   await page.locator('#week-drift').click();
   await expect(page.locator('.toast', { hasText: 'Built' })).toBeVisible({ timeout: 15_000 });
-  await expect.poll(async () => (await db.get(`spaces/_/weeks/${mon}`))?.lists?.find((/** @type {any} */ l) => l.id === t)?.consultant, { timeout: 15_000 }).toBe(now);
+  // (no juniors on it: no preview, straight into the week's draft)
+  await expect.poll(async () => (await db.get(`spaces/_/weeks/${mon}`))?.draft?.lists?.find((/** @type {any} */ l) => l.id === t)?.consultant, { timeout: 15_000 }).toBe(now);
 });
 
 test('a built week marks a junior on a list on a day they are now on leave, and the clash opens the move sheet', async ({ phone }) => {
