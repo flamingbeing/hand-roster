@@ -14,6 +14,7 @@ import { $, h, fill, telLink } from '../dom.js';
 import { LOADING, REFUSED } from '../items.js';
 import { solveCalls } from '../roster/calls.js';
 import { checkCalls } from '../roster/calls-check.js';
+import { callRules, rulesOf } from '../roster/rule-cards.js';
 import { applyDayEdit, handCount, keepGoodCalls, lockedMap, problemLines, callChoices, dayLabel } from '../roster/calls-edit.js';
 import { callMapIn, firstMonth, monthCells, shiftMonth } from '../roster/sections.js';
 import { callRow, callRowsOf, DAY_TYPES, TIERS, TIER_LABEL, dayType, tierPlanOf, tiersShown } from '../roster/model.js';
@@ -83,7 +84,9 @@ export function create(ctx) {
     const prior = callMapIn(prevRoster?.calls ?? [], shiftMonth(mon, -1));
     const after = callMapIn(nextRoster?.calls ?? [], shiftMonth(mon, 1));
     const plan = tierPlanOf(roster?.tierPlan);
-    return { roster, people, leave, requests, prior, after, calls: roster?.calls ?? [], holidays: roster?.holidays ?? [], minGap: roster?.minGap ?? 2, plan,
+    // the rule cards in force (spaces/_/rules over the defaults); the month's own "Days clear" wins over the gap card
+    const rules = callRules(rulesOf(/** @type {any} */ (store.get('rules'))));
+    return { roster, people, leave, requests, prior, after, calls: roster?.calls ?? [], holidays: roster?.holidays ?? [], minGap: roster?.minGap ?? rules.minGap, plan, rules,
       phones: phonesOf(/** @type {any} */ (store.get('people'))) };
   }
 
@@ -188,7 +191,7 @@ export function create(ctx) {
       const seed = (m.roster?.seed ?? 0) + 1;
       // the month as it was, for Undo (no month yet: an empty one)
       const was = { calls: m.roster?.calls ?? [], locked: m.roster?.locked ?? [], problems: m.roster?.problems ?? [], seed: m.roster?.seed, built: m.roster?.built ?? 0 };
-      const res = solveCalls({ month: mon, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, seed, prior: m.prior, after: m.after, locked, tiers: m.plan, iterations: 20000 });
+      const res = solveCalls({ month: mon, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, seed, prior: m.prior, after: m.after, locked, tiers: m.plan, iterations: 20000, rules: m.rules });
       const calls = callRowsOf(res.assignments);
       const refused = await app.data.rosters.upsert(mon, m.roster, { calls, problems: problemLines(res.problems), seed, built: Date.now() });
       if (refused) { toast(REFUSED); return; }

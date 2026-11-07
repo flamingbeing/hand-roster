@@ -3,7 +3,7 @@
 //     served at the folder's root (vendored Firebase included); never tests, rules, types or sw.js itself
 //   - every file each @core/* entry in the page's import map loads: the entry and its static imports, read from the
 //     package at the same version (node_modules/app-sync or node_modules/app-ui, the devDependencies; the version must
-//     match): core.anawj.com/sync/<v>/ is app-sync, core.anawj.com/ui/<v>/ is app-ui
+//     match): core.anawj.com/sync/<v>/ is app-sync, core.anawj.com/ui/<v>/ is app-ui, core.anawj.com/roster/<v>/ is app-roster
 //   - app-ui's style sheets and scripts the page links (<link rel="stylesheet">, <script src>), as they are
 //   - any other https:// address in the import map, as it is (app-update's register.js)
 // The same command lists a Vite build (dist/): the port to Vite changes only the folder this runs on.
@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SYNC = /^https:\/\/core\.anawj\.com\/sync\/(\d+\.\d+\.\d+[^/]*)\/(.+)$/;
 const UI = /^https:\/\/core\.anawj\.com\/ui\/(\d+\.\d+\.\d+[^/]*)\/(.+)$/;
+const ROSTER = /^https:\/\/core\.anawj\.com\/roster\/(\d+\.\d+\.\d+[^/]*)\/(.+)$/;
 // files in the app folder that are never served to the page (the Worker's .assetsignore leaves them out too)
 const SKIP = [/(^|\/)\./, /^test\//, /\.rules$/, /^firebase\.json$/, /\.d\.ts$/, /(^|\/)sw\.js$/, /\.(map|log)$/];
 
@@ -81,28 +82,29 @@ function coreFiles(pkg, root, re, addresses) {
 }
 
 // -> the SHELL list for app folder <dir> (sync, ui: the app-sync and app-ui packages; default: the devDependencies)
-export function shellFiles({ dir, sync = path.join(ROOT, 'node_modules/app-sync'), ui = path.join(ROOT, 'node_modules/app-ui') }) {
+export function shellFiles({ dir, sync = path.join(ROOT, 'node_modules/app-sync'), ui = path.join(ROOT, 'node_modules/app-ui'), roster = path.join(ROOT, 'node_modules/app-roster') }) {
   const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
   const own = walk(dir).filter(f => f !== 'index.html' && !SKIP.some(re => re.test(f))).map(f => f.replace(/^public\//, '').replace(/(^|\/)index\.html$/, '$1')).sort();   // a sub-page by its folder: the service worker answers a page by its folder, never index.html
   const map = Object.values(importMap(html));
   for (const u of map) {
     if (/^(\.\/|\/|[^:]+$)/.test(u) && !own.includes(u.replace(/^\.?\//, ''))) throw new Error(`the import map names ${u}, but ${dir} has no such file`);
   }
-  const other = map.filter(u => /^https?:\/\//.test(u) && !SYNC.test(u) && !UI.test(u)).sort();
+  const other = map.filter(u => /^https?:\/\//.test(u) && !SYNC.test(u) && !UI.test(u) && !ROSTER.test(u)).sort();
   const core = coreFiles('app-sync', sync, SYNC, map.filter(u => SYNC.test(u)));
+  const rosterFiles = coreFiles('app-roster', roster, ROSTER, map.filter(u => ROSTER.test(u)));   // (an app without app-roster: none)
   const uiFiles = coreFiles('app-ui', ui, UI, [...map, ...pageLinks(html)].filter(u => UI.test(u)));
-  return ['./', ...own, ...other, ...core, ...uiFiles];
+  return ['./', ...own, ...other, ...core, ...rosterFiles, ...uiFiles];
 }
 
 const block = list => `const SHELL = [\n${list.map(u => `  '${u}',\n`).join('')}];`;
 const swOf = (dir, sw) => { const f = path.join(dir, sw); return fs.existsSync(f) ? f : path.join(dir, 'public', sw); };
 
 // writes SHELL into sw.js; check: only say whether it is up to date (throws if not)
-export function writeShell({ dir, sw = 'sw.js', sync, ui, check = false }) {
+export function writeShell({ dir, sw = 'sw.js', sync, ui, roster, check = false }) {
   const file = swOf(dir, sw);
   const src = fs.readFileSync(file, 'utf8');
   if (!/const SHELL = \[[\s\S]*?\];/.test(src)) throw new Error(`${sw}: no SHELL list`);
-  const list = shellFiles({ dir, sync, ui });
+  const list = shellFiles({ dir, sync, ui, roster });
   const next = src.replace(/const SHELL = \[[\s\S]*?\];/, () => block(list));
   if (check) {
     if (next !== src) throw new Error(`${sw}: SHELL is out of date; run node tools/sw-files.mjs ${posix(path.relative(ROOT, dir)) || '.'}`);
@@ -113,10 +115,10 @@ export function writeShell({ dir, sw = 'sw.js', sync, ui, check = false }) {
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const a = process.argv.slice(2);
   const opt = n => (a.includes(n) ? a[a.indexOf(n) + 1] : undefined);
-  const dir = a.find((x, i) => !x.startsWith('--') && !['--sw', '--sync', '--ui'].includes(a[i - 1])) || 'app';
+  const dir = a.find((x, i) => !x.startsWith('--') && !['--sw', '--sync', '--ui', '--roster'].includes(a[i - 1])) || 'app';
   const at = n => opt(n) && path.resolve(opt(n));
   try {
-    const list = writeShell({ dir: path.resolve(dir), sw: opt('--sw'), sync: at('--sync'), ui: at('--ui'), check: a.includes('--check') });
+    const list = writeShell({ dir: path.resolve(dir), sw: opt('--sw'), sync: at('--sync'), ui: at('--ui'), roster: at('--roster'), check: a.includes('--check') });
     console.log(`sw-files: ${a.includes('--check') ? 'up to date' : 'written'} (${list.length} files)`);
   } catch (e) { console.error('sw-files: ' + e.message); process.exit(1); }
 }

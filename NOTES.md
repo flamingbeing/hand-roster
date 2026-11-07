@@ -121,3 +121,18 @@ that tab); without it the print CSS prints the Week.
 - A list's consultant, patients, juniors needed and status can be changed for one week from the pencil on its card
   (an override in the week; "Back to the usual" removes it). Patients show as "(21 pts)" in the hand grid always, and in
   the print when the patient-numbers option is on.
+
+## Rule cards and app-roster (7 Nov 2026)
+
+- Every rule the week builder and the call maker keep is a card in app-roster's rule shape (`app/src/roster/rule-cards.js`,
+  `DEFAULT_RULES`): `{ id, type, words, level, priority, tags, on, params, topic, fixed }`. A maker's saved copy lives in
+  `spaces/_/rules/{id}` (the same id replaces the default; `rulesOf`); makers write, viewers read (Firestore rules + rules test).
+- The builders keep their own seeded method (`buildWeek`, `solveCalls`) and read their settings from the cards
+  (`weekRules`, `callRules`: points, post-call, asks, AM-to-PM, the call gap). The default cards give the same week and
+  calls seed for seed (`app/test/rule-cards.unit.test.mjs`). `fixed` cards are always kept (not switchable yet).
+- `app/src/roster/problem.js` turns a built week or month into app-roster's slot model (`weekProblem`, `callsProblem`), so
+  `@core/roster`'s `score`, `check` and `candidates` read the same roster and cards; pinned at app-roster 0.1.0
+  (devDependency + `modules.json` core; e2e copy in `e2e/fixtures/core/roster/`). The tests check that the package's
+  score of a built week breaks only what the builder itself reports short.
+- `tools/modules.mjs` and `tools/sw-files.mjs` carry app-starter#139's lines (app-roster as a core package, its imports
+  precached) until the next template update.

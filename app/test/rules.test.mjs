@@ -30,6 +30,8 @@ const emu = suite({
       data: { calls: [], updatedAt: 1 }, stamp: 'strict', list: { roles: ['admin', 'member', 'viewer'] }, listOnly: true }, // month/day ids: per-doc rules tested below
     { path: 'spaces/_/weeks/2026-11-02', read: ['admin', 'member', 'viewer'], write: ['admin', 'member'],
       data: { grid: [], updatedAt: 1 }, stamp: 'strict', list: { roles: ['admin', 'member', 'viewer'] }, listOnly: true }, // month/day ids: per-doc rules tested below
+    { path: 'spaces/_/rules/week-team', read: ['admin', 'member', 'viewer'], write: ['admin', 'member'],
+      data: { type: 'match', level: 'soft', priority: 3, updatedAt: 1 }, stamp: 'strict', list: { roles: ['admin', 'member', 'viewer'] } },
     ...mods.flatMap(m => m.collections ?? []),
   ],
 });
@@ -197,6 +199,32 @@ test('weeks: named by a day; grid, lists and overrides are lists of a sensible s
   assert.equal((await as('viewer').set('spaces/_/weeks/2026-11-09', base, at)).ok, false, 'a viewer only reads');
   assert.equal((await as('viewer').delete('spaces/_/weeks/2026-11-02')).ok, false);
   assert.equal((await as('member').delete('spaces/_/weeks/2026-11-02')).ok, true);
+});
+
+test('rules: a rule card has a type, a level, a priority 1 to 3; words, tags, on, params and topic are checked; makers write, viewers read', async () => {
+  await emu.clear();
+  const base = { type: 'match', level: 'soft', priority: 3, updatedAt: 1 };
+  const put = (data, id = 'week-team', role = 'member') => as(role).set(`spaces/_/rules/${id}`, data, at);
+  assert.equal((await put(base)).ok, true);
+  assert.equal((await put({ ...base, words: 'Same team', tags: ['a'], on: false, topic: 'week', params: { personKey: 'team', slotKey: 'teams', points: 0.25 } })).ok, true);
+  assert.equal((await put({ ...base, type: 'limit' }, 'r1abc', 'admin')).ok, true, "a maker's own card");
+  assert.equal((await put({ level: 'soft', priority: 3, updatedAt: 1 })).ok, false, 'needs a type');
+  assert.equal((await put({ ...base, level: 'hard' })).ok, false, 'level: block, warn or soft');
+  assert.equal((await put({ ...base, priority: 4 })).ok, false, 'priority 1 to 3');
+  assert.equal((await put({ ...base, priority: 1.5 })).ok, false, 'a whole priority');
+  assert.equal((await put({ ...base, on: 'no' })).ok, false, 'on is a bool');
+  assert.equal((await put({ ...base, params: [1] })).ok, false, 'params is a map');
+  assert.equal((await put({ ...base, topic: 'other' })).ok, false);
+  assert.equal((await put({ ...base, words: 'x'.repeat(201) })).ok, false);
+  assert.equal((await put({ ...base, tags: Array(21).fill('t') })).ok, false);
+  assert.equal((await put({ ...base, extra: 1 })).ok, false, 'no extra fields');
+  assert.equal((await put(base, 'bad id!')).ok, false, 'ids are letters, digits and dashes');
+  assert.equal((await as('member').set('spaces/_/rules/week-team', base)).ok, false, 'needs the server time stamp');
+  assert.equal((await put(base, 'week-site', 'viewer')).ok, false, 'a viewer only reads');
+  assert.equal((await as('viewer').get('spaces/_/rules/week-team')).ok, true);
+  assert.equal((await emu.anon().get('spaces/_/rules/week-team')).ok, false, 'signed out: no read');
+  assert.equal((await as('viewer').delete('spaces/_/rules/week-team')).ok, false);
+  assert.equal((await as('member').delete('spaces/_/rules/week-team')).ok, true);
 });
 
 test('viewers read every kind, only admins and members write and delete; no role, no read', async () => {

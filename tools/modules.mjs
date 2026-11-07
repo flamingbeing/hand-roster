@@ -35,7 +35,7 @@ const STYLE_LINE = /^[ \t]*<link rel="stylesheet" href="[^"]*" data-module>\n/gm
 const PRELOAD_LINE = /^[ \t]*<link rel="modulepreload" href="[^"]*" data-module>\n/gm;
 const RULES_RE = /^([ \t]*)(\/\/ modules: rules\{[^\n]*\n)([\s\S]*?)(^[ \t]*\/\/ \}modules[^\n]*)$/m;
 const VERSION = /^(?:github:[^#]+#v|[\^~]?)(\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)$/;
-const CORE = { 'app-sync': 'https://core.anawj.com/sync/', 'app-ui': 'https://core.anawj.com/ui/' };
+const CORE = { 'app-sync': 'https://core.anawj.com/sync/', 'app-ui': 'https://core.anawj.com/ui/', 'app-roster': 'https://core.anawj.com/roster/' };
 
 const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const read = (dir, rel) => { try { return fs.readFileSync(path.join(dir, rel), 'utf8'); } catch { return null; } };
@@ -125,7 +125,9 @@ export function manifestFrom({ html, tsconfig, vite }) {
     if (preloaded.has(url)) imports[name].preload = true;
   }
   const styles = [...html.matchAll(/<link rel="stylesheet" href="([^"]*)" data-module>/g)].map(m => m[1]);
-  return { about: ABOUT, core: { ...CORE }, imports, paths: tsPaths, styles };
+  // every app has app-sync and app-ui; another core package (app-roster) only when an import names it
+  const core = Object.fromEntries(Object.entries(CORE).filter(([pkg]) => pkg === 'app-sync' || pkg === 'app-ui' || Object.values(imports).some(e => e.core === pkg)));
+  return { about: ABOUT, core, imports, paths: tsPaths, styles };
 }
 
 /**
@@ -230,7 +232,7 @@ export async function run({ dir = '.', check = false, log = console.log, shell =
   if (shell && fs.existsSync(path.join(dir, 'app/public/sw.js'))) {
     const nm = path.join(dir, 'node_modules');
     try {
-      list = writeShell({ dir: path.join(dir, 'app'), sync: path.join(nm, 'app-sync'), ui: path.join(nm, 'app-ui'), check });
+      list = writeShell({ dir: path.join(dir, 'app'), sync: path.join(nm, 'app-sync'), ui: path.join(nm, 'app-ui'), roster: path.join(nm, 'app-roster'), check });
     } catch (e) {
       if (check) changed.push(`app/public/sw.js (${/** @type {Error} */ (e).message})`);
       else throw e;

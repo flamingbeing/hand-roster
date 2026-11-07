@@ -51,7 +51,9 @@ const SHELL = [
   'src/roster/names.js',
   'src/roster/parse-info.js',
   'src/roster/pins.js',
+  'src/roster/problem.js',
   'src/roster/rename.js',
+  'src/roster/rule-cards.js',
   'src/roster/sections.js',
   'src/roster/short.js',
   'src/roster/week-edits.js',
@@ -109,6 +111,11 @@ const SHELL = [
   'https://core.anawj.com/sync/1.5.5/src/replace.js',
   'https://core.anawj.com/sync/1.5.5/update.js',
   'https://core.anawj.com/sync/1.5.5/src/module-update.js',
+  'https://core.anawj.com/roster/0.1.0/index.js',
+  'https://core.anawj.com/roster/0.1.0/src/slot/engine.js',
+  'https://core.anawj.com/roster/0.1.0/src/levels.js',
+  'https://core.anawj.com/roster/0.1.0/src/slot/model.js',
+  'https://core.anawj.com/roster/0.1.0/src/slot/rules.js',
   'https://core.anawj.com/ui/1.0.0-rc.113/ui/index.js',
   'https://core.anawj.com/ui/1.0.0-rc.113/ui/labels.js',
   'https://core.anawj.com/ui/1.0.0-rc.113/ui/dom.js',
@@ -198,7 +205,7 @@ const MANIFEST = {};
 
 // add: service worker handlers
 
-importScripts('https://core.anawj.com/ui/1.0.0-rc.113/update/sw-core.js');
+importScripts('https://core.anawj.com/ui/1.0.0-rc.109/update/sw-core.js');
 AppUpdate.init({
   app: 'app', version: VERSION, shell: SHELL, manifest: MANIFEST,
   never: ['/api/', /\/sw\.js$/],
