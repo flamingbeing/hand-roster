@@ -5,6 +5,7 @@
 // (roster/week-edits.js): a change another maker saved while a sheet was open stays. The copy a sheet opened with only
 // words and warns. A Build, a grid edit or a list change can be undone from its toast for a few seconds. Build again keeps
 // every pinned junior where they are (someone added or moved by hand is pinned); Reset week drops the pins and builds fresh.
+import { validateRule } from '@core/roster';
 import { undoToast } from '@core/ui';
 import { $, h } from '../dom.js';
 import { LOADING, REFUSED } from '../items.js';
@@ -39,7 +40,7 @@ export function weekEdit({ ctx, model, monday }) {
   /** true (and says so) while some of what the week is built from has not arrived yet */
   const waiting = () => { if (store.ready(WEEK_NEEDS)) return false; toast(LOADING); return true; };
   /** the rule cards in force, as the week builder takes them (spaces/_/rules over the defaults) */
-  const rules = () => weekRules(rulesOf(store.get('rules')));
+  const rules = () => weekRules(rulesOf(store.get('rules'), validateRule));
   /** waiting, and for a build also the rule cards (not in WEEK_NEEDS, so the tab never waits on them to show) */
   const buildWaiting = () => { if (waiting()) return true; if (store.ready(['rules'])) return false; toast(LOADING); return true; };
 

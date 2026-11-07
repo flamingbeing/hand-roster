@@ -92,10 +92,12 @@ const BY_ID = new Map(DEFAULT_RULES.map(c => [c.id, c]));
 
 /**
  * The cards in force: the defaults, each replaced by a saved card with its id (a fixed default keeps its type, level and
- * on), then the maker's own cards. A deleted saved card brings its default back.
- * @param {Partial<RuleCard>[]} [saved] @returns {RuleCard[]}
+ * on), then the maker's own cards. A deleted saved card brings its default back. `problems` (the screens pass
+ * @core/roster's validateRule) turns away a card the package rejects: a default's saved copy falls back to the default,
+ * an own card is left out.
+ * @param {Partial<RuleCard>[]} [saved] @param {(r: RuleCard) => string[]} [problems] @returns {RuleCard[]}
  */
-export function rulesOf(saved = []) {
+export function rulesOf(saved = [], problems = () => []) {
   /** @type {Map<string, Partial<RuleCard>>} */
   const mine = new Map();
   for (const r of saved) if (r && typeof r.id === 'string' && !(/** @type {any} */ (r)._deleted)) mine.set(r.id, r);
@@ -103,9 +105,14 @@ export function rulesOf(saved = []) {
     const s = mine.get(d.id);
     if (!s) return d;
     const merged = { ...d, ...s, params: { ...d.params, ...(s.params ?? {}) }, topic: d.topic, fixed: d.fixed };
-    return d.fixed ? { ...merged, type: d.type, level: d.level, on: true } : merged;
+    const r = d.fixed ? { ...merged, type: d.type, level: d.level, on: true } : merged;
+    return problems(r).length ? d : r;
   });
-  for (const [id, s] of mine) if (!BY_ID.has(id) && typeof s.type === 'string') out.push(card(/** @type {any} */ ({ level: 'soft', ...s, id })));
+  for (const [id, s] of mine) {
+    if (BY_ID.has(id) || typeof s.type !== 'string') continue;
+    const r = card(/** @type {any} */ ({ level: 'soft', ...s, id }));
+    if (!problems(r).length) out.push(r);
+  }
   return out;
 }
 

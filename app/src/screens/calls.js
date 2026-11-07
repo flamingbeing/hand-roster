@@ -8,6 +8,7 @@
 // clipboard as chat text for WhatsApp, or, once "This is me" is set, only that person's calls (7 Nov 2026).
 // A person's phone, when set, is a call link beside their name: in a viewer's day cells (a maker's day is a button, which
 // can't hold a link) and in the day sheet (owner, 7 Nov 2026).
+import { validateRule } from '@core/roster';
 import { icon, emptyState, openMenu, undoToast } from '@core/ui';
 import { ICONS } from '../icons.js';
 import { $, h, fill, telLink } from '../dom.js';
@@ -85,7 +86,7 @@ export function create(ctx) {
     const after = callMapIn(nextRoster?.calls ?? [], shiftMonth(mon, 1));
     const plan = tierPlanOf(roster?.tierPlan);
     // the rule cards in force (spaces/_/rules over the defaults); the month's own "Days clear" wins over the gap card
-    const rules = callRules(rulesOf(/** @type {any} */ (store.get('rules'))));
+    const rules = callRules(rulesOf(/** @type {any} */ (store.get('rules')), validateRule));
     return { roster, people, leave, requests, prior, after, calls: roster?.calls ?? [], holidays: roster?.holidays ?? [], minGap: roster?.minGap ?? rules.minGap, plan, rules,
       phones: phonesOf(/** @type {any} */ (store.get('people'))) };
   }

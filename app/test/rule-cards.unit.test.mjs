@@ -73,6 +73,13 @@ test('rule cards: a saved card replaces its default; a fixed one stays on with i
   assert.equal(rules.at(-1)?.id, 'mine-1');
   assert.equal(weekRules(rules).points.team, 0, 'off: no points');
   assert.equal(callRules(rules).minGap, 3);
+  // with the package's validator (the screens pass it): a rejected copy falls back to its default, a rejected own card is left out
+  const checked = rulesOf([...saved, { id: 'week-balance', priority: 9 }, { id: 'mine-2', type: 'nope' }], R.validateRule);
+  const byc = Object.fromEntries(checked.map(r => [r.id, r]));
+  assert.equal(byc['week-balance'].priority, DEFAULT_RULES.find(r => r.id === 'week-balance')?.priority);
+  assert.equal(byc['week-team'].on, false, 'a valid copy is kept');
+  assert.equal(byc['mine-1']?.id, 'mine-1');
+  assert.equal(byc['mine-2'], undefined);
 });
 
 test('rule cards: the builders follow a changed card', () => {
