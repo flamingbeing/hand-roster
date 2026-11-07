@@ -198,15 +198,16 @@ export function create(ctx) {
         : lockedMap(m.roster?.locked ?? [], m.calls);
       const seed = (m.roster?.seed ?? 0) + 1;
       // the month as it was, for Undo (no month yet: an empty one)
-      const was = { calls: m.roster?.calls ?? [], locked: m.roster?.locked ?? [], problems: m.roster?.problems ?? [], seed: m.roster?.seed, built: m.roster?.built ?? 0 };
+      const was = { calls: m.roster?.calls ?? [], locked: m.roster?.locked ?? [], problems: m.roster?.problems ?? [], seed: m.roster?.seed, built: m.roster?.built ?? 0, accepted: m.roster?.accepted ?? [] };
       const res = solveCalls({ month: mon, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, seed, prior: m.prior, after: m.after, locked, tiers: m.plan, iterations: 20000, rules: m.rules });
       const calls = callRowsOf(res.assignments);
-      const refused = await app.data.rosters.upsert(mon, m.roster, { calls, problems: problemLines(res.problems), seed, built: Date.now() });
+      const refused = await app.data.rosters.upsert(mon, m.roster, { calls, problems: problemLines(res.problems), seed, built: Date.now(), accepted: [] });
       if (refused) { toast(REFUSED); return; }
       // the same lines the page's To look at list shows, so the two agree; unmet requests are said apart
       const check = checkCalls({ month: mon, calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, after: m.after, tiers: m.plan });
       const look = check.problems.length + check.empty.length, unmet = res.problems.filter(p => p.rule === 'want').length;
-      const c = checked(mon, { ...m, calls });
+      // (warnings accepted before are dropped: they were accepted for calls that may have changed)
+      const c = checked(mon, { ...m, calls, roster: m.roster && { ...m.roster, accepted: [] } });
       const said = [look && `${look} thing${look === 1 ? '' : 's'} to look at.`, unmet && `${unmet} request${unmet === 1 ? '' : 's'} not met.`].filter(Boolean).join(' ');
       undo.show(said ? `${fixOnly ? 'Fixed' : 'Made'}. ${said}` : fixOnly ? 'Fixed' : 'Made', () => putBack(mon, was));
       // what the rule check found, in a toast of its own whose button opens the report (the Made toast keeps its Undo)
@@ -215,7 +216,9 @@ export function create(ctx) {
   }
 
   /** a month as app-roster's problem and roster @param {string} mon @param {ReturnType<typeof model>} m */
-  const problemOf = (mon, m) => callsProblem({ month: mon, calls: m.calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, tiers: m.plan, prior: m.prior, after: m.after, rules: m.cards });
+  // (the month's own "Days clear" wins over the gap card, as for the solver and checkCalls)
+  const problemOf = (mon, m) => callsProblem({ month: mon, calls: m.calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, tiers: m.plan, prior: m.prior, after: m.after,
+    rules: m.roster?.minGap ? m.cards.map(r => (r.id === 'calls-gap' ? { ...r, params: { ...r.params, to: m.minGap } } : r)) : m.cards });
 
   /** The month's check: the report's rows, the calls nobody can take, the toast's words (empty: all fine) @param {string} mon @param {ReturnType<typeof model>} m */
   function checked(mon, m) {

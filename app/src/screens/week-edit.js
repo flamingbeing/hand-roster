@@ -158,7 +158,8 @@ export function weekEdit({ ctx, model, monday }) {
       const kept = pinsOf(grid).length;
       const short = res.problems.filter(p => p.got < p.min || p.noReg).length;
       // the check: the lists nobody can take (from leave, calls and the rules alone) and the rules the new grid breaks
-      const said2 = checked(mon, { ...now, lists: res.lists, grid });
+      // (warnings accepted before are dropped: they were accepted for a grid that is gone)
+      const said2 = checked(mon, { ...now, lists: res.lists, grid, wk: undefined });
       // the lists are kept as the template stood, unsettled, so a holiday or leave taken away later reopens them
       // the month's calls not made yet: built all the same, but post-call days are not known, so say so
       const said = [
@@ -167,7 +168,7 @@ export function weekEdit({ ctx, model, monday }) {
         !now.callsMade && 'Calls are not made yet: post-call not kept clear.',
       ].filter(Boolean);
       // what the check found, in a toast of its own whose button opens the report (the Build toast keeps its Undo)
-      if (await save(mon, now, { grid, lists, seed, built: Date.now() }, said.length ? `Built. ${said.join(' ')}` : 'Built') && said2.words) {
+      if (await save(mon, now, { grid, lists, seed, built: Date.now(), accepted: [] }, said.length ? `Built. ${said.join(' ')}` : 'Built') && said2.words) {
         toast(said2.words, { ms: 10000, action: { label: 'Report', run: () => { void openWeekReport(mon, said2.rows, said2.short); } } });
       }
     } finally { building = false; $('week-build').toggleAttribute('disabled', !store.ready(WEEK_NEEDS)); }
@@ -285,11 +286,16 @@ export function weekEdit({ ctx, model, monday }) {
     return { rows, short, words: checkSaid(rows, short) };
   }
 
+  /** @type {{ key: unknown[], out: ReturnType<typeof marksOf> } | null} the last marks, kept while nothing they come from changed */
+  let lastMarks = null;
   /** the marks on the grid's names and lists, as drawn now @param {Model} m */
   function marks(m) {
     if (!m.built || !store.loaded('rules')) return null;
+    const key = [monday(), m.wk, ...['rules', 'people', 'leave', 'rosters', 'lists'].map(k => store.get(/** @type {import('../cloud.js').Kind} */ (k)))];
+    if (lastMarks && key.every((x, i) => x === lastMarks?.key[i])) return lastMarks.out;
     const { problem, roster } = problemOf(monday(), m);
-    return marksOf(score(/** @type {any} */ (problem), roster), m.wk?.accepted);
+    lastMarks = { key, out: marksOf(score(/** @type {any} */ (problem), roster), m.wk?.accepted) };
+    return lastMarks.out;
   }
 
   /**

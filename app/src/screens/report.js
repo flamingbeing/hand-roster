@@ -12,11 +12,12 @@ const LEVEL_WORD = { block: 'Must hold', warn: 'Warning', soft: 'Preference' };
  *   accept?: (key: string, on: boolean) => Promise<boolean> }} o  accept: saves a warning as accepted (on) or not, true when it saved
  */
 export function openReport(o) {
-  const broken = o.rows.filter(r => r.broken);
+  const broken = o.rows.filter(r => r.broken && r.level !== 'soft').length, unmet = o.rows.filter(r => r.broken && r.level === 'soft').length;
+  const said = [broken ? `${broken} rule${broken === 1 ? '' : 's'} broken` : 'Every must-hold rule and warning holds', unmet && `${unmet} preference${unmet === 1 ? '' : 's'} not fully met`].filter(Boolean).join(', ');
   const node = h('div', { class: 'rp', id: 'rule-report' },
     o.short.length > 0 && h('section', { class: 'rp-short' }, h('h3', {}, "Can't be filled"),
       h('ul', {}, o.short.map(s => h('li', { class: 'rp-short-line', dataset: { slot: s.slot } }, s.text)))),
-    h('p', { class: 'small' }, broken.length ? `${broken.length} of ${o.rows.length} rules broken. Tap one for where.` : `All ${o.rows.length} rules hold.`),
+    h('p', { class: 'small' }, `${said}.${broken || unmet ? ' Tap a rule for where.' : ''}`),
     h('ul', { class: 'rp-rules' }, o.rows.map(r => h('li', {},
       h('details', { class: `rp-rule level-${r.level}${r.broken ? ' is-broken' : ''}`, dataset: { rule: r.id } },
         h('summary', {},

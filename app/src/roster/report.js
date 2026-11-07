@@ -60,24 +60,25 @@ export function reportOf(score, o) {
  * @param {{ slot: string, day: string, min: number, got: number, can: number, why: { rule: string, words: string, people: number }[] }[]} short
  * @param {(slot: string) => string} place  a slot's name for people ("Mon 9 Nov AM NUH KRWOT 3")
  * @param {(id: string, fallback: string) => string} words
- * @returns {{ slot: string, text: string }[]}
+ * @returns {{ slot: string, place: string, text: string }[]}
  */
 export function shortLines(short, place, words) {
   return short.map(s => {
     const n = s.min - s.got;
     const who = s.can ? `only ${s.can} can take it, it needs ${n}` : 'nobody can take it';
     const why = s.why.slice(0, 3).map(w => `${words(w.rule, w.words)} (${w.people})`).join('; ');
-    return { slot: s.slot, text: `${place(s.slot)}: ${who}${why ? `. Kept out by: ${why}` : ''}` };
+    const at = place(s.slot);
+    return { slot: s.slot, place: at, text: `${at}: ${who}${why ? `. Kept out by: ${why}` : ''}` };
   });
 }
 
 /**
  * The words a build's toast says about the check: how many rules break and the slots nobody can take (named, the first two).
- * @param {ReportRow[]} rows @param {{ text: string }[]} short
+ * @param {ReportRow[]} rows @param {{ place: string }[]} short
  */
 export function checkSaid(rows, short) {
   const block = rows.filter(r => r.broken && r.level === 'block').length, warn = rows.filter(r => r.broken && r.level === 'warn').length;
-  const names = short.slice(0, 2).map(s => s.text.split(':')[0]).join(', ');
+  const names = short.slice(0, 2).map(s => s.place).join(', ');
   return [
     short.length && `Can't be filled: ${names}${short.length > 2 ? ` and ${short.length - 2} more` : ''}.`,
     block && `${block} rule${block === 1 ? '' : 's'} broken.`,
