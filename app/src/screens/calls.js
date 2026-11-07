@@ -14,7 +14,7 @@ import { $, h, fill, telLink } from '../dom.js';
 import { LOADING, REFUSED } from '../items.js';
 import { solveCalls } from '../roster/calls.js';
 import { checkCalls } from '../roster/calls-check.js';
-import { applyDayEdit, handCount, keepGoodCalls, lockedMap, problemLines, callChoices, dayLabel } from '../roster/calls-edit.js';
+import { applyDayEdit, fixCalls, handCount, keepGoodCalls, lockedMap, problemLines, callChoices, dayLabel } from '../roster/calls-edit.js';
 import { callMapIn, firstMonth, monthCells, shiftMonth } from '../roster/sections.js';
 import { callRow, callRowsOf, DAY_TYPES, TIERS, TIER_LABEL, dayType, tierPlanOf, tiersShown } from '../roster/model.js';
 import { MONTHS, MONTH_NAMES, monthDays, shortDay, weekdayName, todayKey } from '../roster/dates.js';
@@ -132,8 +132,9 @@ export function create(ctx) {
 
   // Make calls on a month that has calls already asks first (7 Nov 2026): a late leave or request should not reshuffle the
   // whole month. Three ways out, as Build week's (app-ui has only yes or no): Fix the problems only (keep every call the
-  // check finds fine and fill the problem calls and the empty tiers), Make all new, or Cancel (the sheet's own). Calls set
-  // by hand stay either way. A month with no calls yet is made straight away.
+  // check finds fine and fill the problem calls and the empty tiers; a few good calls next to a problem move only when the
+  // clear-days rule cannot be met otherwise, and Undo's line says how many: fixCalls), Make all new, or Cancel (the sheet's
+  // own). Calls set by hand stay either way. A month with no calls yet is made straight away.
   async function make() {
     if (busy || !ctx.canWrite() || waiting()) return;
     const mon = month, open = model(mon);   // (the month on screen may change while it works)
@@ -181,20 +182,22 @@ export function create(ctx) {
       await new Promise(r => setTimeout(r, 30));   // let the note paint before the solver holds the page
       // the month as it is now (another maker may have saved while the question was open)
       const m = model(mon);
-      const locked = fixOnly
-        ? keepGoodCalls(mon, m.calls, m.roster?.locked ?? [], checkCalls({ month: mon, calls: m.calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, after: m.after, tiers: m.plan }))
-        : lockedMap(m.roster?.locked ?? [], m.calls);
+      const hand = lockedMap(m.roster?.locked ?? [], m.calls);
       const seed = (m.roster?.seed ?? 0) + 1;
       // the month as it was, for Undo (no month yet: an empty one)
       const was = { calls: m.roster?.calls ?? [], locked: m.roster?.locked ?? [], problems: m.roster?.problems ?? [], seed: m.roster?.seed, built: m.roster?.built ?? 0 };
-      const res = solveCalls({ month: mon, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, seed, prior: m.prior, after: m.after, locked, tiers: m.plan, iterations: 20000 });
+      // (next month's calls, once made, count as last month's do: a hard rule in both ways, owner 7 Nov 2026; see fixCalls)
+      const opts = { month: mon, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, seed, prior: m.prior, after: m.after, tiers: m.plan, iterations: 20000 };
+      const { result: res, moved } = fixOnly
+        ? fixCalls(opts, keepGoodCalls(mon, m.calls, m.roster?.locked ?? [], checkCalls({ month: mon, calls: m.calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, after: m.after, tiers: m.plan })), hand)
+        : { result: solveCalls({ ...opts, locked: hand }), moved: 0 };
       const calls = callRowsOf(res.assignments);
       const refused = await app.data.rosters.upsert(mon, m.roster, { calls, problems: problemLines(res.problems), seed, built: Date.now() });
       if (refused) { toast(REFUSED); return; }
       // the same lines the page's To look at list shows, so the two agree; unmet requests are said apart
       const check = checkCalls({ month: mon, calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, after: m.after, tiers: m.plan });
       const look = check.problems.length + check.empty.length, unmet = res.problems.filter(p => p.rule === 'want').length;
-      const said = [look && `${look} thing${look === 1 ? '' : 's'} to look at.`, unmet && `${unmet} request${unmet === 1 ? '' : 's'} not met.`].filter(Boolean).join(' ');
+      const said = [moved && `${moved} call${moved === 1 ? '' : 's'} nearby moved to make room.`, look && `${look} thing${look === 1 ? '' : 's'} to look at.`, unmet && `${unmet} request${unmet === 1 ? '' : 's'} not met.`].filter(Boolean).join(' ');
       undo.show(said ? `${fixOnly ? 'Fixed' : 'Made'}. ${said}` : fixOnly ? 'Fixed' : 'Made', () => putBack(mon, was));
     } finally { busy = false; $('calls-make').removeAttribute('disabled'); draw(); }
   }
