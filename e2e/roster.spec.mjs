@@ -32,7 +32,7 @@ test('a person added in the data shows on the People tab', async ({ phone }) => 
   await expect(page.locator('#people-host')).toContainText(name, { timeout: 15_000 });
 });
 
-test('renaming a person carries their leave, request and list along; Undo puts the old name back', async ({ sized }) => {
+test('renaming a person carries their leave, request and list along (calls and weeks too: unit tests); Undo puts the old name back', async ({ sized }) => {
   const page = await sized(1280);
   await signIn(page, 'member');
   // two names, neither inside the other, so a row with one never matches the other
@@ -56,7 +56,7 @@ test('renaming a person carries their leave, request and list along; Undo puts t
   await page.locator('#ef-name').fill(renamed);
   await expect(page.locator('#edit-sheet .warn')).toHaveText('Also changes the name in 1 leave, 1 request and 1 list.');
   await page.locator('#edit-save').click();
-  const toast = page.locator('#toasts .toast', { hasText: 'Saved. Name changed in 3 rows.' });
+  const toast = page.locator('#toasts .toast', { hasText: 'Saved. Name changed in 1 leave, 1 request and 1 list.' });
   await expect(toast).toBeVisible();
   await openTab(page, 'leave');
   await expect(rowsOf(renamed)).toHaveCount(2);
