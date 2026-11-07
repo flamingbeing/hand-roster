@@ -41,7 +41,11 @@ test('a maker turns the post-call rule off and Build again shows it; Reset to de
   await openWeek(page);
   await page.locator('#week-more').click();
   await page.getByRole('menuitem', { name: 'Build again' }).click();
-  await expect(page.locator('.toast', { hasText: 'Built' })).toBeVisible({ timeout: 15_000 });
+  // (a preview first when the week has juniors on it: other tests' people may be on the list)
+  const built = page.locator('.toast', { hasText: 'Built' });
+  await expect(page.locator('#week-apply').or(built).first()).toBeVisible({ timeout: 15_000 });
+  if (await page.locator('#week-apply').isVisible()) await page.locator('#week-apply').click();
+  await expect(built).toBeVisible({ timeout: 15_000 });
   await expect(postCall).not.toContainText(name);
 
   // Reset to default deletes the saved copy: post-call again (other tests share the space's rules)

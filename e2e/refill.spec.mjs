@@ -12,8 +12,9 @@ test('after one hand edit from the cell sheet, Build again changes no unpinned c
   await expect(page.locator('#week-title')).toHaveClass(/is-away/);
   const mon = /** @type {string} */ (await page.locator('#week-grid .wk-day').first().getAttribute('data-day'));
   const [a, b, c] = [uniq('OT R'), uniq('OT S'), uniq('OT T')];
-  const [p1, p2, p3, p4] = ['Dr Ria Test', 'Dr Sam Test', 'Dr Tai Test', 'Dr Uma Test'].map(n => uniq(n));
-  for (const n of [p1, p2, p3, p4]) await db.put(`spaces/_/people/${n}`, { name: n, grade: 'mo', rank: 'MO', active: true, updatedAt: Date.now() });
+  // (Vic and Wes spare: other specs' Monday lists, built at the same time, take free people too)
+  const [p1, p2, p3, p4, p5, p6] = ['Dr Ria Test', 'Dr Sam Test', 'Dr Tai Test', 'Dr Uma Test', 'Dr Vic Test', 'Dr Wes Test'].map(n => uniq(n));
+  for (const n of [p1, p2, p3, p4, p5, p6]) await db.put(`spaces/_/people/${n}`, { name: n, grade: 'mo', rank: 'MO', active: true, updatedAt: Date.now() });
   // A needs two, B and C one each (C in the afternoon); Build again builds from the Lists tab's lists
   const tpl = { a: { session: 'AM', need: 2 }, b: { session: 'AM', need: 1 }, c: { session: 'PM', need: 1 } };
   const ids = { a, b, c };
@@ -43,9 +44,10 @@ test('after one hand edit from the cell sheet, Build again changes no unpinned c
   // Build again: Uma (pinned by the hand edit) stays, A's open seat is filled, B and C keep their unpinned people
   await page.locator('#week-more').click();
   await page.getByRole('menuitem', { name: 'Build again' }).click();
+  await page.locator('#week-apply').click();   // (a preview first)
   await expect(page.locator('.toast', { hasText: 'Built' })).toBeVisible({ timeout: 15_000 });
   const rows = async () => {
-    const w = await db.get(`spaces/_/weeks/${mon}`);
+    const d = await db.get(`spaces/_/weeks/${mon}`), w = { ...d, ...d?.draft };   // (Build again saves into the week's draft)
     const r = (/** @type {string} */ id) => w?.grid?.find((/** @type {any} */ x) => x.list === id);
     return { seed: w?.seed, a: r(a)?.juniors.includes(p4) && r(a)?.juniors.length, b: r(b)?.juniors, c: r(c)?.juniors, pins: [r(b)?.pinned ?? [], r(c)?.pinned ?? []] };
   };

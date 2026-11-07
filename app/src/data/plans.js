@@ -1,12 +1,6 @@
-// The two plans the app builds, each a document named by the time it covers.
-// rosters: a month's on-call roster, named YYYY-MM: the calls as rows (one per day, a name per tier), the entries a person
-//   fixed by hand (`locked`, 'date|tier': the solver keeps them), the month's public holidays (an input, never built in), which
-//   call tiers each kind of day has (`tierPlan`, the default when left out) and
-//   what the last "Make calls" found wrong. Counts are worked out from the rows when shown.
-// weeks: a week's daily roster, named by its Monday (YYYY-MM-DD): the grid (who is on which list, one row per list), a
-//   snapshot of the week's lists as they were built (so a later change to the template does not rewrite the past), and the
-//   changes to the template for this week only (`overrides`). Leave, post-call, on-call and free are worked out from the grid
-//   when shown (roster/sections.js).
+// The two plans the app builds, named by the time they cover. rosters (YYYY-MM): calls (a row per day), locked (set by hand,
+// 'date|tier'), holidays, tierPlan, problems (the last Make calls'). weeks (a Monday): grid (a row per list), lists (as built),
+// overrides (this week only). draft: a maker's working copy of either (roster/drafts.js); viewers see the fields themselves.
 import { cleaner, text, optText, oneOf, int, optInt, days, texts, bool } from './ops.js';
 import { DAY_TYPES, TIERS } from '../roster/model.js';
 
@@ -23,19 +17,26 @@ const tierPlan = v => (v && typeof v === 'object' && !Array.isArray(v)
     .map(([d, t]) => [d, TIERS.filter(x => t.includes(x))])))
   : undefined);
 
-const cleanRoster = cleaner({
+/** @param {(f: Record<string, unknown>) => Record<string, unknown>} clean @returns a draft's cleaner (null drops it) */
+const draftOf = clean => (/** @type {unknown} */ v) => (v === null ? null : v && typeof v === 'object' && !Array.isArray(v) ? clean(/** @type {any} */ (v)) : undefined);
+
+const monthPlan = {
   calls: callRows,
   locked: texts(200, 40),
-  holidays: days(31),
-  tierPlan,
   problems: texts(60, 160),
-  minGap: int(1, 7),
   seed: int(0, 1_000_000),
   built: int(0, Number.MAX_SAFE_INTEGER),
   accepted: texts(300, 160),   // warnings the maker accepted (roster/report.js hitKey)
+};
+const cleanRoster = cleaner({
+  ...monthPlan,
+  holidays: days(31),
+  tierPlan,
+  minGap: int(1, 7),
+  draft: draftOf(cleaner(monthPlan)),
 });
 
-/** @typedef {import('./ops.js').Row & { calls?: import('../roster/model.js').CallDay[], locked?: string[], holidays?: string[], tierPlan?: Partial<import('../roster/model.js').TierPlan>, problems?: string[], minGap?: number, seed?: number, built?: number, accepted?: string[] }} RosterRow */
+/** @typedef {import('./ops.js').Row & { calls?: import('../roster/model.js').CallDay[], locked?: string[], holidays?: string[], tierPlan?: Partial<import('../roster/model.js').TierPlan>, problems?: string[], minGap?: number, seed?: number, built?: number, accepted?: string[], draft?: Record<string, any> | null }} RosterRow */
 /** the rosters kind, as cloud.js lists it */
 export const rosters = { COLL: 'rosters', clean: cleanRoster };
 
@@ -51,7 +52,7 @@ function gridRow(r) {
   return { day: r.day, session: r.session, list: r.list.slice(0, 64), juniors, ...(pinned.length ? { pinned } : {}) };
 }
 
-const cleanWeek = cleaner({
+const weekPlan = {
   grid: rows(800, r => (r && dayOk(r.day) && (r.session === 'AM' || r.session === 'PM') && typeof r.list === 'string'
     ? gridRow(r) : null)),
   lists: rows(400, r => (r && dayOk(r.day) && typeof r.id === 'string' ? {
@@ -75,9 +76,10 @@ const cleanWeek = cleaner({
   built: int(0, Number.MAX_SAFE_INTEGER),
   seed: int(0, 1_000_000),
   accepted: texts(300, 160),   // warnings the maker accepted (roster/report.js hitKey)
-});
+};
+const cleanWeek = cleaner({ ...weekPlan, draft: draftOf(cleaner(weekPlan)) });
 
-/** @typedef {import('./ops.js').Row & { grid?: import('../roster/grid.js').GridRow[], lists?: import('../roster/model.js').ListSlot[], overrides?: import('./lists.js').Override[], built?: number, seed?: number, accepted?: string[] }} WeekRow */
+/** @typedef {import('./ops.js').Row & { grid?: import('../roster/grid.js').GridRow[], lists?: import('../roster/model.js').ListSlot[], overrides?: import('./lists.js').Override[], built?: number, seed?: number, accepted?: string[], draft?: Record<string, any> | null }} WeekRow */
 /** the weeks kind, as cloud.js lists it */
 export const weeks = { COLL: 'weeks', clean: cleanWeek };
 

@@ -39,6 +39,7 @@ const SHELL = [
   'src/roster/calls-edit.js',
   'src/roster/calls.js',
   'src/roster/dates.js',
+  'src/roster/drafts.js',
   'src/roster/grid-edits.js',
   'src/roster/grid.js',
   'src/roster/holidays.js',

@@ -10,6 +10,7 @@ import { TIER_LABEL, TIERS } from '../roster/model.js';
 import { shortDay, weekdayName, todayKey } from '../roster/dates.js';
 import { leaveClashes, MAX_DAYS, MAX_LINES } from '../roster/leave-clash.js';
 import { expandDays, groupByMonth, requestRangeClashes, leaveKey, newLeaveRows, pastePreview } from '../roster/leave-view.js';
+import { asMaker } from '../roster/drafts.js';
 import { editSheet } from './sheet.js';
 import { rowList, heading } from './rows.js';
 
@@ -43,8 +44,11 @@ export function create(ctx) {
   /** @param {string | undefined} cur @returns {[string, string][]} the names, and a name no longer on the roster if the row has it */
   const nameOptions = cur => { const list = names(); return (cur && !list.includes(cur) ? [cur, ...list] : list).map(n => [n, n]); };
 
-  /** the calls and weeks made so far, read when a sheet's warning runs */
-  const made = () => ({ rosters: /** @type {any[]} */ (store.get('rosters')), weeks: /** @type {any[]} */ (store.get('weeks')) });
+  /** the calls and weeks made so far (a maker's: the drafts laid over, roster/drafts.js), read when a sheet's warning runs */
+  const made = () => {
+    const d = ctx.canWrite() ? asMaker : (/** @type {any} */ r) => r;
+    return { rosters: /** @type {any[]} */ (store.get('rosters')).map(d), weeks: /** @type {any[]} */ (store.get('weeks')).map(d) };
+  };
 
   /** @param {import('../data/leave.js').LeaveRow | null} row */
   function openLeave(row) {

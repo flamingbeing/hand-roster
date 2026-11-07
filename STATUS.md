@@ -35,6 +35,8 @@
 
 ## Decisions (dated)
 
+- 2026-11-07 draft and published (decision 0015): builds and Make calls save into a draft viewers don't see until Publish;
+  Build again, Reset week and Make calls on a filled week or month preview first (Apply or Discard).
 - 2026-11-07 improvement rounds (all merged, PR numbers on this repo):
   - #27 Week's editing code loads on first use (viewers skip it); every save uses the current week; Undo on grid edits, list
     changes and Build.

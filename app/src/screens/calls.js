@@ -11,6 +11,10 @@
 // The rule check (roster/report.js, app-roster's score of the rule cards): a maker sees a call that breaks a block rule marked
 // red and a warn rule amber, a Report button (the rule report sheet, screens/report.js), and Make calls names the calls
 // nobody can take; when something breaks, a second toast opens the report. An accepted warning is kept on the month.
+// Draft and published (roster/drafts.js): Make calls saves into the month's draft, which viewers don't see until Publish; a
+// day's calls set by hand go into the draft when there is one, else onto the published month. Make calls on a month with
+// calls first shows the new calls as a preview (changed calls marked) with Apply or Discard; a first Make calls goes straight
+// to the draft. A line under the bar says where the month stands: Publish and Discard draft, or Back to draft.
 import { validateRule, describeRule, score, check } from '@core/roster';
 import { icon, emptyState, openMenu, undoToast } from '@core/ui';
 import { ICONS } from '../icons.js';
@@ -20,6 +24,7 @@ import { solveCalls } from '../roster/calls.js';
 import { checkCalls } from '../roster/calls-check.js';
 import { callRules, rulesOf, wordsOf } from '../roster/rule-cards.js';
 import { callsProblem } from '../roster/problem.js';
+import { MONTH_PLAN, asMaker, backToDraftOf, callChanges, planSig, planState, planWrite, publishOf, undoOf, undoPlan } from '../roster/drafts.js';
 import { checkSaid, marksOf, reportOf, shortLines } from '../roster/report.js';
 import { applyDayEdit, handCount, keepGoodCalls, lockedMap, problemLines, callChoices, dayLabel } from '../roster/calls-edit.js';
 import { callMapIn, firstMonth, monthCells, shiftMonth } from '../roster/sections.js';
@@ -67,7 +72,9 @@ export function create(ctx) {
   const cal = h('div', { class: 'cl-cal', 'aria-label': 'Calls by day' });
   const counts = h('div', { class: 'cl-counts' });
   const problemsBox = h('div', { class: 'cl-problems' });
-  host.append(bar, h('p', { class: 'small cl-state' }, stateNote, releaseSlot), cal, handKey, counts, problemsBox);
+  // the preview's line (Apply, Discard) or where the month stands (Publish, Back to draft): a maker's
+  const planLine = h('div', { class: 'wk-plan', id: 'calls-plan', hidden: true });
+  host.append(bar, h('p', { class: 'small cl-state' }, stateNote, releaseSlot), planLine, cal, handKey, counts, problemsBox);
 
   store.on(CALLS_NEEDS, () => draw());
   ctx.onRole(() => draw());
@@ -80,19 +87,22 @@ export function create(ctx) {
 
   /** the month's roster and what its calls depend on, as the store holds them now @param {string} [mon] (default: the month on screen) */
   function model(mon = month) {
-    const roster = /** @type {import('../data/plans.js').RosterRow | undefined} */ (store.row('rosters', mon));
+    // a maker sees the drafts laid over (roster/drafts.js); top: the month's record as stored (what saves start from)
+    const mk = (/** @type {import('../data/plans.js').RosterRow | undefined} */ r) => (ctx.canWrite() ? asMaker(r) : r);
+    const top = /** @type {import('../data/plans.js').RosterRow | undefined} */ (store.row('rosters', mon));
+    const roster = mk(top);
     const people = activePeople(/** @type {any} */ (store.get('people')));
     const leave = leaveOf(/** @type {any} */ (store.get('leave')));
     const requests = requestsOf(/** @type {any} */ (store.get('requests')));
-    const prevRoster = /** @type {import('../data/plans.js').RosterRow | undefined} */ (store.row('rosters', shiftMonth(mon, -1)));
-    const nextRoster = /** @type {import('../data/plans.js').RosterRow | undefined} */ (store.row('rosters', shiftMonth(mon, 1)));
+    const prevRoster = /** @type {import('../data/plans.js').RosterRow | undefined} */ (mk(store.row('rosters', shiftMonth(mon, -1))));
+    const nextRoster = /** @type {import('../data/plans.js').RosterRow | undefined} */ (mk(store.row('rosters', shiftMonth(mon, 1))));
     // the months either side, for the gap rule across the month's ends: a call on the 30th too close to one already made on the 1st is flagged and avoided
     const prior = callMapIn(prevRoster?.calls ?? [], shiftMonth(mon, -1));
     const after = callMapIn(nextRoster?.calls ?? [], shiftMonth(mon, 1));
     const plan = tierPlanOf(roster?.tierPlan);
     // the rule cards in force (spaces/_/rules over the defaults); the month's own "Days clear" wins over the gap card
     const cards = rulesOf(/** @type {any} */ (store.get('rules')), validateRule), rules = callRules(cards);
-    return { cards, roster, people, leave, requests, prior, after, calls: roster?.calls ?? [], holidays: roster?.holidays ?? [], minGap: roster?.minGap ?? rules.minGap, plan, rules,
+    return { cards, top, roster, people, leave, requests, prior, after, calls: roster?.calls ?? [], holidays: roster?.holidays ?? [], minGap: roster?.minGap ?? rules.minGap, plan, rules,
       phones: phonesOf(/** @type {any} */ (store.get('people'))) };
   }
 
@@ -135,6 +145,7 @@ export function create(ctx) {
   window.addEventListener('beforeprint', () => { if ($('calls-page').hidden) delete root.dataset.print; else root.dataset.print = 'calls'; });
   window.addEventListener('afterprint', () => { delete root.dataset.print; });
   function printMonth() {
+    if (held()) return;   // (a preview is not the month)
     root.dataset.print = 'calls';
     window.print();
   }
@@ -145,7 +156,7 @@ export function create(ctx) {
   // by hand stay either way. A month with no calls yet is made straight away. Both ways hold the clear-days rule against
   // last month's calls and next month's once made, a hard rule (owner 7 Nov 2026; see solveCalls).
   async function make() {
-    if (busy || !ctx.canWrite() || waiting()) return;
+    if (busy || !ctx.canWrite() || held() || waiting()) return;
     const mon = month, open = model(mon);   // (the month on screen may change while it works)
     if (!open.calls.some(c => TIERS.some(t => c[t]))) { await solve(mon, false); return; }
     const hand = handCount(open.roster?.locked ?? [], open.calls);
@@ -197,22 +208,86 @@ export function create(ctx) {
         ? keepGoodCalls(mon, m.calls, m.roster?.locked ?? [], checkCalls({ month: mon, calls: m.calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, after: m.after, tiers: m.plan }))
         : lockedMap(m.roster?.locked ?? [], m.calls);
       const seed = (m.roster?.seed ?? 0) + 1;
-      // the month as it was, for Undo (no month yet: an empty one)
-      const was = { calls: m.roster?.calls ?? [], locked: m.roster?.locked ?? [], problems: m.roster?.problems ?? [], seed: m.roster?.seed, built: m.roster?.built ?? 0, accepted: m.roster?.accepted ?? [] };
       const res = solveCalls({ month: mon, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, seed, prior: m.prior, after: m.after, locked, tiers: m.plan, iterations: 20000, rules: m.rules });
       const calls = callRowsOf(res.assignments);
-      const refused = await app.data.rosters.upsert(mon, m.roster, { calls, problems: problemLines(res.problems), seed, built: Date.now(), accepted: [] });
-      if (refused) { toast(REFUSED); return; }
       // the same lines the page's To look at list shows, so the two agree; unmet requests are said apart
       const check = checkCalls({ month: mon, calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, after: m.after, tiers: m.plan });
       const look = check.problems.length + check.empty.length, unmet = res.problems.filter(p => p.rule === 'want').length;
       // (warnings accepted before are dropped: they were accepted for calls that may have changed)
       const c = checked(mon, { ...m, calls, roster: m.roster && { ...m.roster, accepted: [] } });
       const said = [look && `${look} thing${look === 1 ? '' : 's'} to look at.`, unmet && `${unmet} request${unmet === 1 ? '' : 's'} not met.`].filter(Boolean).join(' ');
-      undo.show(said ? `${fixOnly ? 'Fixed' : 'Made'}. ${said}` : fixOnly ? 'Fixed' : 'Made', () => putBack(mon, was));
-      // what the rule check found, in a toast of its own whose button opens the report (the Made toast keeps its Undo)
-      if (c.words) toast(c.words, { ms: 10000, action: { label: 'Report', run: () => { void openCallsReport(mon, c.rows, c.short); } } });
+      // a month with calls: a preview first (Apply saves it into the draft, with Undo); a first Make calls straight into the draft
+      pv = { mon, sig: planSig(store.row('rosters', mon), MONTH_PLAN), fields: { calls, problems: problemLines(res.problems), seed, built: Date.now(), accepted: [] }, check: c,
+        said: said ? `${fixOnly ? 'Fixed' : 'Made'}. ${said}` : fixOnly ? 'Fixed' : 'Made', changes: callChanges(m.calls, calls, TIERS) };
+      if (!m.calls.some(x => TIERS.some(t => x[t]))) await apply();
     } finally { busy = false; $('calls-make').removeAttribute('disabled'); draw(); }
+  }
+
+  // the preview of Make calls: the new calls' fields, the Made toast's words, the check, which calls change
+  /** @type {{ mon: string, sig: string, fields: Record<string, any>, said: string, check: ReturnType<typeof checked>, changes: Set<string> } | null} */
+  let pv = null;
+  /** true (and says so) while the month on screen shows a preview: Apply or Discard first */
+  const held = () => { if (pv?.mon !== month) return false; toast('Apply or discard the preview first.'); return true; };
+  /**
+   * Writes fields onto the month's record as it is now, with Undo (each field put back as it was, on the record as it is by then).
+   * @param {string} mon @param {Record<string, unknown>} out @param {string} said
+   * @param {(now: any) => Record<string, unknown>} [back]  Undo's fields from the record as it is then (default: each field as it was)
+   * @returns {Promise<boolean>} saved
+   */
+  async function write(mon, out, said, back) {
+    const row = /** @type {any} */ (store.row('rosters', mon)), was = undoOf(row, out);
+    if (await app.data.rosters.upsert(mon, row, out)) { toast(REFUSED); return false; }
+    undo.show(said, () => putBack(mon, back ? back(store.row('rosters', mon)) : was));
+    return true;
+  }
+  /** the month's plan fields saved into its draft when it has one (or `toDraft`: Make calls), else onto the month, with Undo @param {string} mon @param {Record<string, unknown>} fields @param {string} said @param {boolean} [toDraft] */
+  function save(mon, fields, said, toDraft = false) {
+    const row = /** @type {any} */ (store.row('rosters', mon));
+    return write(mon, planWrite(row, fields, MONTH_PLAN, toDraft), said, undoPlan(row, fields, MONTH_PLAN, toDraft));
+  }
+  /** Apply: the preview saved into the month's draft; then what the rule check found, in a toast of its own (Made keeps Undo) */
+  async function apply() {
+    const p = pv;
+    if (!p) return;
+    pv = null;
+    // the month changed since (another maker's edit came in): the preview was made from calls that are gone
+    if (planSig(store.row('rosters', p.mon), MONTH_PLAN) !== p.sig) { toast('The calls changed since this preview. Make calls again to see them with the change.'); draw(); return; }
+    if (await save(p.mon, p.fields, p.said, true) && p.check.words) {
+      toast(p.check.words, { ms: 10000, action: { label: 'Report', run: () => { void openCallsReport(p.mon, p.check.rows, p.check.short); } } });
+    }
+    draw();
+  }
+  /** the line's buttons: Publish, Back to draft, Discard draft (each with Undo) @param {'publish' | 'draft' | 'drop'} what */
+  function planDo(what) {
+    const mon = month, row = /** @type {any} */ (store.row('rosters', mon));
+    if (held() || !row || !ctx.canWrite()) return;
+    if (what === 'publish' && row.draft) void write(mon, publishOf(row, MONTH_PLAN), `Published: viewers see ${monthTitle(mon)}'s calls now.`);
+    if (what === 'draft' && !row.draft) void write(mon, backToDraftOf(row, MONTH_PLAN), 'Back to draft. Viewers see the published calls until you publish.');
+    if (what === 'drop' && row.draft) void write(mon, { draft: null }, 'Draft discarded.');
+  }
+  let planKey = '';
+  /** @param {string} id @param {string} label @param {() => void} run @param {boolean} [primary] */
+  const planBtn = (id, label, run, primary = false) => h('button', { type: 'button', id, class: primary ? 'ui-primary' : '', 'data-size': 'small', onclick: run }, label);
+  /** the line under the bar for the month on screen (each draw) */
+  function drawPlan() {
+    const made = (/** @type {any} */ r) => !!r?.calls?.some((/** @type {any} */ c) => TIERS.some(t => c[t]));
+    const n = pv?.changes.size ?? 0;
+    const state = !ctx.canWrite() ? '' : pv?.mon === month ? `preview|${n}` : planState(/** @type {any} */ (store.row('rosters', month)), made);
+    if (state === planKey) return;   // (the same buttons stay: a sync redraw never takes a focused button away)
+    planKey = state;
+    planLine.hidden = !state;
+    planLine.dataset.state = state.split('|')[0];
+    fill(planLine, state.startsWith('preview') ? [
+      h('p', { role: 'status' }, h('b', {}, 'Preview. '), n ? `${n} call${n === 1 ? '' : 's'} change (marked). ` : 'Nothing changes. ', 'Nothing is saved until you apply.'),
+      h('span', { class: 'wk-plan-do' }, planBtn('calls-apply', 'Apply', () => { void apply(); }, true),
+        planBtn('calls-discard', 'Discard', () => { pv = null; draw(); toast('Discarded: the calls are as they were.'); })),
+    ] : state === 'published' ? [
+      h('p', { role: 'status' }, h('b', {}, 'Published. '), 'Viewers see these calls.'),
+      h('span', { class: 'wk-plan-do' }, planBtn('calls-to-draft', 'Back to draft', () => planDo('draft'))),
+    ] : state ? [
+      h('p', { role: 'status' }, h('b', {}, 'Draft. '), state === 'draft' ? 'Viewers don\'t see these calls yet.' : 'Viewers see the published calls until you publish.'),
+      h('span', { class: 'wk-plan-do' }, planBtn('calls-publish', 'Publish', () => planDo('publish'), true), planBtn('calls-drop-draft', 'Discard draft', () => planDo('drop'))),
+    ] : []);
   }
 
   /** a month as app-roster's problem and roster @param {string} mon @param {ReturnType<typeof model>} m */
@@ -239,7 +314,7 @@ export function create(ctx) {
       accept: async (key, on) => {
         const now = model(mon), was = now.roster?.accepted ?? [];
         const accepted = on ? [...new Set([...was, key])].slice(-300) : was.filter(k => k !== key);
-        if (await app.data.rosters.upsert(mon, now.roster, { accepted })) { toast(REFUSED); return false; }
+        if (await app.data.rosters.upsert(mon, now.top, planWrite(now.top, { accepted }, MONTH_PLAN))) { toast(REFUSED); return false; }
         return true;
       },
     });
@@ -263,14 +338,13 @@ export function create(ctx) {
     if (!ctx.canWrite() || waiting()) return;
     const mon = month, now = model(mon);
     const locked = now.roster?.locked ?? [];
-    if (!locked.length) return;
-    if (await app.data.rosters.upsert(mon, now.roster, { locked: [] })) toast(REFUSED);
-    else undo.show('Released. Make calls may now change them.', () => putBack(mon, { locked }));
+    if (!locked.length || held()) return;
+    await save(mon, { locked: [] }, 'Released. Make calls may now change them.');
   }
 
   /** @param {string} date */
   function daySheet(date) {
-    if (waiting()) return;
+    if (held() || waiting()) return;
     const mon = month, m = model(mon);   // (options and warnings read the month as it was when the sheet opened)
     const plan = m.plan[dayType(date, m.holidays)];
     // (REG 2 is offered every day: the roster has one on a few days, entered by hand)
@@ -294,10 +368,9 @@ export function create(ctx) {
       // saved onto the month as it is now: only the tiers changed here, so another maker's save meanwhile stays
       onSave: async v => {
         if (waiting()) return;
-        const now = model(mon), was = { calls: now.calls, locked: now.roster?.locked ?? [] };
-        const state = applyDayEdit(was.calls, was.locked, date, Object.fromEntries(tiers.map(t => [t, row?.[t] ?? null])), Object.fromEntries(tiers.map(t => [t, v[t] || null])));
-        const refused = await app.data.rosters.upsert(mon, now.roster, { calls: state.calls, locked: state.locked });
-        if (refused) toast(REFUSED); else undo.show('Saved', () => putBack(mon, was));
+        const now = model(mon);
+        const state = applyDayEdit(now.calls, now.roster?.locked ?? [], date, Object.fromEntries(tiers.map(t => [t, row?.[t] ?? null])), Object.fromEntries(tiers.map(t => [t, v[t] || null])));
+        await save(mon, { calls: state.calls, locked: state.locked }, 'Saved');
       },
     });
   }
@@ -341,7 +414,7 @@ export function create(ctx) {
         const { days: holidays, ignored } = readHolidays(v.holidays, mon);
         const tierPlan = Object.fromEntries(DAY_TYPES.map(([d]) => [d, String(v[`plan-${d}`]).split(',').filter(Boolean)]));
         // only these fields, onto the month as it is now (another maker may have saved calls meanwhile)
-        const refused = await app.data.rosters.upsert(mon, model(mon).roster, { holidays, tierPlan, ...(v.minGap == null ? {} : { minGap: v.minGap }) });
+        const refused = await app.data.rosters.upsert(mon, model(mon).top, { holidays, tierPlan, ...(v.minGap == null ? {} : { minGap: v.minGap }) });
         toast(refused ? REFUSED : ignored.length ? `Saved. Ignored: ${ignored.join(', ')} (${outOfMonth}).` : 'Saved');
       },
     });
@@ -349,8 +422,11 @@ export function create(ctx) {
 
   function draw() {
     if (!store.loaded('people')) return;
-    const m = model();
     const canWrite = ctx.canWrite();
+    // a preview, while open for this month: its calls in place of the month's, the calls it changes marked
+    const m0 = model(), p = canWrite && pv?.mon === month ? pv : null;
+    const m = p ? { ...m0, calls: /** @type {import('../roster/model.js').CallDay[]} */ (p.fields.calls), roster: m0.roster && { ...m0.roster, accepted: [] } } : m0;
+    drawPlan();
     const ready = store.ready(CALLS_NEEDS);
     const me = meOf(app.settings.get('me'), m.people);
     empty.show(!m.people.length && canWrite);
@@ -392,14 +468,14 @@ export function create(ctx) {
       const row = byDate.get(date), type = dayType(date, m.holidays);
       const plan = m.plan[type];
       const tiers = TIERS.filter(t => plan.includes(t) || row?.[t])
-        .map(t => ({ t, name: row?.[t] ?? null, bad: bad.has(`${date}|${t}`), hand: !!row?.[t] && locked.has(`${date}|${t}`), mk: row?.[t] ? marks?.get(`${date}|${t}|${row[t]}`) : undefined }));
+        .map(t => ({ t, name: row?.[t] ?? null, bad: bad.has(`${date}|${t}`), hand: !!row?.[t] && locked.has(`${date}|${t}`), mk: row?.[t] ? marks?.get(`${date}|${t}|${row[t]}`) : undefined, new: !!p?.changes.has(`${date}|${t}`) }));
       const label = dayLabel(date, type === 'ph', tiers) + (canWrite ? ' Tap to edit calls.' : '');
       const props = canWrite ? { type: 'button', onclick: () => daySheet(date) } : { role: 'listitem' };
       return h(canWrite ? 'button' : 'div', { ...props, class: `cl-day type-${type}${date === today ? ' is-today' : ''}`, dataset: { day: date }, 'aria-label': label },
         h('span', { class: 'cl-date' }, h('b', {}, String(Number(date.slice(8)))), h('span', { class: 'cl-wd' }, weekdayName(date)), type === 'ph' && h('span', { class: 'cl-ph small' }, 'PH')),
-        h('span', { class: 'cl-tiers' }, tiers.map(x => h('span', { class: `cl-tier${x.name ? '' : ' is-empty'}${x.bad ? ' is-bad' : ''}${x.mk ? ` is-${x.mk.level}` : ''}${x.hand ? ' is-hand' : ''}${me && x.name === me ? ' is-me' : ''}`, title: x.name ?? '' },
+        h('span', { class: 'cl-tiers' }, tiers.map(x => h('span', { class: `cl-tier${x.name ? '' : ' is-empty'}${x.bad ? ' is-bad' : ''}${x.mk?.level ? ` is-${x.mk.level}` : ''}${x.new ? ' is-new' : ''}${x.hand ? ' is-hand' : ''}${me && x.name === me ? ' is-me' : ''}`, title: x.name ?? '' },
           h('i', {}, SHORT[x.t]), h('span', {}, x.name ?? '–'), !canWrite && telLink(m.phones, x.name),
-          x.bad && h('span', { class: 'visually-hidden' }, ' (problem)'), x.mk && h('span', { class: 'visually-hidden' }, ` (breaks: ${x.mk.why.map(readDays).join('; ')})`), x.hand && h('span', { class: 'visually-hidden' }, ' (set by hand)')))));
+          x.bad && h('span', { class: 'visually-hidden' }, ' (problem)'), x.mk && h('span', { class: 'visually-hidden' }, ` (breaks: ${x.mk.why.map(readDays).join('; ')})`), x.hand && h('span', { class: 'visually-hidden' }, ' (set by hand)'), x.new && h('span', { class: 'visually-hidden' }, ' (changed)')))));
     };
     fill(cal, monthCells(month).map(d => d ? cell(d) : h('span', { class: 'cl-blank', 'aria-hidden': 'true' })));
 

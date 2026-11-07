@@ -286,7 +286,7 @@ select { padding: .5rem 2rem .5rem .65rem; }
    when idle), else the view on screen, Grid or Day. */
 @page { size: A4 landscape; margin: 10mm; }
 @media print {
-  .ui-bar, .ui-tabbar, .ui-sidebar, .wk-bar, .wk-chips, .sh-panel, #toasts, .wk-add, .wk-state, #week-mine, .ui-large-title, .status-line, #conflict-sheet, #refused-list, .tel { display: none !important; }
+  .ui-bar, .ui-tabbar, .ui-sidebar, .wk-bar, .wk-chips, .sh-panel, #toasts, .wk-add, .wk-state, .wk-plan, #week-mine, .ui-large-title, .status-line, #conflict-sheet, #refused-list, .tel { display: none !important; }
   .print-only { display: block; font-weight: 600; margin: 0 0 4mm; }
   .ui-shell { display: block !important; }   /* (the kit's grid keeps the side bar's column, empty, in print) */
   .ui-screen { display: block !important; position: static !important; transform: none !important; overflow: visible !important; }
@@ -310,7 +310,7 @@ select { padding: .5rem 2rem .5rem .65rem; }
   /* the Calls month: the grid at about 8pt, the calls per person beside it (31 days of four tiers fit); weekends tinted */
   #calls-page { max-width: none; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   #calls-host { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 5mm; align-items: start; max-width: none; padding: 0; color: #000; }
-  .cl-bar > button, .cl-bar-end, .cl-state, .cl-problems, #calls-host > .empty-state { display: none !important; }
+  .cl-bar > button, .cl-bar-end, .cl-state, .wk-plan, .cl-problems, #calls-host > .empty-state { display: none !important; }
   .cl-bar { grid-column: 1; grid-row: 1; margin: 0 0 2mm; }
   .cl-title { margin: 0; font-size: 12pt; }
   .cl-title::before { content: "Calls: "; }
@@ -366,6 +366,16 @@ body { margin: 0; }
 .wt-name.is-warn, .wk-chip.is-warn, .cl-tier.is-warn span { color: var(--warn); text-decoration: underline wavy; text-underline-offset: .2em; }
 .wt-list.is-block > .wt-head { color: var(--danger); }
 .wt-list.is-warn > .wt-head { color: var(--warn); }
+/* Draft and published (roster/drafts.js): the line under the week's or month's state, and a preview's changes (a tint and an
+   underline, so not by colour alone) */
+.wk-plan { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .25rem .5rem; margin: 0 0 var(--gap);
+  padding: .4rem .6rem; border: 1px solid var(--line); border-radius: .5rem; font-size: .9rem; }
+.wk-plan p { margin: 0; }
+.wk-plan-do { display: flex; gap: .4rem; }
+.wk-plan[data-state="preview"] { border-color: var(--accent); }
+.wk-plan[data-state="draft"], .wk-plan[data-state="redraft"] { border-color: var(--warn); border-style: dashed; }
+.wt-name.is-new, .wk-chip.is-new, .cl-tier.is-new span { background: color-mix(in srgb, var(--accent) 18%, transparent); box-shadow: inset 0 -2px var(--accent); border-radius: .2rem; }
+.wt-list.is-new { outline: 2px dashed var(--accent); outline-offset: 1px; border-radius: .25rem; }
 .rp-short ul, .rp-rules, .rp-hits { list-style: none; margin: 0; padding: 0; }
 .rp-short { margin-bottom: var(--gap); }
 .rp-short-line { color: var(--danger); padding: .2rem 0; }
