@@ -9,6 +9,10 @@ import { addDays, rangeDays, weekdayName, shortDay, MONTH_NAMES, MONTHS, monthDa
 import { DEFAULT_TIER_PLAN, TIERS, TIER_LABEL, callMapOf, conText, consOf, dayType, isJunior, leaveIndex, tiersShown } from './model.js';
 import { sectionsOf } from './sections.js';
 import { juniorsOn } from './grid.js';
+import { labelOf, tallyColumns } from './export-layout.js';
+import { tallyTable } from './tally.js';
+
+/** @typedef {import('./export-layout.js').ExportLayout} ExportLayout */
 
 /** @typedef {import('./model.js').Person} Person */
 /** @typedef {import('./model.js').Leave} Leave */
@@ -71,6 +75,7 @@ export const longDay = day => `${weekdayName(day)} ${shortDay(day)} ${day.slice(
  * @property {import('./model.js').TierPlan} [tierPlan]  which call tiers each kind of day has (default DEFAULT_TIER_PLAN)
  * @property {boolean} [built]  the grid has been built: FREE is shown only then (default: the grid has rows)
  * @property {boolean} [patients]  show patient counts in the hand-made header (default true)
+ * @property {unknown} [xl]  the saved export layout record (export.js reads it through export-layout.js)
  * @property {boolean} [postCallAm]
  * @param {WeekLayoutInput} o
  * @returns {WeekLayout}
@@ -193,11 +198,12 @@ export function coreRows(layout) {
  * the stacked lines of every block of that section. On-call lines carry their tier ("CON: name"), and an empty tier on a
  * day that has none is left out.
  * @param {WeekLayout} layout
+ * @param {ExportLayout} [xl]  the saved export layout (row names)
  * @returns {{ title: string, section: string, cells: Line[][] }[]}
  */
-export function handSections(layout) {
+export function handSections(layout, xl) {
   /** @param {string} section @returns {{ title: string, section: string, cells: Line[][] }} */
-  const row0 = section => ({ title: HAND_NAMES[section] ?? section, section, cells: layout.days.map(() => /** @type {Line[]} */ ([])) });
+  const row0 = section => ({ title: labelOf(xl, `row.${section}`, HAND_NAMES[section] ?? section), section, cells: layout.days.map(() => /** @type {Line[]} */ ([])) });
   // the hand-made grid always has these rows, empty or not; FREE only once built
   const out = [SECTIONS.am, SECTIONS.pm, SECTIONS.call, SECTIONS.leave, SECTIONS.post].map(s => row0(s));
   for (const b of layout.blocks) {
@@ -238,6 +244,7 @@ export function handSections(layout) {
  * @property {Rows} pm  PM lists to the leave row
  * @property {Record<string, number>} rowOf  the named rows: skills, amResearch, amFree, amLeave, post, pmResearch, pmFree, leave, call
  * @property {string[]} juniors  one tally and check row each
+ * @property {number} tallyN  how many tally columns are written (the saved export layout hides some)
  */
 
 /** the tally's columns, as the roster maker heads them; EOT counts the emergency slots (an OT list whose consultant is away) */
@@ -275,9 +282,11 @@ const lit = s => `"${s.replace(/"/g, '""')}"`;
  * out here the same way.
  * @param {WeekLayout} layout  a 'hand' layout
  * @param {Person[]} people  the juniors among them who appear in the week get a tally and check row
+ * @param {ExportLayout} [xl]  the saved export layout: tally order, shown columns and words
  * @returns {HandGrid}
  */
-export function handGrid(layout, people) {
+export function handGrid(layout, people, xl) {
+  const cols = tallyColumns(xl, TALLY);
   const days = layout.days, nd = days.length, home = SITE_ORDER[0];
   /** @type {HandCell[]} */
   const cells = [];
@@ -393,14 +402,14 @@ export function handGrid(layout, people) {
 
   // the tally: T names, U:AB a column per kind, AC the row's total
   const T = HAND_COLS.tally, tc = colName(T), first = colName(2), lastCol = colName(1 + nd);
-  put({ r: 3, c: T, k: 'th', v: 'Sessions' });
-  TALLY.forEach(([, head], j) => put({ r: 3, c: T + 1 + j, k: 'th', v: head }));
-  put({ r: 3, c: T + 1 + TALLY.length, k: 'th', v: 'Total' });
+  put({ r: 3, c: T, k: 'th', v: labelOf(xl, 'tally.who', 'Sessions') });
+  cols.forEach(([, head], j) => put({ r: 3, c: T + 1 + j, k: 'th', v: head }));
+  put({ r: 3, c: T + 1 + cols.length, k: 'th', v: labelOf(xl, 'tally.total', 'Total') });
   juniors.forEach((name, i) => {
     const tr = 4 + i;
     put({ r: tr, c: T, k: 'who', v: name });
     let total = 0;
-    TALLY.forEach(([kind], j) => {
+    cols.forEach(([kind], j) => {
       const bands = ranges[kind];
       if (!bands.length) { put({ r: tr, c: T + 1 + j, k: 'count' }); return; }
       const v = cellsNaming(bands, name);
@@ -408,7 +417,7 @@ export function handGrid(layout, people) {
       put({ r: tr, c: T + 1 + j, k: 'count', v,
         f: bands.map(([a, b]) => `SUMPRODUCT(--ISNUMBER(SEARCH(" "&$${tc}${tr}&" "," "&SUBSTITUTE($${first}$${a}:$${lastCol}$${b},","," ")&" ")))`).join('+') });
     });
-    put({ r: tr, c: T + 1 + TALLY.length, k: 'count', v: total, f: `SUM(${colName(T + 1)}${tr}:${colName(T + TALLY.length)}${tr})` });
+    put({ r: tr, c: T + 1 + cols.length, k: 'count', v: total, f: `SUM(${colName(T + 1)}${tr}:${colName(T + cols.length)}${tr})` });
   });
 
   // "Have you accounted for everyone?": H names, I:M the days, AM then PM. A half day of leave is in the leave row as
@@ -439,7 +448,7 @@ export function handGrid(layout, people) {
   const amEnd = check(amTop + 1, 'AM', am);
   check(Math.max(pmTop, amEnd + 1), 'PM', pm);
 
-  return { title: layout.title, sheet: layout.sheet, cells, last, ranges, am, pm, rowOf, juniors };
+  return { title: layout.title, sheet: layout.sheet, cells, last, ranges, am, pm, rowOf, juniors, tallyN: cols.length };
 }
 
 // ---- the month's calls ----
@@ -452,19 +461,21 @@ export function handGrid(layout, people) {
  * @property {{ cells: string[], off: boolean }[]} rows  one per day; `off` marks a weekend or public holiday
  * @property {string[]} countsHead
  * @property {string[][]} counts
+ * @property {{ head: string[], rows: (string | number)[][] }} [fairness]  the month's fairness tally (own sheet in the workbook)
  */
 /**
- * @param {{ month: string, calls: CallDay[], holidays?: string[], counts?: CountRow[], tierPlan?: import('./model.js').TierPlan }} o
+ * @param {{ month: string, calls: CallDay[], holidays?: string[], counts?: CountRow[], tierPlan?: import('./model.js').TierPlan, xl?: ExportLayout, tally?: import('./tally.js').TallyRow[] }} o
  * @returns {CallsLayout}
  */
-export function callsLayout({ month, calls, holidays = [], counts = [], tierPlan = DEFAULT_TIER_PLAN }) {
+export function callsLayout({ month, calls, holidays = [], counts = [], tierPlan = DEFAULT_TIER_PLAN, xl, tally }) {
+  const tl = (/** @type {import('./model.js').Tier} */ t) => labelOf(xl, `tier.${t}`, TIER_LABEL[t]);
   const by = new Map(calls.map(c => [c.date, c]));
   const tiers = tiersShown(tierPlan, calls.filter(c => c.date.startsWith(month)));
   const [y, m] = month.split('-').map(Number);
   return {
     title: `HRM on-call roster, ${MONTH_NAMES[m - 1]} ${y}`,
     sheet: `Calls ${MONTHS[m - 1]} ${y}`,
-    head: ['Date', 'Day', ...tiers.map(t => TIER_LABEL[t])],
+    head: ['Date', 'Day', ...tiers.map(tl)],
     rows: monthDays(month).map(date => {
       const type = dayType(date, holidays), plan = tierPlan[type], row = by.get(date);
       return {
@@ -473,8 +484,9 @@ export function callsLayout({ month, calls, holidays = [], counts = [], tierPlan
           ...tiers.map(t => row?.[t] ?? (plan.includes(t) ? '' : '–'))],
       };
     }),
-    countsHead: ['Name', 'Total', 'Weekend/PH', ...tiers.map(t => TIER_LABEL[t])],
+    countsHead: ['Name', 'Total', 'Weekend/PH', ...tiers.map(tl)],
     counts: counts.filter(c => c.total > 0).map(c => [c.name, String(c.total), String(c.weekend), ...tiers.map(t => String(c.tiers[t] ?? 0))]),
+    ...(tally?.length ? { fairness: tallyTable(tally, tl) } : {}),
   };
 }
 

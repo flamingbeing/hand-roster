@@ -188,7 +188,7 @@ export function weekScreen(ctx) {
   /** @param {ReturnType<typeof model>} m @param {string} mon @returns {import('../roster/layout.js').WeekLayoutInput} what the sheet, the print and the chat text are made from */
   const layoutInput = (m, mon) => ({
     monday: mon, lists: m.lists, grid: m.grid, people: m.people, leave: m.leave, calls: m.calls, holidays: m.holidays, tierPlan: weekPlan(m, mon),
-    built: m.built, patients: !!app.settings.get('showPatients'),
+    built: m.built, patients: !!app.settings.get('showPatients'), xl: store.row('layouts', 'export'),
   });
 
   /** @param {() => Promise<unknown>} job @param {string} failed */

@@ -14,6 +14,7 @@ import { $, dialog, h, fill } from '../dom.js';
  * @property {boolean} [required]
  * @property {number} [max]  text length, or the largest number
  * @property {number} [min]
+ * @property {number} [step]  a number's step (default 1; 0.1 lets a weight be 0.2)
  * @property {string} [hint]  a line under the field
  * @property {number} [rows]  how tall a text area is, in lines (default 3)
  * @property {string} [list]  suggestions for a text field
@@ -95,7 +96,7 @@ function make() {
         control = h('input', { id: `ef-${f.key}`, type: 'checkbox', checked: !!values[f.key] });
       } else {
         control = h('input', { id: `ef-${f.key}`, type, value: values[f.key] ?? '', required: f.required, maxlength: type === 'text' || type === 'tel' ? f.max : null,
-          min: type === 'number' ? f.min : null, max: type === 'number' ? f.max : null, autocomplete: 'off', list: f.list || null, inputmode: type === 'number' ? 'numeric' : type === 'tel' ? 'tel' : null, 'aria-required': f.required ? 'true' : null });
+          min: type === 'number' ? f.min : null, max: type === 'number' ? f.max : null, step: type === 'number' ? f.step ?? null : null, autocomplete: 'off', list: f.list || null, inputmode: type === 'number' ? (f.step ? 'decimal' : 'numeric') : type === 'tel' ? 'tel' : null, 'aria-required': f.required ? 'true' : null });
       }
       controls[f.key] = /** @type {any} */ (control);
       if (f.hint) control.setAttribute('aria-describedby', `eh-${f.key}`);

@@ -212,6 +212,11 @@ select { padding: .5rem 2rem .5rem .65rem; }
 .cl-state button { margin-inline-start: .5rem; }
 .cl-hand-key { margin-block: .5rem 0; }
 .cl-counts, .cl-problems { margin-top: var(--pad); overflow-x: auto; }
+.ty-table { overflow-x: auto; margin-block: var(--pad); }
+.ty-grid { border-collapse: collapse; font-size: .85rem; }
+.ty-grid th, .ty-grid td { padding: .25rem .5rem; text-align: center; border-bottom: 1px solid var(--line, #8883); }
+.ty-grid th[scope=row] { text-align: start; }
+.ty-score { font-weight: 600; }
 .cl-counts h3, .cl-problems h3 { font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
 .cl-table { border-collapse: collapse; width: 100%; font-size: .9rem; }
 .cl-table th, .cl-table td { padding: .25rem .5rem; text-align: right; border-bottom: 1px solid var(--line); }

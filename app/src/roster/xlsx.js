@@ -2,7 +2,7 @@
 // and a month of calls. ExcelJS is handed in (it is loaded only when an export is asked for, from public/vendor/exceljs),
 // so this file stays importable by node and by the page alike. The cells (and the formulas) come from layout.js; this
 // file only gives them a look. Colours are by kind, never by person.
-import { coreRows, colName, HAND_COLS, TALLY } from './layout.js';
+import { coreRows, colName, HAND_COLS } from './layout.js';
 
 /** @typedef {import('./layout.js').WeekLayout} WeekLayout */
 /** @typedef {import('./layout.js').CallsLayout} CallsLayout */
@@ -73,10 +73,10 @@ export function buildHandWorkbook(ExcelJS, grid) {
   });
   const C = HAND_COLS;
   /** @type {Record<number, number>} */
-  const widths = { 1: 14, 7: 3, [C.check]: 16, [C.tally]: 16, [C.tally + TALLY.length + 1]: 7 };
+  const widths = { 1: 14, 7: 3, [C.check]: 16, [C.tally]: 16, [C.tally + grid.tallyN + 1]: 7 };
   for (let c = 2; c <= 6; c++) widths[c] = 31;
   for (let c = C.check + 1; c <= C.check + 5; c++) widths[c] = 4.5;
-  for (let c = C.tally + 1; c <= C.tally + TALLY.length; c++) widths[c] = 10;
+  for (let c = C.tally + 1; c <= C.tally + grid.tallyN; c++) widths[c] = 10;
   for (const [c, w] of Object.entries(widths)) ws.getColumn(Number(c)).width = w;
   const small = { size: 8 }, bold = { size: 8, bold: true };
   // every cell of the printed grid gets a thin box, written or not
@@ -146,6 +146,13 @@ export function buildCallsWorkbook(ExcelJS, cl) {
     t.getCell(1).font = { bold: true };
     header(ws.addRow(cl.countsHead), HEAD_FILL);
     for (const row of cl.counts) ws.addRow(row).eachCell({ includeEmpty: true }, (/** @type {any} */ c) => { c.border = BOX; });
+  }
+  if (cl.fairness) {
+    // a sheet of its own: what each person carried, and the score (the weights are the space's, set on the Fairness sheet)
+    const fs = wb.addWorksheet('Fairness', { views: [{ state: 'frozen', ySplit: 1 }] });
+    fs.columns = cl.fairness.head.map((_, i) => ({ width: i === 0 ? 22 : 12 }));
+    header(fs.addRow(cl.fairness.head), HEAD_FILL);
+    for (const row of cl.fairness.rows) fs.addRow(row).eachCell({ includeEmpty: true }, (/** @type {any} */ c) => { c.border = BOX; });
   }
   return wb;
 }

@@ -104,7 +104,8 @@ export function create(ctx) {
   const host = $('rules-host');
   const search = h('input', { type: 'search', id: 'rules-search', class: 'ru-search', placeholder: 'Find a rule', 'aria-label': 'Find a rule', autocomplete: 'off', oninput: () => draw() });
   const add = h('button', { type: 'button', class: 'ui-primary', id: 'rules-add', onclick: () => pickType() }, icon(ICONS.plus), 'Add rule');
-  const bar = h('div', { class: 'rl-bar' }, search, add);
+  const layoutBtn = h('button', { type: 'button', id: 'rules-layout', onclick: () => import('./export-layout.js').then(x => x.openExportLayout(ctx)) }, 'Export layout');
+  const bar = h('div', { class: 'rl-bar' }, search, add, layoutBtn);
   const body = h('div', { class: 'ru-body' });
   host.append(bar, body);
   store.on(['rules'], () => draw());
@@ -225,7 +226,7 @@ export function create(ctx) {
 
   function draw() {
     const canWrite = ctx.canWrite();
-    add.hidden = !canWrite;
+    add.hidden = layoutBtn.hidden = !canWrite;
     const q = /** @type {HTMLInputElement} */ (search).value.trim().toLowerCase();
     const cards = ordered(rulesOf(/** @type {any} */ (saved()), PROBLEMS))
       .filter(r => !q || `${words(r)} ${r.topic} ${LEVEL_NAME[r.level]}`.toLowerCase().includes(q));

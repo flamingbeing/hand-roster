@@ -6,6 +6,7 @@
 import { h, fill } from '../dom.js';
 import { weekLayout, handSections, handGrid, callsLayout } from '../roster/layout.js';
 import { buildWeekWorkbook, buildHandWorkbook, buildCallsWorkbook } from '../roster/xlsx.js';
+import { layoutOf } from '../roster/export-layout.js';
 import { whatsappText, weekText, callsText } from '../roster/whatsapp.js';
 
 /** @typedef {import('../roster/layout.js').WeekLayoutInput} WeekLayoutInput */
@@ -56,16 +57,16 @@ export async function exportWeek(o) {
  */
 export async function exportHandGrid(o) {
   const ExcelJS = await loadExcel();
-  const grid = handGrid(weekLayout({ ...o, style: 'hand', patients: true }), o.people);
+  const grid = handGrid(weekLayout({ ...o, style: 'hand', patients: true }), o.people, layoutOf(o.xl));
   const name = `hrm-hand-grid-${o.monday}.xlsx`;
   await saveWorkbook(buildHandWorkbook(ExcelJS, grid), name);
   return name;
 }
 
-/** @param {Parameters<typeof callsLayout>[0]} o @returns {Promise<string>} the file name */
+/** @param {Omit<Parameters<typeof callsLayout>[0], 'xl'> & { xl?: unknown }} o @returns {Promise<string>} the file name */
 export async function exportCalls(o) {
   const ExcelJS = await loadExcel();
-  const cl = callsLayout(o);
+  const cl = callsLayout({ ...o, xl: layoutOf(o.xl) });
   const name = `hrm-calls-${slug(o.month)}.xlsx`;
   await saveWorkbook(buildCallsWorkbook(ExcelJS, cl), name);
   return name;
@@ -77,8 +78,9 @@ export async function exportCalls(o) {
  * @param {HTMLElement} host @param {WeekLayoutInput} o
  */
 export function renderPrint(host, o) {
-  const layout = weekLayout({ ...o, style: 'hand' });
-  const rows = handSections(layout);
+  const xl = layoutOf(o.xl);
+  const layout = weekLayout({ ...o, style: 'hand', patients: xl.print.patients ?? o.patients });
+  const rows = handSections(layout, xl);
   fill(host, h('h2', { class: 'pr-title' }, layout.title),
     h('table', { class: 'pr-table' },
       h('thead', {}, h('tr', {}, h('th', { scope: 'col' }, ''), layout.dayHeads.map(d => h('th', { scope: 'col' }, d)))),

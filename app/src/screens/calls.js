@@ -29,7 +29,7 @@ import { checkSaid, marksOf, reportOf, shortLines } from '../roster/report.js';
 import { applyDayEdit, handCount, keepGoodCalls, lockedMap, problemLines, callChoices, dayLabel } from '../roster/calls-edit.js';
 import { callMapIn, firstMonth, monthCells, shiftMonth } from '../roster/sections.js';
 import { callRow, callRowsOf, DAY_TYPES, TIERS, TIER_LABEL, dayType, tierPlanOf, tiersShown } from '../roster/model.js';
-import { MONTHS, MONTH_NAMES, monthDays, shortDay, weekdayName, todayKey } from '../roster/dates.js';
+import { MONTHS, MONTH_NAMES, daysIn, monthDays, shortDay, weekdayName, todayKey } from '../roster/dates.js';
 import { holidaysIn, readHolidays, weekendHolidays } from '../roster/holidays.js';
 import { activePeople, meOf, phonesOf } from '../data/people.js';
 import { leaveOf, requestsOf } from '../data/leave.js';
@@ -113,7 +113,11 @@ export function create(ctx) {
     try {
       const check = checkCalls({ month, calls: m.calls, people: m.people, leave: m.leave, requests: m.requests, holidays: m.holidays, minGap: m.minGap, prior: m.prior, after: m.after, tiers: m.plan });
       const { exportCalls } = await import('./export.js');
-      toast(`Saved ${await exportCalls({ month, calls: m.calls, holidays: m.holidays, counts: check.counts, tierPlan: m.plan })}`);
+      const { tallyFromStore } = await import('./tally.js');
+      const { weightsOf } = await import('../roster/tally.js');
+      const last = `${month}-${String(daysIn(month)).padStart(2, '0')}`;
+      const tally = tallyFromStore(store, ctx.canWrite(), `${month}-01`, last, weightsOf(store.row('layouts', 'tally')));
+      toast(`Saved ${await exportCalls({ month, calls: m.calls, holidays: m.holidays, counts: check.counts, tierPlan: m.plan, xl: store.row('layouts', 'export'), tally })}`);
     } catch (e) { toast(e instanceof Error && e.message ? e.message : 'Could not make the Excel file.'); }
   }
 
@@ -440,6 +444,7 @@ export function create(ctx) {
       h('span', { class: 'cl-bar-end' },
         h('button', { type: 'button', id: 'calls-copy', 'aria-haspopup': me ? 'menu' : null, 'aria-expanded': me ? 'false' : null, onclick: copyClick }, icon(ICONS.clipboardCopy), 'Copy'),
         h('button', { type: 'button', id: 'calls-xlsx', onclick: exportXlsx }, icon(ICONS.download), 'Excel'),
+        h('button', { type: 'button', id: 'calls-fairness', onclick: () => import('./tally.js').then(x => x.openTally(ctx, month)) }, 'Fairness'),
         h('button', { type: 'button', id: 'calls-print', onclick: printMonth }, icon(ICONS.printer), 'Print'),
         canWrite && h('button', { type: 'button', onclick: monthSheet }, 'Settings'),
         canWrite && any && h('button', { type: 'button', id: 'calls-report', onclick: report }, icon(ICONS.listChecks), 'Report'),
