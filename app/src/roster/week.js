@@ -185,8 +185,8 @@ export function buildWeek(o) {
             if (!may(p, l) || !canWork(p, l) || !available(p, session)) continue;
             const st = stats[p.name];
             const wantsOt = l.kind === 'ot' || l.kind === 'msp';
-            // every rule below moves the score by a multiple of 0.5, so the team (0.25) and the random pick (under 0.25) only
-            // break ties, the team first
+            // with the default cards' points every rule below moves the score by a multiple of 0.5, so the team (0.25) and
+            // the random pick (under 0.25) only break ties, the team first
             // (the default cards' points; rule-cards.js)
             let v = st.sessions * W.sessions + (wantsOt ? st.ot * W.ot : st.clinic * W.clinic) + rnd() * 0.25 + (teams.has(teamOf.get(p.name)) ? 0 : W.team);
             v += wantsOt ? (p.grade === 'reg' ? 0 : W.regOt) : (p.grade === 'mo' ? 0 : W.moClinic);

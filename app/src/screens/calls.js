@@ -179,7 +179,9 @@ export function create(ctx) {
    * @param {string} mon @param {boolean} fixOnly
    */
   async function solve(mon, fixOnly) {
+    // (and the rule cards: not in CALLS_NEEDS, so the tab never waits on them to show)
     if (busy || !ctx.canWrite() || waiting()) return;
+    if (!store.ready(['rules'])) { toast(LOADING); return; }
     busy = true; $('calls-make').setAttribute('disabled', ''); stateNote.textContent = 'Making the calls…';
     try {
       await new Promise(r => setTimeout(r, 30));   // let the note paint before the solver holds the page

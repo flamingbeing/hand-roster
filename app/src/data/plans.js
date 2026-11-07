@@ -79,8 +79,8 @@ const cleanWeek = cleaner({
 /** the weeks kind, as cloud.js lists it */
 export const weeks = { COLL: 'weeks', clean: cleanWeek };
 
-// rules: rule cards (roster/rule-cards.js), app-roster's shape; params plain JSON up to 4000 characters
-const json = (/** @type {unknown} */ v) => { const t = v && typeof v === 'object' && !Array.isArray(v) ? JSON.stringify(v) : ''; return t && t.length <= 4000 ? JSON.parse(t) : undefined; };
+// rules: rule cards (roster/rule-cards.js), app-roster's shape; params plain JSON (a map)
+const json = (/** @type {unknown} */ v) => (v && typeof v === 'object' && !Array.isArray(v) ? JSON.parse(JSON.stringify(v)) : undefined);
 /** app-roster 0.1.0's rule types (tests compare) */
 export const RULE_TYPES = ['cover', 'away', 'oneAtATime', 'sequence', 'eligible', 'leads', 'match', 'limit', 'requests', 'keep', 'balance'];
 /** @typedef {import('./ops.js').Row & Partial<import('../roster/rule-cards.js').RuleCard>} RuleRow */

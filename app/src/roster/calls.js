@@ -93,7 +93,7 @@ export function solveCalls(o) {
   const people = o.people.filter(p => TIERS.some(t => canTake(p, t)));
   const idx = new Map(people.map((p, i) => [p.name, i]));
   const P = people.length;
-  const spreadTarget = minGap + 3;
+  const spreadTarget = minGap + 1 + rules.spacing;   // (default: 2 days past the clear days still cost a little)
 
   // prior calls, as day offsets before the month's first day
   /** @type {number[][]} */

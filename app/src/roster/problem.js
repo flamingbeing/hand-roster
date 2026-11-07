@@ -3,7 +3,7 @@
 // name, leave is `away`, the calls around a week are `events`, asks and call requests are `requests`. Derived fields the
 // default cards name (rule-cards.js): a slot's tags (its kind, 'emergency', a call's tier, 'off-day', 'mo-tier'), its
 // `teams` (its consultants' teams) and `consultants`; a person's tags ('junior', 'registrar', 'r3').
-// Pure: no page, no package import (the screens pass the result to @core/roster).
+// Pure: no page, no package import (whoever scores passes the result to @core/roster; the unit tests do today).
 import { addDays, monthDays, rangeDays } from './dates.js';
 import { TIERS, callMapOf, consOf, conText, dayType, isJunior, isOffDay, minOf } from './model.js';
 

@@ -38,7 +38,7 @@ test('rule cards: the defaults are the numbers the builders always used', () => 
     postCallAm: true, postCall: true, asks: true, keep: true,
     points: { sessions: 3, ot: 1.5, clinic: 1.5, regOt: 4, moClinic: 2, site: 2, amSite: 1.5, team: 0.25 },
   });
-  assert.deepEqual(callRules(), { minGap: 2, points: { total: 1, weekend: 1.5, tier: 0.3, spread: 0.4, want: 5, grade: 1.5 } });
+  assert.deepEqual(callRules(), { minGap: 2, spacing: 2, points: { total: 1, weekend: 1.5, tier: 0.3, spread: 0.4, want: 5, grade: 1.5 } });
   assert.deepEqual(weekRules(rulesOf([])), weekRules());
 });
 
@@ -90,6 +90,13 @@ test('rule cards: the builders follow a changed card', () => {
   const o = { month: '2026-10', people: fx.people, leave, seed: 3, iterations: 2000 };
   assert.deepEqual(solveCalls({ ...o, rules: callRules(edit(DEFAULT_RULES, 'calls-gap', { params: { to: 3 } })) }), solveCalls({ ...o, minGap: 3 }));
   assert.deepEqual(solveCalls({ ...o, minGap: 2, rules: callRules(edit(DEFAULT_RULES, 'calls-gap', { params: { to: 3 } })) }), solveCalls({ ...o, minGap: 2 }), "the month's own wins");
+  // points must be a number from 0 to 100, else the default card's
+  assert.equal(weekRules(edit(DEFAULT_RULES, 'week-site', { params: { points: -3 } })).points.site, 2);
+  assert.equal(weekRules(edit(DEFAULT_RULES, 'week-site', { params: { points: 'x' } })).points.site, 2);
+  assert.equal(weekRules(edit(DEFAULT_RULES, 'week-site', { params: { points: 0 } })).points.site, 0);
+  // the spacing card's reach: days past the (default) clear days
+  assert.equal(callRules(edit(DEFAULT_RULES, 'calls-spacing', { params: { to: 7 } })).spacing, 5);
+  assert.notDeepEqual(solveCalls({ ...o, rules: callRules(edit(DEFAULT_RULES, 'calls-spacing', { params: { to: 9 } })) }).cost, solveCalls(o).cost, 'the solver follows it');
   // a soft card off: its weight is 0
   assert.equal(callRules(edit(DEFAULT_RULES, 'calls-want', { on: false })).points.want, 0);
 });
@@ -99,7 +106,7 @@ test('rules kind: cards are cleaned to the rule shape', () => {
     params: { per: 'week', max: 4, f: () => 1 }, extra: 'x' });
   assert.deepEqual(c, { type: 'limit', words: 'At most four', level: 'warn', priority: 2, tags: ['a'], on: false, params: { per: 'week', max: 4 }, topic: 'week' });
   assert.deepEqual(rulesKind.clean({ type: 'nope', level: 'hard', priority: 5, params: [1] }), {}, 'unknown type, level, priority and non-object params left out');
-  assert.equal(rulesKind.clean({ params: { t: 'x'.repeat(5000) } }).params, undefined, 'params over 4000 characters left out');
+  assert.deepEqual(rulesKind.clean({ params: { a: { b: [1, 'x', null] }, u: undefined } }).params, { a: { b: [1, 'x', null] } }, 'plain JSON kept');
 });
 
 test('package score: a built week breaks no block rule but the builder\'s own shortfalls, and its leads warnings are its no-registrar lists', () => {

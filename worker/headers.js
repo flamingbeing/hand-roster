@@ -11,11 +11,7 @@ export const CSP_ENFORCE = false;
 
 // The page's import map (app/index.html), the one inline script, allowed by its hash (worker/test/headers.test.mjs
 // says the new one when the map changes).
-<<<<<<< HEAD
 export const IMPORT_MAP = "'sha256-BBj+z3jDLv0hhjtcfRMrGqMDxHqX9xYu3zeer+SdkVo='";
-=======
-export const IMPORT_MAP = "'sha256-IS35Qe0YwFA3sC3Eu7kHEwU3oFmKcF8MQi7KLvCEJuY='";
->>>>>>> a978695 (Hand Roster: rules as cards (app-roster 0.1.0), the builders read them; same builds as before)
 // Shared modules (app-sync, app-update, app-ui: its scripts and style sheets) are served at exact versions from here.
 const CORE = 'https://core.anawj.com';
 // Firebase: the SDK is vendored (app/public/vendor/firebase/<ver>/, served as 'self'); Google sign-in, Firestore and

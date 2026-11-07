@@ -111,8 +111,11 @@ export function rulesOf(saved = []) {
 
 /** @param {RuleCard[]} rules @param {string} id */
 const find = (rules, id) => rules.find(r => r.id === id) ?? /** @type {RuleCard} */ (BY_ID.get(id));
-/** a card's points, 0 when it is off @param {RuleCard[]} rules @param {string} id */
-const pts = (rules, id) => { const r = find(rules, id); return r.on === false ? 0 : Number(r.params?.points ?? /** @type {any} */ (BY_ID.get(id)).params.points) || 0; };
+/** a card's points, 0 when it is off; a number from 0 to 100, else the default card's @param {RuleCard[]} rules @param {string} id */
+const pts = (rules, id) => {
+  const r = find(rules, id), n = r.params?.points;
+  return r.on === false ? 0 : typeof n === 'number' && n >= 0 && n <= 100 ? n : /** @type {any} */ (BY_ID.get(id)).params.points;
+};
 /** @param {RuleCard[]} rules @param {string} id */
 const isOn = (rules, id) => find(rules, id).on !== false;
 
@@ -146,15 +149,19 @@ export function weekRules(rules = DEFAULT_RULES) {
 /**
  * @typedef {object} CallRules  what solveCalls takes from the cards (calls.js)
  * @property {number} minGap  clear days between one person's calls (a month's own setting wins)
+ * @property {number} spacing  days past the clear days that still cost a little: calls-spacing's `to` minus 2 (the default
+ *   clear days), so a month's own clear days move the spacing with them
  * @property {{ total: number, weekend: number, tier: number, spread: number, want: number, grade: number }} points
  */
 
 /** @param {RuleCard[]} [rules] the cards in force (rulesOf) @returns {CallRules} */
 export function callRules(rules = DEFAULT_RULES) {
   const gap = find(rules, 'calls-gap');
-  const to = Number(gap.params?.to);
+  const to = Number(gap.params?.to), sp = Number(find(rules, 'calls-spacing').params?.to);
+  const minGap = gap.on === false ? 1 : Number.isInteger(to) && to >= 1 && to <= 7 ? to : 2;
   return {
-    minGap: gap.on === false ? 1 : Number.isInteger(to) && to >= 1 && to <= 7 ? to : 2,
+    minGap,
+    spacing: Number.isInteger(sp) && sp >= 2 && sp <= 14 ? sp - 2 : 2,
     points: {
       total: pts(rules, 'calls-share'), weekend: pts(rules, 'calls-share-off'), tier: pts(rules, 'calls-tier-spread'),
       spread: pts(rules, 'calls-spacing'), want: pts(rules, 'calls-want'), grade: pts(rules, 'calls-grade'),
